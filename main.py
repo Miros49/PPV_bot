@@ -87,11 +87,6 @@ async def start(message: Message):
 
 @dp.message_handler(lambda message: message.text == '/admin' and message.from_user.id in [admin_id, 922787101])
 async def admin(message: Message):
-    mes = await message.answer('👩‍🦰⛔️ У вас недостаточно прав 💅❌')
-    await asyncio.sleep(0.8)
-    await mes.delete()
-
-    joke = await message.answer('😝 Ладно, шучу')
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
         InlineKeyboardButton(text="📢 Репорты", callback_data='admin_reports'),
@@ -102,8 +97,6 @@ async def admin(message: Message):
 
     await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=kb)
 
-    await asyncio.sleep(1)
-    await joke.delete()
 
 
 @dp.callback_query_handler(action_cb.filter(type=['buy', 'sell']))
