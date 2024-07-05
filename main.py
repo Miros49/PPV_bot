@@ -369,6 +369,8 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
 @dp.callback_query_handler(lambda callback: callback.data.startswith('report_'))
 async def report_callback(callback: CallbackQuery):
+    if user_states[callback.from_user.id] == 'waiting_for_problem_description':
+        return await callback.answer()
     _, offender_id, order_id = callback.data.split('_')
 
     user_data.setdefault(callback.from_user.id, {})
