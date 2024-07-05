@@ -928,7 +928,7 @@ async def handle_custom_amount(message: types.Message):
         await message.answer("Пожалуйста, введите корректное количество виртов.")
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
     from aiogram import executor
 
     executor.start_polling(dp, skip_updates=True)
