@@ -98,7 +98,6 @@ async def admin(message: Message):
     await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=kb)
 
 
-
 @dp.callback_query_handler(action_cb.filter(type=['buy', 'sell']))
 async def handle_action_callback(query: types.CallbackQuery, callback_data: dict):
     user_id = query.from_user.id
