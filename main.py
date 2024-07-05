@@ -3,7 +3,7 @@ import logging
 import asyncio
 import sqlite3
 import math
-
+# хуй
 import database
 
 from aiogram import Bot, Dispatcher, types
