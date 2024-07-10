@@ -9,6 +9,11 @@
 # TODO:
 # TODO:
 # TODO:
+
+
+# 💰🎉🔒❗️❕‼️⁉️❔❓❌💢✅☑️📢💬⚖️  🚨🚫⛔️💙🗑💳⌛️🎯🌪✋👌🤡👹🧐🫤 🎮📱💡💎⚔️🎁📫📝🔗🆘🚭🏳️📘💶
+#├
+#└
 import datetime
 import logging
 import asyncio
@@ -132,6 +137,7 @@ async def start(message: Message):
     buttons = [
         InlineKeyboardButton(text="Купить вирты", callback_data=action_cb.new(type='buy')),
         InlineKeyboardButton(text="Продать вирты", callback_data=action_cb.new(type='sell')),
+        # TODO: Магазин тут будет
 #       InlineKeyboardButton(text="Купить автопостер", callback_data=action_cb.new(type='autoposter')),
     ]
     keyboard.add(*buttons)
@@ -197,7 +203,7 @@ async def handle_project_callback(query: types.CallbackQuery, callback_data: dic
     elif project_name == 'Radmir GTA5':
         servers = RADMIR_SERVERS
     else:
-        await query.message.edit_text("Ошибка: проект не найден.")
+        await query.message.edit_text("🤕 Я не могу найти выбранный проект")
         await query.answer()
         return
 
@@ -276,7 +282,7 @@ async def handle_amount_callback(query: types.CallbackQuery, callback_data: dict
         amount = int(amount_value)
         if amount < 500000 or amount > 1000000000000:
             await bot.send_message(user_id,
-                                   "Количество виртуальной валюты должно быть от 500,000")
+                                   "🤕 Количество виртуальной валюты должно быть от 500,000")
             await query.answer()
             return
 
@@ -295,7 +301,13 @@ async def handle_amount_callback(query: types.CallbackQuery, callback_data: dict
         else:
             action_text = ""
 
-        confirm_text = f"Вы выбрали:\nДействие: {action_text}\nПроект: {project}\nСервер: {server}\nКоличество виртов: {'{:,}'.format(amount)}\n\nИтоговая цена: {'{:,}'.format(price)} руб.\n\nПодтвердить заказ?"
+        confirm_text = (f"Ваш заказ:\n"
+                        f"├ Операция: {action_text}\n"
+                        f"├ Проект: {project}\n"
+                        f"├ Сервер: {server}\n"
+                        f"└ Количество виртов: {'{:,}'.format(amount)}\n\n"
+                        f"Итоговая цена: {'{:,}'.format(price)} руб.\n\n"
+                        f"Подтвердить?")
 
         keyboard = InlineKeyboardMarkup(row_width=2)
         buttons = [
@@ -343,10 +355,10 @@ async def handle_confirm_callback(callback: types.CallbackQuery, callback_data: 
 
         del user_data[user_id]
 
-        await callback.message.edit_text("🟢 Ваш заказ подтвержден и сохранен. Ожидайте ответа.")
+        await callback.message.edit_text("✅ Ваш заказ подтвержден и сохранен. Ожидайте ответа.")
     else:
         del user_data[user_id]
-        await callback.message.edit_text("🟥 Ваш заказ отменен.")
+        await callback.message.edit_text("🚫 Ваш заказ отменен.")
 
     await callback.answer()
 
@@ -358,13 +370,13 @@ async def send_order_info(matched_orders_id: int | str, buyer_id: int | str, sel
     server = order[5]
     amount = int(order[6])
 
-    order_ifo = ("✳️ <i><u>Информация по сделке:</u></i> ✳️\n\n"
-                 f"🆔: <b>{str(matched_orders_id)}</b>\n"
+    order_ifo = ("‼️ <b><u>Информация по сделке:</u></b> \n\n"
+                 f"🆔 ID сделки: <b>{str(matched_orders_id)}</b>\n"
                  "🛒 Операция: <i>{}</i>\n"
                  f"👨‍💻 Проект: <b>{project}</b>\n"
                  f"🌆 Сервер: <b>{server}</b>\n"
                  f"💵 Кол-во виртов: <code>{str(amount)}</code>\n\n"
-                 "<b><u>Итоговая сумма: {} руб</u></b>")
+                 "<b><u>Итоговая сумма</u>: {} руб</b>")
 
     price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
     price = str(math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000)))
@@ -445,8 +457,8 @@ async def handle_chat_action_callback(query: types.CallbackQuery, callback_data:
 
         if user_id == seller_id:
 
-            await bot.send_message(buyer_id, "🟥 Сделка отменена продавцом.")
-            await bot.send_message(seller_id, "🟥 Сделка отменена.")
+            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
+            await bot.send_message(seller_id, "🚫 Сделка отменена.")
 
             await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
 
@@ -461,13 +473,13 @@ async def handle_chat_action_callback(query: types.CallbackQuery, callback_data:
             del cancel_requests[chat_id]
         else:
 
-            await bot.send_message(user_id, "⭕️ Вы хотите отменить сделку. Ожидайте подтверждения от продавца.")
+            await bot.send_message(user_id, "❗️ Вы хотите отменить сделку. Ожидайте подтверждения от продавца.")
             await bot.send_message(other_user_id,
-                                   "⭕️ Покупатель хочет отменить сделку. Если вы хотите отменить сделку, нажмите 'Отменить сделку'.")
+                                   "❗️ Покупатель хочет отменить сделку. Если вы хотите отменить сделку, нажмите 'Отменить сделку'.")
 
             if cancel_requests[chat_id][other_user_id]:
-                await bot.send_message(buyer_id, "🟥 Сделка отменена.")
-                await bot.send_message(seller_id, "🟥 Сделка отменена.")
+                await bot.send_message(buyer_id, "🚫 Сделка отменена.")
+                await bot.send_message(seller_id, "🚫 Сделка отменена.")
 
                 await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
 
@@ -489,8 +501,8 @@ async def handle_chat_action_callback(query: types.CallbackQuery, callback_data:
             await bot.delete_message(buyer_id, query.message.message_id)
             await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
 
-            await bot.send_message(buyer_id, "🟢 Сделка подтверждена вами.")
-            await bot.send_message(seller_id, "🟢 Покупатель подтвердил сделку. Сделка завершена.")
+            await bot.send_message(buyer_id, "✅ Сделка подтверждена вами.")
+            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Сделка завершена.")
 
             try:
                 update_order_status(buyer_id, 'confirmed')
@@ -534,11 +546,11 @@ async def account_info(message: Message):
     if user_data:
         user_id, tg_id, username, phone_number, ballance, created_at = user_data
         account_info_text = f"Данные вашего аккаунта:\n\n" \
-                            f"Баланс: {ballance}\n" \
-                            f"User ID: {user_id}\n" \
-                            f"Username: {username}\n" \
-                            f"Telegram ID: {tg_id}\n" \
-                            f"Дата захода в бота: {created_at}\n"
+                            f"├ Баланс: {ballance}\n" \
+                            f"├ User ID: {user_id}\n" \
+                            f"├ Username: {username}\n" \
+                            f"├ Telegram ID: {tg_id}\n" \
+                            f"└Дата захода в бота: {created_at}\n"
 
         buttons = [
             InlineKeyboardButton(text="Пополнить баланс", callback_data="top_up_balance"),
@@ -548,7 +560,7 @@ async def account_info(message: Message):
 
         await message.answer(account_info_text, reply_markup=keyboard)
     else:
-        await message.answer("Данные пользователя не найдены.")
+        await message.answer("🤕 Я не могу найти ваши данные")
 
 
 @dp.callback_query_handler(lambda query: query.data == 'top_up_balance',
@@ -567,13 +579,13 @@ async def process_my_orders(callback_query: types.CallbackQuery):
         orders_text = "Ваши ордера:\n\n"
         for order in orders:
             order_id, _, action, project, server, amount, status, created_at = order
-            orders_text += f"ID ордера: {order_id}\n" \
-                           f"Действие: {action}\n" \
-                           f"Проект: {project}\n" \
-                           f"Сервер: {server}\n" \
-                           f"Сумма: {amount}\n" \
-                           f"Статус: {status}\n" \
-                           f"Дата создания: {created_at}\n\n"
+            orders_text += f"├ ID ордера: {order_id}\n" \
+                           f"├ Действие: {action}\n" \
+                           f"├ Проект: {project}\n" \
+                           f"├Сервер: {server}\n" \
+                           f"├Сумма: {amount}\n" \
+                           f"├Статус: {status}\n" \
+                           f"└Дата создания: {created_at}\n\n"
     else:
         orders_text = "У вас пока нет ордеров."
 
@@ -599,7 +611,7 @@ async def process_write_ticket_callback(callback_query: types.CallbackQuery):
 
     await dp.bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
 
-    await callback_query.message.answer("Введите ID пользователя (только числом), на которого хотите составить тикет:")
+    await callback_query.message.answer("Введите ID пользователя, на которого хотите составить тикет:")
 
     user_states[callback_query.from_user.id] = 'waiting_for_user_id'
     user_data.setdefault(callback_query.from_user.id, {})
@@ -611,7 +623,7 @@ async def process_user_id(message: types.Message):
     try:
         user_id = int(message.text.strip())
     except ValueError:
-        return await message.answer("Пожалуйста, введите корректный ID пользователя (только числом).")
+        return await message.answer("Пожалуйста, введите корректный ID пользователя .")   # Как я просил сделать без user id, чисто с айди ордера
 
     offender_id = get_user_id_by_id(user_id)
 
@@ -710,17 +722,17 @@ async def my_orders_command(message: Message):
         orders_text = "Ваши ордера:\n\n"
         for order in orders:
             order_id, _, action, project, server, amount, status, created_at = order
-            orders_text += f"ID ордера: {order_id}\n" \
-                           f"Действие: {action}\n" \
-                           f"Проект: {project}\n" \
-                           f"Сервер: {server}\n" \
-                           f"Сумма: {amount}\n" \
-                           f"Статус: {status}\n" \
-                           f"Дата создания: {created_at}\n\n"
+            orders_text += f"├ ID ордера: {order_id}\n" \
+                           f"├ Действие: {action}\n" \
+                           f"├ Проект: {project}\n" \
+                           f"├ Сервер: {server}\n" \
+                           f"├ Сумма: {amount}\n" \
+                           f"├ Статус: {status}\n" \
+                           f"└Дата создания: {created_at}\n\n"
 
         await message.answer(orders_text)
     else:
-        await message.answer("У вас пока нет ордеров.")
+        await message.answer("🤕 У вас пока нет ордеров.")
 
 
 @dp.message_handler(commands=['support'])
@@ -771,7 +783,7 @@ async def handle_project_orders_callback(query: types.CallbackQuery, callback_da
     elif project_name == 'Radmir GTA5_orders':
         servers = RADMIR_SERVERS
     else:
-        return await query.message.edit_text("Ошибка: проект не найден.")
+        return await query.message.edit_text("🤕 Я не могу найти выбранный проект")
 
     keyboard = InlineKeyboardMarkup(row_width=2)
     buttons = [InlineKeyboardButton(text=server, callback_data=orders_servers_cb.new(name=server)) for server in
@@ -807,8 +819,8 @@ async def handle_orders_server_callback(query: types.CallbackQuery, callback_dat
     orders = get_pending_sell_orders(user_id, project, server)
 
     if not orders:
-        return await query.message.edit_text("К сожалению, на данный момент ещё нет доступных ордеров на продажу, "
-                                             "удовлетворяющих данным параметрам 😢")
+        return await query.message.edit_text("🤕 Я не могу найти свободных ордеров, вы можете создать ордер самостоятельно, нажав в главном меню кнопку - 'Создать заявку' ")
+
     await query.message.delete()
 
     watched_orders = []
@@ -819,12 +831,12 @@ async def handle_orders_server_callback(query: types.CallbackQuery, callback_dat
         price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
         price = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
 
-        # orders_text = f"🆔 ID ордера: {order_id}\n\n" \
-        orders_text = f"🛒 Операция: Продажа\n" \
-                      f"👨‍💻 Проект: {project}\n" \
-                      f"🌆 Сервер: {server}\n" \
-                      f"💵 Кол-во валюты: {math.ceil(amount)}\n" \
-                      f"⌚️ Дата создания: {convert_datetime(created_at)}\n\n" \
+        # orders_text = f"├🆔 ID ордера: {order_id}\n\n" \    # TODO: сделать
+        orders_text = f"├ 🛒 Операция: Продажа\n" \
+                      f"├ 👨‍💻 Проект: {project}\n" \
+                      f"├ 🌆 Сервер: {server}\n" \
+                      f"├ 💵 Кол-во валюты: {math.ceil(amount)}\n" \
+                      f"└ ⌚️ Дата создания: {convert_datetime(created_at)}\n\n" \
                       f"Цена: {price}руб"
 
         kb = InlineKeyboardMarkup(row_width=1)
@@ -858,7 +870,7 @@ async def watch_other_callback(query: CallbackQuery):
     orders = get_pending_sell_orders(user_id, project, server)
 
     if not orders:
-        return await query.message.edit_text("Нет других подобных ордеров 😢")
+        return await query.message.edit_text("Выше я предоставил все ордера по вашему запросу.")
 
     orders_num = 0
     for order in orders:
@@ -870,12 +882,12 @@ async def watch_other_callback(query: CallbackQuery):
         price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
         price = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
 
-        orders_text = f"🆔 ID ордера: {order_id}\n\n" \
-                      f"🛒 Операция: Продажа\n" \
-                      f"👨‍💻 Проект: {project}\n" \
-                      f"🌆 Сервер: {server}\n" \
-                      f"💵 Кол-во валюты: {math.ceil(amount)}\n" \
-                      f"⌚️ Дата создания: {convert_datetime(created_at)}\n\n" \
+        orders_text = f"├ 🆔 ID ордера: {order_id}\n\n" \
+                      f"├ 🛒 Операция: Продажа\n" \
+                      f"├ 👨‍💻 Проект: {project}\n" \
+                      f"├ 🌆 Сервер: {server}\n" \
+                      f"├ 💵 Кол-во валюты: {math.ceil(amount)}\n" \
+                      f"└ ⌚️ Дата создания: {convert_datetime(created_at)}\n\n" \
                       f"Цена: {price}руб"
 
         kb = InlineKeyboardMarkup(row_width=1)
@@ -951,7 +963,7 @@ async def handle_custom_amount(message: types.Message):
     try:
         amount = int(message.text.replace(".", "").replace(",", ""))
         if amount < 500000 or amount > 1000000000000:
-            await message.answer("Минимальное кол-во виртуальной валюты: 500.000 ")
+            await message.answer("🤕 Минимальное кол-во виртуальной валюты: 500.000 ")
             return
 
         user_data[user_id]['amount'] = amount
@@ -970,7 +982,14 @@ async def handle_custom_amount(message: types.Message):
         else:
             action_text = ""
 
-        confirm_text = f"Вы выбрали:\nДействие: {action_text}\nПроект: {project}\nСервер: {server}\nКоличество виртов: {'{:,}'.format(amount)}\n\nИтоговая цена: {'{:,}'.format(price)} руб.\n\nПодтвердить заказ?"
+
+        confirm_text = (f"Ваш заказ:\n"
+                        f"├ Операция: {action_text}\n"
+                        f"├ Проект: {project}\n"
+                        f"├ Сервер: {server}\n"
+                        f"└ Количество виртов: {'{:,}'.format(amount)}\n\n"
+                        f"Итоговая цена: {'{:,}'.format(price)} руб.\n\n"
+                        f"Подтвердить?")
 
         keyboard = InlineKeyboardMarkup(row_width=2)
         buttons = [
@@ -981,7 +1000,7 @@ async def handle_custom_amount(message: types.Message):
 
         await message.answer(confirm_text, reply_markup=keyboard)
     except ValueError:
-        await message.answer("Я не знаю таких чисел( Введите пожалуйста верное число")
+        await message.answer("🤕Я не знаю таких чисел, введите пожалуйста корректное число")
 
 
 if __name__ == '__main__':  # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
