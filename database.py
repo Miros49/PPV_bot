@@ -200,6 +200,7 @@ def match_orders(user_id, action, project, server, amount):
             FROM orders
             WHERE action = 'sell' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
             LIMIT 1
+
         """, (project, server, amount, user_id))
     else:
         cursor.execute("""
@@ -232,7 +233,7 @@ def get_pending_sell_orders(user_id: int, project: str, server: str) \
     return orders
 
 
-def create_complaint(order_id: int | str, complainer_id: int | str, offender_id: int | str, complaint: str) -> int:
+def create_report(order_id: int | str, complainer_id: int | str, offender_id: int | str, complaint: str) -> int:
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("""
@@ -243,16 +244,25 @@ def create_complaint(order_id: int | str, complainer_id: int | str, offender_id:
     conn.close()
 
 
-def get_open_complaints() -> List[Tuple[int, int, int, int, str]]:
+def get_report(report_id: int | str) -> Tuple[int, int, int, int, str, str, str]:
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''SELECT * FROM reports WHERE id = ?''', (int(report_id,)))
+    report = cursor.fetchone()
+    conn.close()
+    return report
+
+
+def get_open_reports() -> List[Tuple[int, int, int, int, str]]:
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
     cursor.execute('''SELECT id, order_id, complainer_id, offender_id, complaint FROM reports WHERE status = 'open' ''')
-    open_complaints = cursor.fetchall()
+    open_reports = cursor.fetchall()
 
     conn.close()
 
-    return open_complaints
+    return open_reports
 
 
 def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
@@ -272,16 +282,25 @@ def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, sel
         return None
 
 
+def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(order_id)), )
+    order = cursor.fetchone()
+    conn.close()
+    return order
+
+
 def update_matched_order_status(order_id: int, new_status: str) -> bool:
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            '''UPDATE matched_orders 
-               SET ststus = ? 
-               WHERE id = ?''',
-            (new_status, order_id)
-        )
+        cursor.execute('''
+            UPDATE matched_orders 
+            SET ststus = ? 
+            WHERE id = ?''',
+                       (new_status, order_id)
+                       )
         conn.commit()
         return True
     except sqlite3.Error as e:

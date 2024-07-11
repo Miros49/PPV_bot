@@ -7,11 +7,15 @@ import math
 import database
 
 from aiogram import Bot, Dispatcher, types
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters import StateFilter
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.utils.callback_data import CallbackData
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
 from database import *
+from states import UserState
 from utils import convert_datetime
 
 admin_id = 853603010
@@ -19,12 +23,13 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = '7488450312:AAEdwH49J-QJ9xCRQvJz8qsNC1hesY_dFoI'
 
+storage: MemoryStorage = MemoryStorage()
+
 bot: Bot = Bot(token=TOKEN)
-dp: Dispatcher = Dispatcher(bot)
+dp: Dispatcher = Dispatcher(bot, storage=storage)
 dp.middleware.setup(LoggingMiddleware())
 
 database.init_db()
-cancel_requests = {}
 action_cb = CallbackData('action', 'type')
 project_cb = CallbackData('project', 'name')
 server_cb = CallbackData('server', 'name')
@@ -76,6 +81,10 @@ async def start(message: Message):
     buttons = [
         InlineKeyboardButton(text="Купить вирты", callback_data=action_cb.new(type='buy')),
         InlineKeyboardButton(text="Продать вирты", callback_data=action_cb.new(type='sell')),
+        InlineKeyboardButton(text='что-то', callback_data='dfghjk,mv'),
+        InlineKeyboardButton(text='few', callback_data='qwdqjh'),
+        InlineKeyboardButton(text='few', callback_data='qwdqjh'),
+        InlineKeyboardButton(text='few', callback_data='qwdqjh')
     ]
     keyboard.add(*buttons)
 
@@ -99,12 +108,12 @@ async def admin(message: Message):
 
 
 @dp.callback_query_handler(action_cb.filter(type=['buy', 'sell']))
-async def handle_action_callback(query: types.CallbackQuery, callback_data: dict):
-    user_id = query.from_user.id
+async def handle_action_callback(callback: CallbackQuery, callback_data: dict):
+    user_id = callback.from_user.id
     action_type = callback_data['type']
     user_data[user_id] = {'action': action_type}
 
-    await query.message.delete()
+    await callback.message.delete()
 
     if action_type == 'buy':
         action_text = "приобрести"
@@ -121,9 +130,9 @@ async def handle_action_callback(query: types.CallbackQuery, callback_data: dict
     ]
     keyboard.add(*buttons)
 
-    await query.message.answer(f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
-                               reply_markup=keyboard)
-    await query.answer()
+    await callback.message.answer(f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
+                                  reply_markup=keyboard)
+    await callback.answer()
 
 
 @dp.callback_query_handler(project_cb.filter(name=['GTA5RP', 'Majestic', 'Radmir GTA5']))
@@ -160,8 +169,8 @@ async def handle_project_callback(query: types.CallbackQuery, callback_data: dic
 
 
 @dp.callback_query_handler(main_menu_cb.filter(action='main_menu'))
-async def handle_main_menu_callback(query: types.CallbackQuery):
-    user_id = query.from_user.id
+async def handle_main_menu_callback(callback: CallbackQuery):
+    user_id = callback.from_user.id
     action_type = user_data[user_id]['action']
 
     action_text = "приобрести" if action_type == 'buy' else "продать"
@@ -171,10 +180,9 @@ async def handle_main_menu_callback(query: types.CallbackQuery):
     buttons = [InlineKeyboardButton(text=project, callback_data=project_cb.new(name=project)) for project in projects]
     keyboard.add(*buttons)
 
-    await query.message.edit_text(
+    await callback.message.edit_text(
         f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
         reply_markup=keyboard)
-    await query.answer()
 
 
 @dp.callback_query_handler(server_cb.filter())
@@ -360,8 +368,8 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
 
 @dp.callback_query_handler(lambda callback: callback.data.startswith('report_'))
-async def report_callback(callback: CallbackQuery):
-    if user_states[callback.from_user.id] == 'waiting_for_problem_description':
+async def report_callback(callback: CallbackQuery, state: FSMContext):
+    if await state.get_state() == UserState.waiting_for_problem_description:
         return await callback.answer()
     _, offender_id, order_id = callback.data.split('_')
 
@@ -370,6 +378,7 @@ async def report_callback(callback: CallbackQuery):
     user_data[callback.from_user.id]['complaint']['offender_id'] = offender_id
     user_data[callback.from_user.id]['complaint']['order_id'] = order_id
     user_states[callback.from_user.id] = 'waiting_for_problem_description'
+    await state.set_state(UserState.waiting_for_problem_description)
 
     await callback.message.answer('📝 Пожалуйста, опишите подробно суть проблемы:')
 
@@ -447,12 +456,10 @@ async def handle_chat_action_callback(query: types.CallbackQuery, callback_data:
             del cancel_requests[chat_id]
 
 
-@dp.message_handler(
-    lambda message: message.from_user.id in active_chats and
-                    message.text not in ['/support', '/report'] and
-                    user_states.get(message.from_user.id) not in ['waiting_for_user_id', 'waiting_for_order_id',
-                                                                  'waiting_for_problem_description']
-)
+@dp.message_handler(lambda message: message.from_user.id in active_chats and
+                                    message.text not in ['/support', '/report'] and
+                                    user_states.get(message.from_user.id) not in
+                                    ['waiting_for_user_id', 'waiting_for_order_id', 'waiting_for_problem_description'])
 async def handle_chat_message(message: types.Message):
     user_id = message.from_user.id
     chat_id = active_chats[user_id]
@@ -526,7 +533,7 @@ async def process_my_orders(callback_query: types.CallbackQuery):
 
 
 @dp.message_handler(commands=['report'])
-async def report_command(message: types.Message):
+async def report_command(message: Message):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     write_ticket_button = types.InlineKeyboardButton(text="Написать тикет", callback_data="write_ticket")
     my_tickets_button = types.InlineKeyboardButton(text="Мои тикеты", callback_data="my_tickets")
@@ -538,20 +545,21 @@ async def report_command(message: types.Message):
 
 
 @dp.callback_query_handler(lambda c: c.data == 'write_ticket')
-async def process_write_ticket_callback(callback_query: types.CallbackQuery):
-    await callback_query.answer()
+async def process_write_ticket_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
 
-    await dp.bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    await callback.message.answer("Введите ID пользователя (только числом), на которого хотите составить тикет:")
 
-    await callback_query.message.answer("Введите ID пользователя (только числом), на которого хотите составить тикет:")
+    user_states[callback.from_user.id] = 'waiting_for_user_id'
+    await state.set_state(UserState.waiting_for_user_id)
 
-    user_states[callback_query.from_user.id] = 'waiting_for_user_id'
-    user_data.setdefault(callback_query.from_user.id, {})
-    user_data[callback_query.from_user.id]['complaint'] = {}
+    user_data.setdefault(callback.from_user.id, {})
+    user_data[callback.from_user.id]['complaint'] = {}
 
 
 @dp.message_handler(lambda message: user_states.get(message.from_user.id) == 'waiting_for_user_id')
-async def process_user_id(message: types.Message):
+# @dp.callback_query_handler(StateFilter(dp, UserState.waiting_for_user_id))
+async def process_user_id(message: Message, state: FSMContext):
     try:
         user_id = int(message.text.strip())
     except ValueError:
@@ -566,10 +574,12 @@ async def process_user_id(message: types.Message):
     await message.answer("Теперь введите ID сделки (только числом), по которому хотите написать тикет:")
 
     user_states[message.from_user.id] = 'waiting_for_order_id'
+    await state.set_state(UserState.waiting_for_order_id)
 
 
-@dp.message_handler(lambda message: user_states.get(message.from_user.id) == 'waiting_for_order_id')
-async def process_order_id(message: types.Message):
+# @dp.message_handler(lambda message: user_states.get(message.from_user.id) == 'waiting_for_order_id')
+@dp.message_handler(StateFilter(dp, UserState.waiting_for_order_id))
+async def process_order_id(message: Message, state: FSMContext):
     try:
         order_id = int(message.text.strip())
     except ValueError:
@@ -584,9 +594,11 @@ async def process_order_id(message: types.Message):
     await message.answer("Теперь подробно изложите суть проблемы:")
 
     user_states[message.from_user.id] = 'waiting_for_problem_description'
+    await state.set_state(UserState.waiting_for_problem_description)
 
 
-@dp.message_handler(lambda message: user_states.get(message.from_user.id) == 'waiting_for_problem_description')
+# @dp.message_handler(lambda message: user_states.get(message.from_user.id) == 'waiting_for_problem_description')
+@dp.message_handler(StateFilter(dp, UserState.waiting_for_problem_description))
 async def process_problem_description(message: types.Message):
     complaint_text = message.text
     user_data[message.from_user.id]['complaint']['complaint_text'] = complaint_text
@@ -600,30 +612,31 @@ async def process_problem_description(message: types.Message):
 
 
 @dp.callback_query_handler(lambda c: c.data in ['send_ticket', 'cancel_ticket'])
-async def process_ticket_action(callback_query: types.CallbackQuery):
-    await callback_query.answer()
-    if callback_query.data == 'send_ticket':
+async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    if callback.data == 'send_ticket':
         try:
-            order_id = user_data[callback_query.from_user.id]['complaint']['order_id']
-            complainer_id = callback_query.from_user.id
-            offender_id = user_data[callback_query.from_user.id]['complaint']['offender_id']
-            complaint = user_data[callback_query.from_user.id]['complaint']['complaint_text']
-            create_complaint(order_id, complainer_id, offender_id, complaint)
+            order_id = user_data[callback.from_user.id]['complaint']['order_id']
+            complainer_id = callback.from_user.id
+            offender_id = user_data[callback.from_user.id]['complaint']['offender_id']
+            complaint = user_data[callback.from_user.id]['complaint']['complaint_text']
+            create_report(order_id, complainer_id, offender_id, complaint)
 
-            await callback_query.message.edit_text(
+            await callback.message.edit_text(
                 "✅ Тикет успешно отправлен. Пожалуйста, дождитесь ответа от администратора")
-            user_states[callback_query.from_user.id] = {}
+            user_states[callback.from_user.id] = {}
+            await state.clear()
 
             await bot.send_message(admin_id, '‼️ Поступил репорт\n/admin')
             await bot.send_message(922787101, '‼️ Поступил репорт\n/admin')
 
         except Exception as e:
-            await callback_query.message.answer("🤕 Что-то пошло не так. Пожалуйста, свяжитесь с поддержкой напрямую")
+            await callback.message.answer("🤕 Что-то пошло не так. Пожалуйста, свяжитесь с поддержкой напрямую")
             print(e, datetime.datetime.now().time(), sep='\n')
 
-    elif callback_query.data == 'cancel_ticket':
-        user_data[callback_query.from_user.id]['complaint'] = {}
-        await callback_query.message.edit_text("Вы отменили создание тикета.")
+    elif callback.data == 'cancel_ticket':
+        user_data[callback.from_user.id]['complaint'] = {}
+        await callback.message.edit_text("Вы отменили создание тикета.")
 
 
 @dp.message_handler(commands=['help'])
@@ -865,13 +878,13 @@ async def confirmation_of_buying(callback: CallbackQuery):
 @dp.callback_query_handler(
     lambda callback: callback.data == 'admin_reports' and callback.from_user.id in [admin_id, 922787101])
 async def admin_reports(callback: CallbackQuery):
-    complaints = get_open_complaints()
+    complaints = get_open_reports()
     if not complaints:
         return await callback.message.edit_text("✅ Нет необработанных жалоб")
     await callback.message.delete()
 
     for complaint in complaints:
-        _, order_id, complainer_id, offender_id, complaint_text = complaint
+        complaint_id, order_id, complainer_id, offender_id, complaint_text = complaint
 
         complainer = get_user(complainer_id)
         offender = get_user(offender_id)
@@ -884,7 +897,17 @@ async def admin_reports(callback: CallbackQuery):
                 f'💢 Жалуется на: {offender_username} (<code>{offender_id}</code>)\n\n'
                 f'<b>📝 Причина:</b>\n{complaint_text}')
 
-        await callback.message.answer(text, parse_mode='HTML')  # TODO: добавить кнопку для того, чтобы отреагировать на репорт
+        kb = InlineKeyboardMarkup(row_width=1)
+        kb.add(InlineKeyboardButton(text='Вмешаться', callback_data=f'reply_to_report_{str(complaint_id)}'))
+
+        await callback.message.answer(text, reply_markup=kb, parse_mode='HTML')
+
+
+@dp.callback_query_handler(lambda callback: callback.data.startswith('reply_to_report_'))
+async def reply_to_report(callback: CallbackQuery):
+    report_id, order_id, complainer_id, offender_id, complaint, _, created_at = get_report(callback.data.split('_')[-1])
+
+    await callback.message.answer('Допиши в 906 строчке кода')
 
 
 @dp.message_handler(
@@ -928,7 +951,19 @@ async def handle_custom_amount(message: types.Message):
         await message.answer("Пожалуйста, введите корректное количество виртов.")
 
 
+def todo() -> None:
+    # TODO: вывод заказов по параметру проект
+    # TODO: вывод заказов по параметрам проект, сервер
+
+    # TODO: кнопка "продавть" в меню, открывающая продажу вирты, бизнеса и аккаунта
+
+    # TODO: кнопка "созать заказ" купить и продать вирту, бизнес или аккаунт
+    pass
+
+
 if __name__ == '__main__':  # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
     from aiogram import executor
 
     executor.start_polling(dp, skip_updates=True)
+
+
