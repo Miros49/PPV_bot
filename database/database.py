@@ -9,7 +9,7 @@ def init_db():
 
 
 def get_user(user_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id, user_id, username, phone_number, ballance, created_at FROM users WHERE user_id=?",
                    (user_id,))
@@ -19,7 +19,7 @@ def get_user(user_id):
 
 
 def get_user_id_by_id(user_id_in_database: int) -> int | None:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
 
     # Query to get the user_id by id
@@ -33,7 +33,7 @@ def get_user_id_by_id(user_id_in_database: int) -> int | None:
 
 
 def get_orders_by_user_id(user_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, user_id, action, project, server, amount, status, created_at
@@ -46,7 +46,7 @@ def get_orders_by_user_id(user_id):
 
 
 def get_user_id_by_order(order_id: int | str) -> int:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         SELECT user_id
@@ -59,7 +59,7 @@ def get_user_id_by_order(order_id: int | str) -> int:
 
 
 def create_tables():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
 
     # Создание таблицы users
@@ -123,7 +123,7 @@ def create_tables():
 
 
 def add_user(user_id, username, phone_number):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id, username, phone_number) VALUES (?, ?, ?)",
                    (user_id, username, phone_number))
@@ -132,7 +132,7 @@ def add_user(user_id, username, phone_number):
 
 
 def edit_ballance(user_id: int, amount: float | int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
 
     cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
@@ -144,7 +144,7 @@ def edit_ballance(user_id: int, amount: float | int):
 
 
 def add_order(user_id, username, action, project, server, amount):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO orders (user_id, username, action, project, server, amount, status)
@@ -157,7 +157,7 @@ def add_order(user_id, username, action, project, server, amount):
 
 
 def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, float, str, str]:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
                 SELECT *
@@ -170,7 +170,7 @@ def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, float,
 
 
 def save_chat_message(chat_id, sender_id, receiver_id, message):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO chat_logs (chat_id, sender_id, receiver_id, message) VALUES (?, ?, ?, ?)",
                    (chat_id, sender_id, receiver_id, message))
@@ -179,7 +179,7 @@ def save_chat_message(chat_id, sender_id, receiver_id, message):
 
 
 def update_order_status(order_id, status):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE orders
@@ -191,7 +191,7 @@ def update_order_status(order_id, status):
 
 
 def match_orders(user_id, action, project, server, amount):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
 
     if action == 'buy':
@@ -220,7 +220,7 @@ def match_orders(user_id, action, project, server, amount):
 
 def get_pending_sell_orders(user_id: int, project: str, server: str) \
         -> List[Tuple[int, int, str, str, str, str, float, str, str]]:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, user_id, username, action, project, server, amount, status, created_at
@@ -234,7 +234,7 @@ def get_pending_sell_orders(user_id: int, project: str, server: str) \
 
 
 def create_report(order_id: int | str, complainer_id: int | str, offender_id: int | str, complaint: str) -> int:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO reports (order_id, complainer_id, offender_id, complaint)
@@ -245,7 +245,7 @@ def create_report(order_id: int | str, complainer_id: int | str, offender_id: in
 
 
 def get_report(report_id: int | str) -> Tuple[int, int, int, int, str, str, str]:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute('''SELECT * FROM reports WHERE id = ?''', (int(report_id,)))
     report = cursor.fetchone()
@@ -254,7 +254,7 @@ def get_report(report_id: int | str) -> Tuple[int, int, int, int, str, str, str]
 
 
 def get_open_reports() -> List[Tuple[int, int, int, int, str]]:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
 
     cursor.execute('''SELECT id, order_id, complainer_id, offender_id, complaint FROM reports WHERE status = 'open' ''')
@@ -266,7 +266,7 @@ def get_open_reports() -> List[Tuple[int, int, int, int, str]]:
 
 
 def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -283,7 +283,7 @@ def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, sel
 
 
 def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(order_id)), )
     order = cursor.fetchone()
@@ -292,7 +292,7 @@ def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str
 
 
 def update_matched_order_status(order_id: int, new_status: str) -> bool:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     try:
         cursor.execute('''
@@ -309,7 +309,7 @@ def update_matched_order_status(order_id: int, new_status: str) -> bool:
 
 
 def check_matched_order(matched_order_id: int, user_id: int) -> bool:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('../database.db')
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id 
