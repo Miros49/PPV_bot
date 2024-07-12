@@ -1,17 +1,16 @@
-# ДОБАВИЛ СПИСОК СЕРВЕРОВ ДЛЯ НОВЫХ ПРОЕКТОВ, КОТОРЫЕ НУЖНО ДОБАВИТЬ
 # TODO: Перед выбором проекта (где это есть) добавь выбор платформы. 2 кнопки - GTA5 и SAMP, CRMP, MTA. При выборе платформы будет перекидывать на соответствующие проекты.
-# TODO: (по технологии /orders) 
+# TODO: (по технологии /orders)
 #       /ordersbiz - Выбор платформы, проекта => выдает ордера
 #       /ordersacc - Выбор платформы, проекта, сервера => выдает ордера
 
 
-# TODO: Исправить user id. На один ТГ аккаунт будет 1 user id. 
+# TODO: Исправить user id. На один ТГ аккаунт будет 1 user id.
 # TODO: /report
 #               ID заказа на которы подается жалоба - соединение двух ордеров, которые взаимодействуют. (это не ID order не путай!, у каждого ордера свой ордер id)
 #               Репорт будет выглядеть так - Ввод ID заказа, ввод проблемы, подтверждение. (без user id, при подачи жалобы автоматически будет браться user id противоположного человека в заказе)
 #               Пользователь может подать репорт только на свой заказ в котором он принимал или принимает участие.
-#               /admin 
-#               Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки - Ответить, закрыть, забанить 1д,7д,30д, навсегда, 
+#               /admin
+#               Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки - Ответить, закрыть, забанить 1д,7д,30д, навсегда,
 #               Кнока присоединения к переписке (сделай возможность выходить из нее), Кнопки подветрждения и отмена сделки. + Кнопки с необходимой инфой. С инфой об самом ордере, об обоих пользователях, переписка.
 
 # TODO: support увидишь в ЛС (по аналогии с ГБ)
@@ -26,10 +25,6 @@
 #       Виртуальная валюта - ввод платформы, проекта, сервера, кол-во валюты, подтверждение.
 
 # TODO: Баланс, платежка, fsm и тп
-
-# 💰🎉🔒❗️❕‼️⁉️❔❓❌💢✅☑️📢💬⚖️  🚨🚫⛔️💙🗑💳⌛️🎯🌪✋👌🤡👹🧐🫤 🎮📱💡💎⚔️🎁📫📝🔗🆘🚭🏳️📘💶
-#├
-#└
 
 
 import datetime
@@ -46,6 +41,9 @@ from aiogram.utils.callback_data import CallbackData
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 
 from database import *
+from keyboards import *
+from lexicon import *
+# from states import
 from utils import convert_datetime
 
 admin_id = 853603010
@@ -57,251 +55,211 @@ bot: Bot = Bot(token=TOKEN)
 dp: Dispatcher = Dispatcher(bot)
 dp.middleware.setup(LoggingMiddleware())
 
+kb = UserKeyboards()
+admin_kb = AdminKeyboards()
+
 database.init_db()
 cancel_requests = {}
-action_cb = CallbackData('action', 'type')
-project_cb = CallbackData('project', 'name')
-server_cb = CallbackData('server', 'name')
 orders_servers_cb = CallbackData('orders_servers', 'name')
 main_menu_cb = CallbackData('main_menu', 'action')
-amount_cb = CallbackData('amount', 'value')
 orders_amount_cb = CallbackData('orders_amount', 'value')
 confirm_cb = CallbackData('confirm', 'action')
-
-
-#GTA5
-
-#GTA5RP
-GTA5RP_SERVERS  = [
-    'Downtown', 'Strawberry', 'Vinewood', 'Blackberry', 'inquad',
-    'Sunrise', 'Rainbow', 'Richman', 'Eclipse', 'La Mesa', 'Burton',
-    'Rockford', 'Alta', 'Del Perro', 'Davis', 'Harmony', 'Redwood',
-    'Hawick', 'Grapeseed']
-
-#Majestic
-MAJESTIC_GTA5_SERVERS = [
-    'New York', 'Detroit', 'Chicago', 'San Francisco', 'Atlanta',
-    'San Diego', 'Los Angeles', 'Miami', 'Las Vegas', 'Washington', 'Dallas']
-
-#Radmir RP GTA5
-RADMIR_GTA5_SERVERS = ['Server 1', 'Server 2', 'Server 3', 'Мой ДОМ']
-
-#Grand RP
-GRAND_RP_GTA5_SERVERS = ['Русский #1','Русский #2','English #1','English #2','English #3','German #1','German #2','German #3','German #4','Italian #1','French #1','Portuguese #1','Spanish #1','Japanese #1',]
-
-#Arizona RP GTA5
-ARIZONA_RP_GTA5_SERVERS = ['Liberty', 'Milton']
-
-#RMRP GTA5
-RMRP_GTA5_SERVERS= ['Рублёвка','Арбат']
-
-
-
-
-# CRMP, SAMP, MTA
-
-# Black Russia
-BLACK_RUSSIA_SERVERS = ["1. RED ","2. GREEN ","3. BLUE ","4. ELLOW ","5. ORANGE","6. PURPLE",'7. LIME','8. PINK','9. CHERRY','10. BLACK','11. INDIGO','12. WHITE','13. MAGENTA ',
-                        '14. CRIMSON ','15. GOLD ','16. AZURE ','17. PLATINUM ','18. AQUA ','19. GRAY ','20. ICE ','21. CHILLI ''22. CHOCO ','23. MOSCOW ','24. SPB ','25. UFA ',
-                        '26. SOCHI ','27. KAZAN ','28. SAMARA ','29. ROSTOV ','30. ANAPA ','31. EKATERINBURG ','32. KRASNODAR ','33. ARZAMAS ','34. NOVOSIBIRSK ','35. GROZNY ',
-                        '36. SARATOV ','37. OMSK ','38. IRKUTSK ','39. VOLGOGRAD ','40. VORONEZH ','41. BELGOROD ','42. MAKHACHKALA ','43. VLADIKAVKAZ ','44. VLADIVOSTOK ','45. KALININGRAD ',
-                        '46. CHELYABINSK ','47. KRASNOYARSK ','48. CHEBOKSARY ','49. KHABAROVSK ','50. PERM ','51. TULA ','52. RYAZAN','53. MURMANSK ','54. PENZA ','55. KURSK ','56. ARKHANGELSK',
-                        "57. ORENBURG ","58. KIROV ","59. KEMEROVO ","60. TYUMEN ","61. TOLYATTI ","62. IVANOVO ","63. STAVROPOL ","64. SMOLENSK","65. PSKOV ","66. BRYANSK","67. OREL ","68. YAROSLAVL ",
-                        "69. BARNAUL ","70. LIPETSK ","71. ULYANOVSK ","72. YAKUTSK ","73. TAMBOV ","74. BRATSK ","75. ASTRAKHAN "]
-
-
-#Arizona RP
-ARIZONA_RP_SERVERS = ['1.Phoenix','2. Tucson','3. Scottdale','4. Chandler','5. Brainburg','6. Saint Rose','7. Mesa','8. Red Rock','9. Yuma','10. Surprise','11. Prescott','12. Glendale','13. Kingman',
-                      '14. Winslow','15. Payson','16. Gilbert','17. Show-Low','18. Casa-Grande','19. Page','20. Sun-City','21. Queen Creek','22. Sedona','23. Holiday','24. Wednesday','25. Yava',
-                      '26. Faraway','27. Bumble Bee','28. Christmas', 'Arizona Mobile 1', 'Arizona Mobile 2', 'Arizona Mobile 3',]
-
-#Radmir RP
-RADMIR_RP_SERVERS =['Server 1','Server 2','Server 3','Server 4','Server 5','Server 6','Server 7','Server 8','Server 9','Server 10','Server 11','Server 12','Server 13','Server 14',
-                      'Server 15','Server 16','Server 17','Server 18','Server 19','Server 20','Server 21',]
-
-#NEXTRP
-NEXT_RP_SERVERS = ['1. Центральный','2. Кавказский','3. Невский','4. Сибирский','5. Восточный','6. Советский','7. Братский','8. Федеральный','9. Рублевский',
-                   '10. Амурский','11. Байкальский','12. Балтийский','13. Каспийский','14. Московский']
-
-#Evolve RP
-EVOLVE_RP_SERVERS = ['Saint-Louis']
-
 
 user_data = {}
 user_states = {}
 active_chats = {}
-cancel_requests = {}
 
 PRICE_PER_MILLION_VIRTS = {
     'GTA5RP': {'buy': 1600, 'sell': 1000},
     'Majestic': {'buy': 700, 'sell': 400},
     'Radmir GTA5': {'buy': 300, 'sell': 100}
-# + BlackRussia, Radmir CRMP, и другие проекты
+    # + BlackRussia, Radmir CRMP, и другие проекты
 }
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start', 'menu'])
 async def start(message: Message):
     user = message.from_user
     phone_number = None
     database.add_user(user.id, user.username, phone_number)
-    await message.reply(
+
+    await message.answer(
         "Я бот Диди - твой личный помощник в мире игр, который поможет вам быстро и легко приобрести нужные виртуальные товары.\n\n"
         "Я помогу тебе купить или продать виртуальную валюту на любых серверах ГТА.\n"
         "Давайте начнем наше путешествие в беззаботный мир игр!\n\n"
-    )
-
-    keyboard = InlineKeyboardMarkup(row_width=3)
-    buttons = [
-        InlineKeyboardButton(text="Купить вирты", callback_data=action_cb.new(type='buy')),
-        InlineKeyboardButton(text="Продать вирты", callback_data=action_cb.new(type='sell')),
-        # Магазин тут будет
-#       InlineKeyboardButton(text="Купить автопостер", callback_data=action_cb.new(type='autoposter')),
-    ]
-    keyboard.add(*buttons)
-
-    await message.answer(
         "Ниже ты можешь найти все товары, которые я хочу тебе предложить. Товары будут постоянно пополняться.\n\n"
-        "Выберите действие:", reply_markup=keyboard)
+        "Выберите действие:", reply_markup=kb.start_kb())
+
+
+@dp.callback_query_handler(lambda callback: callback.data == 'start_buy_button')
+async def start_buy_button(callback: CallbackQuery):
+    await callback.message.edit_text('купить', reply_markup=kb.buy_kb())
+
+
+@dp.callback_query_handler(lambda callback: callback.data == 'start_sell_button')
+async def start_sell_button(callback: CallbackQuery):
+    await callback.message.edit_text('продать', reply_markup=kb.sell_kb())
+
+
+@dp.callback_query_handler(lambda callback: callback.data == 'start_create_order_button')
+async def start_create_order_button(callback: CallbackQuery):
+    await callback.message.edit_text('создать заказ', reply_markup=kb.create_order_kb())
+
+
+@dp.callback_query_handler(lambda callback: callback.data == 'start_autoposter_discord_button')
+async def autoposter_discord_button(callback: CallbackQuery):
+    await callback.message.edit_text('тут что-то будет', reply_markup=kb.back_to_start_kb())
+
+
+@dp.callback_query_handler(lambda callback: callback.data == 'back_to_start')
+async def back_to_start(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "Я бот Диди - твой личный помощник в мире игр, который поможет вам быстро и легко приобрести нужные виртуальные товары.\n\n"
+        "Я помогу тебе купить или продать виртуальную валюту на любых серверах ГТА.\n"
+        "Давайте начнем наше путешествие в беззаботный мир игр!\n\n"
+        "Ниже ты можешь найти все товары, которые я хочу тебе предложить. Товары будут постоянно пополняться.\n\n"
+        "Выберите действие:", reply_markup=kb.start_kb())
 
 
 @dp.message_handler(lambda message: message.text == '/admin' and message.from_user.id in [admin_id, 922787101])
 async def admin(message: Message):
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton(text="📢 Репорты", callback_data='admin_reports'),
-        InlineKeyboardButton(text='💸 Операции', callback_data='admin_transactions'),  # TODO: доделать кнопку
-        InlineKeyboardButton(text='👨‍💻 Поддержка', callback_data='admin_support'),  # TODO: доделать кнопку
-        InlineKeyboardButton(text='ℹ️ Информация', callback_data='admin_information')  # TODO: доделать кнопку
-    )
-
-    await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=kb)
+    await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=admin_kb.menu_kb())
 
 
-@dp.callback_query_handler(action_cb.filter(type=['buy', 'sell']))
-async def handle_action_callback(query: types.CallbackQuery, callback_data: dict):
-    user_id = query.from_user.id
-    action_type = callback_data['type']
+@dp.callback_query_handler(lambda callback: callback.data.split('_')[-1] == 'virt')
+async def handle_action_callback(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    action_type = callback.data.split('_')[0]
     user_data[user_id] = {'action': action_type}
 
-    await query.message.delete()
+    action_text = "приобрести" if action_type == 'buy' else "продать"
 
-    if action_type == 'buy':
-        action_text = "приобрести"
-    elif action_type == 'sell':
-        action_text = "продать"
+    await callback.message.edit_text(f"пикни игру чтобы {action_text} виртуальную валюту.",
+                                     reply_markup=kb.game_kb(action_type))
+
+
+@dp.callback_query_handler(lambda callback: callback.data.startswith('game_'))
+async def game_callback_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user_data[user_id]['game'] = callback.data.split('_')[-1]
+    action_type = user_data[user_id]['action']
+    game = callback.data.split('_')[-1]
+    user_data[user_id]['game'] = game
+    if game == 'gta5':
+        await callback.message.edit_text('теперь пикни проект', reply_markup=kb.projects_kb(action_type))
     else:
-        action_text = ""
-
-    keyboard = InlineKeyboardMarkup(row_width=3)
-    buttons = [
-        InlineKeyboardButton(text="GTA5RP", callback_data=project_cb.new(name='GTA5RP')),
-        InlineKeyboardButton(text="Majestic", callback_data=project_cb.new(name='Majestic')),
-        InlineKeyboardButton(text="Radmir GTA5", callback_data=project_cb.new(name='Radmir GTA5'))
-    ]
-    keyboard.add(*buttons)
-
-    await query.message.answer(f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
-                               reply_markup=keyboard)
-    await query.answer()
+        await callback.message.edit_text("I'm sorry, малышка, не готово ещё", reply_markup=kb.back_to_start_kb())  # TODO: доделать
 
 
-@dp.callback_query_handler(project_cb.filter(name=['GTA5RP', 'Majestic', 'Radmir GTA5']))
-async def handle_project_callback(query: types.CallbackQuery, callback_data: dict):
-    user_id = query.from_user.id
-    project_name = callback_data['name']
+@dp.callback_query_handler(lambda callback: callback.data.startswith('back_to_games_'))
+async def back_to_games_callback(callback: CallbackQuery):
+    print(786543)
+    user_id = callback.from_user.id
+    action_type = user_data[user_id]['action']
+
+    action_text = "приобрести" if action_type == 'buy' else "продать"
+
+    await callback.message.edit_text(f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
+                                     reply_markup=kb.game_kb(action_type))
+
+
+@dp.callback_query_handler(
+    lambda callback: callback.data in [f'project_{x}' for x in ['GTA5RP', 'Majestic', 'Radmir GTA5']])
+async def handle_project_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    project_name = callback.data.split('_')[-1]
     action_type = user_data[user_id]['action']
 
     user_data[user_id]['project'] = project_name
 
     if project_name == 'GTA5RP':
-        servers = GTA5RP_SERVERS
+        servers_for_project = GTA5RP_SERVERS
     elif project_name == 'Majestic':
-        servers = MAJESTIC_SERVERS
+        servers_for_project = MAJESTIC_GTA5_SERVERS
     elif project_name == 'Radmir GTA5':
-        servers = RADMIR_SERVERS
+        servers_for_project = RADMIR_GTA5_SERVERS
     else:
-        await query.message.edit_text("🤕 Я не могу найти выбранный проект")
-        await query.answer()
+        await callback.message.edit_text("🤕 Я не могу найти выбранный проект")
+        await callback.answer()
         return
 
     action_text = "покупки" if action_type == 'buy' else "продажи"
 
-    keyboard = InlineKeyboardMarkup(row_width=2)
-    buttons = [InlineKeyboardButton(text=server, callback_data=server_cb.new(name=server)) for server in servers]
-    keyboard.add(*buttons)
-
-    keyboard.add(InlineKeyboardButton(text="Назад", callback_data=main_menu_cb.new(action='main_menu')))
-
-    await query.message.edit_text(
+    await callback.message.edit_text(
         f"Вы выбрали проект {project_name}. Выберите сервер для {action_text} виртуальной валюты:",
-        reply_markup=keyboard)
-    await query.answer()
+        reply_markup=kb.servers_kb(servers_for_project))
 
 
-@dp.callback_query_handler(main_menu_cb.filter(action='main_menu'))
-async def handle_main_menu_callback(query: types.CallbackQuery):
-    user_id = query.from_user.id
+@dp.callback_query_handler(lambda callback: callback.data == 'back_to_projects')
+async def handle_main_menu_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
     action_type = user_data[user_id]['action']
 
     action_text = "приобрести" if action_type == 'buy' else "продать"
 
-    keyboard = InlineKeyboardMarkup(row_width=3)
-    projects = ['GTA5RP', 'Majestic', 'Radmir GTA5']
-    buttons = [InlineKeyboardButton(text=project, callback_data=project_cb.new(name=project)) for project in projects]
-    keyboard.add(*buttons)
-
-    await query.message.edit_text(
+    await callback.message.edit_text(
         f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
-        reply_markup=keyboard)
-    await query.answer()
+        reply_markup=kb.projects_kb(action_type))
 
 
-@dp.callback_query_handler(server_cb.filter())
-async def handle_server_callback(query: types.CallbackQuery, callback_data: dict):
-    user_id = query.from_user.id
-    server_name = callback_data['name']
+@dp.callback_query_handler(lambda callback: callback.data.startswith('back_to_'))
+async def back_to(callback: CallbackQuery):
+    destination = callback.data.split('_')[-1]
+
+    if destination == 'buy':
+        await start_buy_button(callback)
+    elif destination == 'sell':
+        await start_sell_button(callback)
+    elif destination == 'servers':
+        user_id = callback.from_user.id
+        project_name = user_data[user_id]['project']
+        action_type = user_data[user_id]['action']
+
+        if project_name == 'GTA5RP':
+            servers_for_project = GTA5RP_SERVERS
+        elif project_name == 'Majestic':
+            servers_for_project = MAJESTIC_GTA5_SERVERS
+        elif project_name == 'Radmir GTA5':
+            servers_for_project = RADMIR_GTA5_SERVERS
+        else:
+            return await callback.message.edit_text("🤕 Я не могу найти выбранный проект")
+
+        action_text = "покупки" if action_type == 'buy' else "продажи"
+
+        await callback.message.edit_text(
+            f"Вы выбрали проект {project_name}. Выберите сервер для {action_text} виртуальной валюты:",
+            reply_markup=kb.servers_kb(servers_for_project))
+
+
+@dp.callback_query_handler(lambda callback: callback.data.startswith('server_'))
+async def handle_server_callback(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    server_name = callback.data.split('_')[-1]
     user_data[user_id]['server'] = server_name
     action_type = user_data[user_id]['action']
     project_name = user_data[user_id]['project']
 
-    if server_name == 'Другое количество':
-        await bot.send_message(query.from_user.id, "Введите нужное количество виртов:")
-        await query.message.delete()
-    else:
-        keyboard = InlineKeyboardMarkup(row_width=2)
-        buttons = [
-            InlineKeyboardButton(text="1.000.000", callback_data=amount_cb.new(value='1000000')),
-            InlineKeyboardButton(text="1.500.000", callback_data=amount_cb.new(value='1500000')),
-            InlineKeyboardButton(text="2.000.000", callback_data=amount_cb.new(value='2000000')),
-            InlineKeyboardButton(text="3.000.000", callback_data=amount_cb.new(value='3000000')),
-            InlineKeyboardButton(text="5.000.000", callback_data=amount_cb.new(value='5000000')),
-            InlineKeyboardButton(text="10.000.000", callback_data=amount_cb.new(value='10000000')),
-            InlineKeyboardButton(text="Другое количество", callback_data=amount_cb.new(value='custom'))
-        ]
-        keyboard.add(*buttons)
+    action_text = "приобрести" if action_type == 'buy' else "продать"
 
-        action_text = "приобрести" if action_type == 'buy' else "продать"
-        await query.message.edit_text(
-            f"Вы выбрали проект {project_name}, сервер {server_name}. Теперь выберите количество виртуальной валюты, которое хотите {action_text}:",
-            reply_markup=keyboard)
-    await query.answer()
+    await callback.message.edit_text(
+        f"Вы выбрали проект {project_name}, сервер {server_name}. Теперь выберите количество виртуальной валюты, которое хотите {action_text}:",
+        reply_markup=kb.amount_kb())
 
 
-@dp.callback_query_handler(amount_cb.filter())
-async def handle_amount_callback(query: types.CallbackQuery, callback_data: dict):
-    user_id = query.from_user.id
-    amount_value = callback_data['value']
+@dp.callback_query_handler(lambda callback: callback.data.startswith('amount_'))
+async def handle_amount_callback(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    amount_value = callback.data.split('_')[-1]
 
     if amount_value == 'custom':
-        await bot.send_message(query.from_user.id, "Введите нужное количество виртуальной валюты:")
-        await query.message.delete()
+        await bot.send_message(callback.from_user.id, "Введите нужное количество виртуальной валюты:")
+        await callback.message.delete()
     else:
         amount = int(amount_value)
         if amount < 500000 or amount > 1000000000000:
             await bot.send_message(user_id,
                                    "🤕 Количество виртуальной валюты должно быть от 500,000")
-            await query.answer()
+            await callback.answer()
             return
 
         user_data[user_id]['amount'] = amount
@@ -334,9 +292,9 @@ async def handle_amount_callback(query: types.CallbackQuery, callback_data: dict
         ]
         keyboard.add(*buttons)
 
-        await query.message.edit_text(confirm_text, reply_markup=keyboard)
+        await callback.message.edit_text(confirm_text, reply_markup=keyboard)
 
-    await query.answer()
+    await callback.answer()
 
 
 @dp.callback_query_handler(confirm_cb.filter(action=['confirm', 'cancel']),
@@ -641,7 +599,8 @@ async def process_user_id(message: types.Message):
     try:
         user_id = int(message.text.strip())
     except ValueError:
-        return await message.answer("Пожалуйста, введите корректный ID пользователя .")   # Как я просил сделать без user id, чисто с айди ордера
+        return await message.answer(
+            "Пожалуйста, введите корректный ID пользователя .")  # Как я просил сделать без user id, чисто с айди ордера
 
     offender_id = get_user_id_by_id(user_id)
 
@@ -694,7 +653,7 @@ async def process_ticket_action(callback_query: types.CallbackQuery):
             complainer_id = callback_query.from_user.id
             offender_id = user_data[callback_query.from_user.id]['complaint']['offender_id']
             complaint = user_data[callback_query.from_user.id]['complaint']['complaint_text']
-            create_complaint(order_id, complainer_id, offender_id, complaint)
+            create_report(order_id, complainer_id, offender_id, complaint)
 
             await callback_query.message.edit_text(
                 "✅ Тикет успешно отправлен. Пожалуйста, дождитесь ответа от администратора")
@@ -775,18 +734,12 @@ async def info_command(message: types.Message):
 async def orders_command(message: types.Message):
     user_data[message.from_user.id]: dict = {}
     user_data[message.from_user.id]['watched_orders']: list = []
-    keyboard = InlineKeyboardMarkup(row_width=3)
-    buttons = [
-        InlineKeyboardButton(text="GTA5RP", callback_data=project_cb.new(name='GTA5RP_orders')),
-        InlineKeyboardButton(text="Majestic", callback_data=project_cb.new(name='Majestic_orders')),
-        InlineKeyboardButton(text="Radmir GTA5", callback_data=project_cb.new(name='Radmir GTA5_orders'))
-    ]
-    keyboard.add(*buttons)
 
-    await message.answer(f"Выберите проект", reply_markup=keyboard)
+    await message.answer(f"Выберите проект", reply_markup=kb.projects_kb())
 
 
-@dp.callback_query_handler(project_cb.filter(name=['GTA5RP_orders', 'Majestic_orders', 'Radmir GTA5_orders']))
+@dp.callback_query_handler(
+    lambda callback: callback.data in [f'project_{x}' for x in ['GTA5RP', 'Majestic', 'Radmir GTA5']])
 async def handle_project_orders_callback(query: types.CallbackQuery, callback_data: dict):
     user_id = query.from_user.id
     project_name: str = callback_data['name']
@@ -795,51 +748,37 @@ async def handle_project_orders_callback(query: types.CallbackQuery, callback_da
     user_data[user_id]['project'] = project_name.split('_')[0]
 
     if project_name == 'GTA5RP_orders':
-        servers = GTA5RP_SERVERS
+        servers_for_project = GTA5RP_SERVERS
     elif project_name == 'Majestic_orders':
-        servers = MAJESTIC_SERVERS
+        servers_for_project = MAJESTIC_GTA5_SERVERS
     elif project_name == 'Radmir GTA5_orders':
-        servers = RADMIR_SERVERS
+        servers_for_project = RADMIR_GTA5_SERVERS
     else:
         return await query.message.edit_text("🤕 Я не могу найти выбранный проект")
 
-    keyboard = InlineKeyboardMarkup(row_width=2)
-    buttons = [InlineKeyboardButton(text=server, callback_data=orders_servers_cb.new(name=server)) for server in
-               servers]
-    keyboard.add(*buttons)
-
-    keyboard.add(InlineKeyboardButton(text="Назад", callback_data=main_menu_cb.new(action='back_to_projects_orders')))
-
     await query.message.edit_text(
         f"Вы выбрали проект {project_name.split('_')[0]}. Теперь выберите сервер",
-        reply_markup=keyboard)
-    await query.answer()
+        reply_markup=kb.orders_servers_kb(servers_for_project))
 
 
-@dp.callback_query_handler(main_menu_cb.filter(action='back_to_projects_orders'))
-async def handle_orders_back_to_projects_callback(query: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup(row_width=3)
-    projects = ['GTA5RP', 'Majestic', 'Radmir GTA5']
-    buttons = [InlineKeyboardButton(text=project, callback_data=project_cb.new(name=f'{project}_orders')) for project in
-               projects]
-    keyboard.add(*buttons)
-
-    await query.message.edit_text(
-        f"Выберите проект", reply_markup=keyboard)
+@dp.callback_query_handler(main_menu_cb.filter(action='back_to_projects_orders'))  # TODO: фикс
+async def handle_orders_back_to_projects_callback(query: CallbackQuery):
+    await query.message.edit_text(f"Выберите проект", reply_markup=kb.orders_project_kb())
 
 
-@dp.callback_query_handler(orders_servers_cb.filter())
-async def handle_orders_server_callback(query: types.CallbackQuery, callback_data: dict):
-    user_id = query.from_user.id
-    server = callback_data['name']
+@dp.callback_query_handler(lambda callback: callback.data.startswith('orders_servers'))
+async def handle_orders_server_callback(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    server = callback.data.split('_')[-1]
     project = user_data[user_id]['project']
 
     orders = get_pending_sell_orders(user_id, project, server)
 
     if not orders:
-        return await query.message.edit_text("🤕 Я не могу найти свободных ордеров, вы можете создать ордер самостоятельно, нажав в главном меню кнопку - 'Создать заявку' ")
+        return await callback.message.edit_text(
+            "🤕 Я не могу найти свободных ордеров, вы можете создать ордер самостоятельно, нажав в главном меню кнопку - 'Создать заявку' ")
 
-    await query.message.delete()
+    await callback.message.delete()
 
     watched_orders = []
     orders_num = 0
@@ -867,9 +806,9 @@ async def handle_orders_server_callback(query: types.CallbackQuery, callback_dat
                 text='⏬ Посмотреть ещё',
                 callback_data=f'watch-other_{project}_{server}_{"-".join([str(el) for el in watched_orders])}')
             )
-            return await query.message.answer(orders_text, reply_markup=kb)
+            return await callback.message.answer(orders_text, reply_markup=kb)
 
-        await query.message.answer(orders_text, reply_markup=kb)
+        await callback.message.answer(orders_text, reply_markup=kb)
 
         orders_num += 1
 
@@ -951,7 +890,7 @@ async def confirmation_of_buying(callback: CallbackQuery):
 @dp.callback_query_handler(
     lambda callback: callback.data == 'admin_reports' and callback.from_user.id in [admin_id, 922787101])
 async def admin_reports(callback: CallbackQuery):
-    complaints = get_open_complaints()
+    complaints = get_open_reports()
     if not complaints:
         return await callback.message.edit_text("✅ Нет необработанных жалоб")
     await callback.message.delete()
@@ -970,7 +909,8 @@ async def admin_reports(callback: CallbackQuery):
                 f'💢 Жалуется на: {offender_username} (<code>{offender_id}</code>)\n\n'
                 f'<b>📝 Причина:</b>\n{complaint_text}')
 
-        await callback.message.answer(text, parse_mode='HTML')  # TODO: добавить кнопку для того, чтобы отреагировать на репорт
+        await callback.message.answer(text,
+                                      parse_mode='HTML')  # TODO: добавить кнопку для того, чтобы отреагировать на репорт
 
 
 @dp.message_handler(
@@ -999,7 +939,6 @@ async def handle_custom_amount(message: types.Message):
             action_text = "Продать"
         else:
             action_text = ""
-
 
         confirm_text = (f"Ваш заказ:\n"
                         f"├ Операция: {action_text}\n"
