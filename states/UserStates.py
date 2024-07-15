@@ -1,4 +1,4 @@
-from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.fsm.state import default_state, State, StatesGroup
 
 
 class UserState(StatesGroup):
