@@ -51,7 +51,7 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = '7488450312:AAEdwH49J-QJ9xCRQvJz8qsNC1hesY_dFoI'
 
-bot: Bot = Bot(token=TOKEN)
+bot: Bot = Bot(token=TOKEN,parse_mode=types.ParseMode.HTML)
 dp: Dispatcher = Dispatcher(bot)
 dp.middleware.setup(LoggingMiddleware())
 
@@ -84,41 +84,37 @@ async def start(message: Message):
     database.add_user(user.id, user.username, phone_number)
 
     await message.answer(
-        "Я бот Диди - твой личный помощник в мире игр, который поможет вам быстро и легко приобрести нужные виртуальные товары.\n\n"
-        "Я помогу тебе купить или продать виртуальную валюту на любых серверах ГТА.\n"
-        "Давайте начнем наше путешествие в беззаботный мир игр!\n\n"
-        "Ниже ты можешь найти все товары, которые я хочу тебе предложить. Товары будут постоянно пополняться.\n\n"
-        "Выберите действие:", reply_markup=kb.start_kb())
+        "Я <b>Бот Диди</b> - твой личный помощник в мире игр, я помогу тебе <b>купить</b> или <b>продать</b> виртуальную валюту, бизнесы, аккаунты на серверах GTA.\n\n"
+        "Ниже предоставлены товары, которые я хочу тебе предложить. Товары будут пополняться.\n\n"
+        "<b>Выберите нужное действие:</b>", reply_markup=kb.start_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_buy_button')
 async def start_buy_button(callback: CallbackQuery):
-    await callback.message.edit_text('купить', reply_markup=kb.buy_kb())
+    await callback.message.edit_text('Выберите позицию, которую хотите приобрести', reply_markup=kb.buy_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_sell_button')
 async def start_sell_button(callback: CallbackQuery):
-    await callback.message.edit_text('продать', reply_markup=kb.sell_kb())
+    await callback.message.edit_text('Выберите позицию, которую хотите продать', reply_markup=kb.sell_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_create_order_button')
 async def start_create_order_button(callback: CallbackQuery):
-    await callback.message.edit_text('создать заказ', reply_markup=kb.create_order_kb())
+    await callback.message.edit_text('Выберите позицию, для которой хотите создать заявку на покупку', reply_markup=kb.create_order_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_autoposter_discord_button')
 async def autoposter_discord_button(callback: CallbackQuery):
-    await callback.message.edit_text('тут что-то будет', reply_markup=kb.back_to_start_kb())
+    await callback.message.edit_text('Soon..', reply_markup=kb.back_to_start_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'back_to_start')
 async def back_to_start(callback: CallbackQuery):
     await callback.message.edit_text(
-        "Я бот Диди - твой личный помощник в мире игр, который поможет вам быстро и легко приобрести нужные виртуальные товары.\n\n"
-        "Я помогу тебе купить или продать виртуальную валюту на любых серверах ГТА.\n"
-        "Давайте начнем наше путешествие в беззаботный мир игр!\n\n"
-        "Ниже ты можешь найти все товары, которые я хочу тебе предложить. Товары будут постоянно пополняться.\n\n"
-        "Выберите действие:", reply_markup=kb.start_kb())
+        "Я <b>Бот Диди</b> - твой личный помощник в мире игр, я помогу тебе <b>купить</b> или <b>продать</b> виртуальную валюту, бизнесы, аккаунты на серверах GTA.\n\n"
+        "Ниже предоставлены товары, которые я хочу тебе предложить. Товары будут пополняться.\n\n"
+        "<b>Выберите нужное действие:</b>", reply_markup=kb.start_kb())
 
 
 @dp.message_handler(lambda message: message.text == '/admin' and message.from_user.id in [admin_id, 922787101])
@@ -134,7 +130,7 @@ async def handle_action_callback(callback: CallbackQuery):
 
     action_text = "приобрести" if action_type == 'buy' else "продать"
 
-    await callback.message.edit_text(f"пикни игру чтобы {action_text} виртуальную валюту.",
+    await callback.message.edit_text(f"Выберите платформу, где хотите {action_text} виртуальную валюту.",
                                      reply_markup=kb.game_kb(action_type))
 
 
@@ -345,13 +341,13 @@ async def send_order_info(matched_orders_id: int | str, buyer_id: int | str, sel
     project = order[4]
     server = order[5]
     amount = int(order[6])
-
+  # 💰🎉🔒❗️❕‼️⁉️❔❓❌💢✅☑️📢💬⚖️🚨🚫⛔️💙🗑💳⌛️🎯🌪✋👌🤡👹🧐🫤 🎮📱💡💎⚔️🎁📫📝🔗🆘🚭🏳️📘💶
     order_ifo = ("‼️ <b><u>Информация по сделке:</u></b> \n\n"
-                 f"🆔 ID сделки: <b>{str(matched_orders_id)}</b>\n"
-                 "🛒 Операция: <i>{}</i>\n"
-                 f"👨‍💻 Проект: <b>{project}</b>\n"
-                 f"🌆 Сервер: <b>{server}</b>\n"
-                 f"💵 Кол-во виртов: <code>{str(amount)}</code>\n\n"
+                 f"├ ID сделки: <b>{str(matched_orders_id)}</b>\n"
+                  "├ Операция: <b>{}</b>\n"
+                 f"├ Проект: <b>{project}</b>\n"
+                 f"├ Сервер: <b>{server}</b>\n"
+                 f"└ Кол-во виртов: <code>{str(amount)}</code>\n\n"
                  "<b><u>Итоговая сумма</u>: {} руб</b>")
 
     price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
@@ -373,8 +369,8 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
     cancel_requests[chat_id] = {buyer_id: False, seller_id: False}
 
-    buyer_message = "⭕️ Мы нашли продавца для вашего заказа. Начинается чат с продавцом."
-    seller_message = "⭕️ Мы нашли покупателя для вашего заказа. Начинается чат с покупателем."
+    buyer_message = "❗️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом."
+    seller_message = "❗️Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем."
 
     await bot.send_message(buyer_id, buyer_message)
     await bot.send_message(seller_id, seller_message)
@@ -383,7 +379,7 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
     buyer_keyboard = InlineKeyboardMarkup(row_width=2)
     buyer_keyboard.row(
-        InlineKeyboardButton(text="📢 Репорт", callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}'))
+        InlineKeyboardButton(text="📢 Сообщить о нарушении", callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}'))
     buyer_keyboard.row(
         InlineKeyboardButton(text="✅ Подтвердить сделку", callback_data=confirm_cb.new(action='confirm_')),
         InlineKeyboardButton(text="❌ Отменить сделку", callback_data=confirm_cb.new(action='cancel_'))
@@ -391,7 +387,7 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
     seller_keyboard = InlineKeyboardMarkup(row_width=1)
     seller_keyboard.add(
-        InlineKeyboardButton(text="📢 Репорт", callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}'),
+        InlineKeyboardButton(text="📢 Сообщить о нарушении", callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}'),
         InlineKeyboardButton(text="Отменить сделку", callback_data=confirm_cb.new(action='cancel_'))
     )
 
@@ -449,9 +445,9 @@ async def handle_chat_action_callback(query: types.CallbackQuery, callback_data:
             del cancel_requests[chat_id]
         else:
 
-            await bot.send_message(user_id, "❗️ Вы хотите отменить сделку. Ожидайте подтверждения от продавца.")
+            await bot.send_message(user_id, "‼️ Вы хотите отменить сделку. Ожидайте подтверждения от продавца.")
             await bot.send_message(other_user_id,
-                                   "❗️ Покупатель хочет отменить сделку. Если вы хотите отменить сделку, нажмите 'Отменить сделку'.")
+                                   "‼️ Покупатель хочет отменить сделку. Если вы хотите отменить сделку, нажмите 'Отменить сделку'.")
 
             if cancel_requests[chat_id][other_user_id]:
                 await bot.send_message(buyer_id, "🚫 Сделка отменена.")
@@ -526,7 +522,7 @@ async def account_info(message: Message):
                             f"├ User ID: {user_id}\n" \
                             f"├ Username: {username}\n" \
                             f"├ Telegram ID: {tg_id}\n" \
-                            f"└Дата захода в бота: {created_at}\n"
+                            f"└ Дата захода в бота: {created_at}\n"
 
         buttons = [
             InlineKeyboardButton(text="Пополнить баланс", callback_data="top_up_balance"),
@@ -536,7 +532,7 @@ async def account_info(message: Message):
 
         await message.answer(account_info_text, reply_markup=keyboard)
     else:
-        await message.answer("🤕 Я не могу найти ваши данные")
+        await message.answer("❔ Я не могу найти ваши данные")
 
 
 @dp.callback_query_handler(lambda query: query.data == 'top_up_balance',
@@ -558,10 +554,10 @@ async def process_my_orders(callback_query: types.CallbackQuery):
             orders_text += f"├ ID ордера: {order_id}\n" \
                            f"├ Действие: {action}\n" \
                            f"├ Проект: {project}\n" \
-                           f"├Сервер: {server}\n" \
-                           f"├Сумма: {amount}\n" \
-                           f"├Статус: {status}\n" \
-                           f"└Дата создания: {created_at}\n\n"
+                           f"├ Сервер: {server}\n" \
+                           f"├ Сумма: {amount}\n" \
+                           f"├ Статус: {status}\n" \
+                           f"└ Дата создания: {created_at}\n\n"
     else:
         orders_text = "У вас пока нет ордеров."
 
@@ -605,7 +601,7 @@ async def process_user_id(message: types.Message):
     offender_id = get_user_id_by_id(user_id)
 
     if not offender_id:
-        return await message.answer("🤕 Я не могу найти пользователя с таким ID, может вы ошиблись?")
+        return await message.answer("❔ Я не могу найти пользователя с таким ID, может вы ошиблись?")
 
     user_data[message.from_user.id]['complaint']['offender_id'] = offender_id
     await message.answer("Теперь введите ID сделки (только числом), по которому хотите написать тикет:")
@@ -618,7 +614,7 @@ async def process_order_id(message: types.Message):
     try:
         order_id = int(message.text.strip())
     except ValueError:
-        return await message.answer("🤕 Я не могу найти сделку с таким ID, может вы ошиблись?")
+        return await message.answer("❔ Я не могу найти сделку с таким ID, может вы ошиблись?")
 
     if not check_matched_order(order_id, message.from_user.id):
         return await message.answer(
@@ -663,7 +659,7 @@ async def process_ticket_action(callback_query: types.CallbackQuery):
             await bot.send_message(922787101, '‼️ Поступил репорт\n/admin')
 
         except Exception as e:
-            await callback_query.message.answer("🤕 Что-то пошло не так. Пожалуйста, свяжитесь с поддержкой напрямую")
+            await callback_query.message.answer("❔ Что-то пошло не так. Пожалуйста, свяжитесь с поддержкой напрямую")
             print(e, datetime.datetime.now().time(), sep='\n')
 
     elif callback_query.data == 'cancel_ticket':
@@ -709,7 +705,7 @@ async def my_orders_command(message: Message):
 
         await message.answer(orders_text)
     else:
-        await message.answer("🤕 У вас пока нет ордеров.")
+        await message.answer("❔ У вас пока нет ордеров.")
 
 
 @dp.message_handler(commands=['support'])
@@ -754,7 +750,7 @@ async def handle_project_orders_callback(query: types.CallbackQuery, callback_da
     elif project_name == 'Radmir GTA5_orders':
         servers_for_project = RADMIR_GTA5_SERVERS
     else:
-        return await query.message.edit_text("🤕 Я не могу найти выбранный проект")
+        return await query.message.edit_text("❔ Я не могу найти выбранный проект")
 
     await query.message.edit_text(
         f"Вы выбрали проект {project_name.split('_')[0]}. Теперь выберите сервер",
@@ -776,7 +772,7 @@ async def handle_orders_server_callback(callback: CallbackQuery):
 
     if not orders:
         return await callback.message.edit_text(
-            "🤕 Я не могу найти свободных ордеров, вы можете создать ордер самостоятельно, нажав в главном меню кнопку - 'Создать заявку' ")
+            "❔ Я не могу найти свободных ордеров, вы можете создать ордер самостоятельно, нажав в главном меню кнопку - 'Создать заявку' ")
 
     await callback.message.delete()
 
@@ -788,12 +784,12 @@ async def handle_orders_server_callback(callback: CallbackQuery):
         price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
         price = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
 
-        # orders_text = f"├🆔 ID ордера: {order_id}\n\n" \    # TODO: сделать
-        orders_text = f"├ 🛒 Операция: Продажа\n" \
-                      f"├ 👨‍💻 Проект: {project}\n" \
-                      f"├ 🌆 Сервер: {server}\n" \
-                      f"├ 💵 Кол-во валюты: {math.ceil(amount)}\n" \
-                      f"└ ⌚️ Дата создания: {convert_datetime(created_at)}\n\n" \
+        # orders_text = f"├ ID ордера: {order_id}\n\n" \    # TODO: доделать
+        orders_text = f"├  Операция: Продажа\n" \
+                      f"├ Проект: {project}\n" \
+                      f"├ Сервер: {server}\n" \
+                      f"├ Кол-во валюты: {math.ceil(amount)}\n" \
+                      f"└ Дата создания: {convert_datetime(created_at)}\n\n" \
                       f"Цена: {price}руб"
 
         kb = InlineKeyboardMarkup(row_width=1)
@@ -839,12 +835,12 @@ async def watch_other_callback(query: CallbackQuery):
         price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
         price = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
 
-        orders_text = f"├ 🆔 ID ордера: {order_id}\n\n" \
-                      f"├ 🛒 Операция: Продажа\n" \
-                      f"├ 👨‍💻 Проект: {project}\n" \
-                      f"├ 🌆 Сервер: {server}\n" \
-                      f"├ 💵 Кол-во валюты: {math.ceil(amount)}\n" \
-                      f"└ ⌚️ Дата создания: {convert_datetime(created_at)}\n\n" \
+        orders_text = f"├ ID ордера: {order_id}\n\n" \
+                      f"├ Операция: Продажа\n" \
+                      f"├ Проект: {project}\n" \
+                      f"├ Сервер: {server}\n" \
+                      f"├ Кол-во валюты: {math.ceil(amount)}\n" \
+                      f"└ Дата создания: {convert_datetime(created_at)}\n\n" \
                       f"Цена: {price}руб"
 
         kb = InlineKeyboardMarkup(row_width=1)
@@ -921,7 +917,7 @@ async def handle_custom_amount(message: types.Message):
     try:
         amount = int(message.text.replace(".", "").replace(",", ""))
         if amount < 500000 or amount > 1000000000000:
-            await message.answer("🤕 Минимальное кол-во виртуальной валюты: 500.000 ")
+            await message.answer("❔ Минимальное кол-во виртуальной валюты: 500.000 ")
             return
 
         user_data[user_id]['amount'] = amount
@@ -957,7 +953,7 @@ async def handle_custom_amount(message: types.Message):
 
         await message.answer(confirm_text, reply_markup=keyboard)
     except ValueError:
-        await message.answer("🤕Я не знаю таких чисел, введите пожалуйста корректное число")
+        await message.answer("❔ Я не знаю таких чисел, введите пожалуйста корректное число")
 
 
 if __name__ == '__main__':  # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
