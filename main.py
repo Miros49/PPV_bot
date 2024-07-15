@@ -1,41 +1,10 @@
-# TODO: Перед выбором проекта (где это есть) добавь выбор платформы. 2 кнопки - GTA5 и SAMP, CRMP, MTA. При выборе платформы будет перекидывать на соответствующие проекты.
-# TODO: (по технологии /orders)
-#       /ordersbiz - Выбор платформы, проекта => выдает ордера
-#       /ordersacc - Выбор платформы, проекта, сервера => выдает ордера
-
-
-# TODO: Исправить user id. На один ТГ аккаунт будет 1 user id.
-# TODO: /report
-#               ID заказа на которы подается жалоба - соединение двух ордеров, которые взаимодействуют. (это не ID order не путай!, у каждого ордера свой ордер id)
-#               Репорт будет выглядеть так - Ввод ID заказа, ввод проблемы, подтверждение. (без user id, при подачи жалобы автоматически будет браться user id противоположного человека в заказе)
-#               Пользователь может подать репорт только на свой заказ в котором он принимал или принимает участие.
-#               /admin
-#               Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки - Ответить, закрыть, забанить 1д,7д,30д, навсегда,
-#               Кнока присоединения к переписке (сделай возможность выходить из нее), Кнопки подветрждения и отмена сделки. + Кнопки с необходимой инфой. С инфой об самом ордере, об обоих пользователях, переписка.
-
-# TODO: support увидишь в ЛС (по аналогии с ГБ)
-
-
-# TODO: Главное меню - /start /menu (ВАЖНО! ЦЕНА ДЛЯ ПОКУПКИ БУДЕТ ВЫШЕ ЦЕНЫ ДЛЯ ПРОДАЖИ НА 30%)
-#       Выводится одно полное сообщение-приветствие с прикрепленными кнопками - Купить Продать Создать заявку (Автопостер Discord, в разработке)
-#       Купить - работает кнопка по аналогии (/orders /ordersbiz /ordersacc) Выбор покупки чего Виртуальная валюта, Бизнес, Аккаунт. И далее по накатанной
-#       Продать - создание ордера. Выбор продажи чего Виртуальная валюта, Бизнес, Аккаунт.
-#       Бизнес - ввод платформы, проекта, описание(пользовательское), цена (пользовательская), подтверждение.
-#       Аккаунт - ввод платформы, проекта, сервера, описание(пользовательское), цена (пользовательская), подтверждение.
-#       Виртуальная валюта - ввод платформы, проекта, сервера, кол-во валюты, подтверждение.
-
-# TODO: Баланс, платежка, fsm и тп
-
-
-import datetime
 import logging
-import asyncio
-import sqlite3
 import math
 
 import database
 
 from aiogram import Bot, Dispatcher, types
+from aiogram import executor
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.utils.callback_data import CallbackData
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -51,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = '7488450312:AAEdwH49J-QJ9xCRQvJz8qsNC1hesY_dFoI'
 
-bot: Bot = Bot(token=TOKEN,parse_mode=types.ParseMode.HTML)
+bot: Bot = Bot(token=TOKEN, parse_mode=types.ParseMode.HTML)
 dp: Dispatcher = Dispatcher(bot)
 dp.middleware.setup(LoggingMiddleware())
 
@@ -59,7 +28,6 @@ kb = UserKeyboards()
 admin_kb = AdminKeyboards()
 
 database.init_db()
-cancel_requests = {}
 orders_servers_cb = CallbackData('orders_servers', 'name')
 main_menu_cb = CallbackData('main_menu', 'action')
 orders_amount_cb = CallbackData('orders_amount', 'value')
@@ -68,6 +36,7 @@ confirm_cb = CallbackData('confirm', 'action')
 user_data = {}
 user_states = {}
 active_chats = {}
+cancel_requests = {}
 
 PRICE_PER_MILLION_VIRTS = {
     'GTA5RP': {'buy': 1600, 'sell': 1000},
@@ -83,10 +52,7 @@ async def start(message: Message):
     phone_number = None
     database.add_user(user.id, user.username, phone_number)
 
-    await message.answer(
-        "Я <b>Бот Диди</b> - твой личный помощник в мире игр, я помогу тебе <b>купить</b> или <b>продать</b> виртуальную валюту, бизнесы, аккаунты на серверах GTA.\n\n"
-        "Ниже предоставлены товары, которые я хочу тебе предложить. Товары будут пополняться.\n\n"
-        "<b>Выберите нужное действие:</b>", reply_markup=kb.start_kb())
+    await message.answer(LEXICON['start_message'], reply_markup=kb.start_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_buy_button')
@@ -101,7 +67,8 @@ async def start_sell_button(callback: CallbackQuery):
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_create_order_button')
 async def start_create_order_button(callback: CallbackQuery):
-    await callback.message.edit_text('Выберите позицию, для которой хотите создать заявку на покупку', reply_markup=kb.create_order_kb())
+    await callback.message.edit_text('Выберите позицию, для которой хотите создать заявку на покупку',
+                                     reply_markup=kb.create_order_kb())
 
 
 @dp.callback_query_handler(lambda callback: callback.data == 'start_autoposter_discord_button')
@@ -111,10 +78,7 @@ async def autoposter_discord_button(callback: CallbackQuery):
 
 @dp.callback_query_handler(lambda callback: callback.data == 'back_to_start')
 async def back_to_start(callback: CallbackQuery):
-    await callback.message.edit_text(
-        "Я <b>Бот Диди</b> - твой личный помощник в мире игр, я помогу тебе <b>купить</b> или <b>продать</b> виртуальную валюту, бизнесы, аккаунты на серверах GTA.\n\n"
-        "Ниже предоставлены товары, которые я хочу тебе предложить. Товары будут пополняться.\n\n"
-        "<b>Выберите нужное действие:</b>", reply_markup=kb.start_kb())
+    await callback.message.edit_text(LEXICON['start_message'], reply_markup=kb.start_kb())
 
 
 @dp.message_handler(lambda message: message.text == '/admin' and message.from_user.id in [admin_id, 922787101])
@@ -144,7 +108,8 @@ async def game_callback_handler(callback: CallbackQuery):
     if game == 'gta5':
         await callback.message.edit_text('теперь пикни проект', reply_markup=kb.projects_kb(action_type))
     else:
-        await callback.message.edit_text("I'm sorry, малышка, не готово ещё", reply_markup=kb.back_to_start_kb())  # TODO: доделать
+        await callback.message.edit_text("I'm sorry, малышка, не готово ещё",
+                                         reply_markup=kb.back_to_start_kb())  # TODO: доделать
 
 
 @dp.callback_query_handler(lambda callback: callback.data.startswith('back_to_games_'))
@@ -253,10 +218,8 @@ async def handle_amount_callback(callback: CallbackQuery):
     else:
         amount = int(amount_value)
         if amount < 500000 or amount > 1000000000000:
-            await bot.send_message(user_id,
-                                   "🤕 Количество виртуальной валюты должно быть от 500,000")
-            await callback.answer()
-            return
+            await bot.send_message(user_id, "🤕 Количество виртуальной валюты должно быть от 500,000")
+            return await callback.answer()
 
         user_data[user_id]['amount'] = amount
 
@@ -341,10 +304,13 @@ async def send_order_info(matched_orders_id: int | str, buyer_id: int | str, sel
     project = order[4]
     server = order[5]
     amount = int(order[6])
-  # 💰🎉🔒❗️❕‼️⁉️❔❓❌💢✅☑️📢💬⚖️🚨🚫⛔️💙🗑💳⌛️🎯🌪✋👌🤡👹🧐🫤 🎮📱💡💎⚔️🎁📫📝🔗🆘🚭🏳️📘💶
-    order_ifo = ("‼️ <b><u>Информация по сделке:</u></b> \n\n"
+
+    buyer_message = "‼️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом.\n\n"
+    seller_message = "‼️ Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем.\n\n"
+
+    order_ifo = ("{}<b><u>Информация по сделке:</u></b> \n\n"
                  f"├ ID сделки: <b>{str(matched_orders_id)}</b>\n"
-                  "├ Операция: <b>{}</b>\n"
+                 "├ Операция: <b>{}</b>\n"
                  f"├ Проект: <b>{project}</b>\n"
                  f"├ Сервер: <b>{server}</b>\n"
                  f"└ Кол-во виртов: <code>{str(amount)}</code>\n\n"
@@ -353,12 +319,12 @@ async def send_order_info(matched_orders_id: int | str, buyer_id: int | str, sel
     price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
     price = str(math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000)))
 
-    await bot.send_message(buyer_id, order_ifo.format('Покупка', price), parse_mode='HTML')
+    await bot.send_message(buyer_id, order_ifo.format(buyer_message, 'Покупка', price), parse_mode='HTML')
 
     price_per_million = PRICE_PER_MILLION_VIRTS[project]["sell"]
     price = str(math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000)))
 
-    await bot.send_message(seller_id, order_ifo.format('Продажа', price), parse_mode='HTML')
+    await bot.send_message(seller_id, order_ifo.format(seller_message, 'Продажа', price), parse_mode='HTML')
 
 
 async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
@@ -369,17 +335,12 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
     cancel_requests[chat_id] = {buyer_id: False, seller_id: False}
 
-    buyer_message = "❗️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом."
-    seller_message = "❗️Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем."
-
-    await bot.send_message(buyer_id, buyer_message)
-    await bot.send_message(seller_id, seller_message)
-
     await send_order_info(matched_orders_id, buyer_id, seller_id, order_id)
 
     buyer_keyboard = InlineKeyboardMarkup(row_width=2)
     buyer_keyboard.row(
-        InlineKeyboardButton(text="📢 Сообщить о нарушении", callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}'))
+        InlineKeyboardButton(text="📢 Сообщить о нарушении",
+                             callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}'))
     buyer_keyboard.row(
         InlineKeyboardButton(text="✅ Подтвердить сделку", callback_data=confirm_cb.new(action='confirm_')),
         InlineKeyboardButton(text="❌ Отменить сделку", callback_data=confirm_cb.new(action='cancel_'))
@@ -387,7 +348,8 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
 
     seller_keyboard = InlineKeyboardMarkup(row_width=1)
     seller_keyboard.add(
-        InlineKeyboardButton(text="📢 Сообщить о нарушении", callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}'),
+        InlineKeyboardButton(text="📢 Сообщить о нарушении",
+                             callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}'),
         InlineKeyboardButton(text="Отменить сделку", callback_data=confirm_cb.new(action='cancel_'))
     )
 
@@ -499,7 +461,7 @@ async def handle_chat_message(message: types.Message):
     buyer_id, seller_id = map(int, chat_id.split('_'))
     recipient_id = buyer_id if user_id == seller_id else seller_id
 
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('database/database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id,))
     bot_user_id = cursor.fetchone()[0]
@@ -621,10 +583,9 @@ async def process_order_id(message: types.Message):
             "У вас не было сделки с данным ID, попробуйте еще раз")  # TODO: кнопку выхода отсюда
 
     user_data[message.from_user.id]['complaint']['order_id'] = order_id
+    user_states[message.from_user.id] = 'waiting_for_problem_description'
 
     await message.answer("Теперь подробно изложите суть проблемы:")
-
-    user_states[message.from_user.id] = 'waiting_for_problem_description'
 
 
 @dp.message_handler(lambda message: user_states.get(message.from_user.id) == 'waiting_for_problem_description')
@@ -879,9 +840,6 @@ async def confirmation_of_buying(callback: CallbackQuery):
     await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
     await notify_users_of_chat(matched_orders_id, buyer_id, seller_id, order_id)
 
-    # TODO: добавить деньги
-    # TODO: FSM!!!
-
 
 @dp.callback_query_handler(
     lambda callback: callback.data == 'admin_reports' and callback.from_user.id in [admin_id, 922787101])
@@ -956,7 +914,47 @@ async def handle_custom_amount(message: types.Message):
         await message.answer("❔ Я не знаю таких чисел, введите пожалуйста корректное число")
 
 
-if __name__ == '__main__':  # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
-    from aiogram import executor
+def todo() -> None:
+    # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
 
+    # TODO: Перед выбором проекта (где это есть) добавь выбор платформы. 2 кнопки -
+    #  GTA5 и SAMP, CRMP, MTA. При выборе платформы будет перекидывать на соответствующие проекты.
+    # TODO: (по технологии /orders)
+    #       /ordersbiz - Выбор платформы, проекта => выдает ордера
+    #       /ordersacc - Выбор платформы, проекта, сервера => выдает ордера
+
+    # TODO: Исправить user id. На один ТГ аккаунт будет 1 user id.
+    # TODO: /report
+    #       ID заказа на которы подается жалоба - соединение двух ордеров, которые взаимодействуют.
+    #       (это не ID order не путай!, у каждого ордера свой ордер id)
+    #       Репорт будет выглядеть так - Ввод ID заказа, ввод проблемы, подтверждение.
+    #       (без user id, при подачи жалобы автоматически будет браться user id противоположного человека в заказе)
+    #       Пользователь может подать репорт только на свой заказ в котором он принимал или принимает участие.
+
+    # TODO: /admin
+    #       Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки:
+    #       Ответить, закрыть, забанить 1д,7д,30д, навсегда,
+    #       Кнока присоединения к переписке (сделай возможность выходить из нее),
+    #       Кнопки подветрждения и отмена сделки. + Кнопки с необходимой инфой.
+    #       С инфой об самом ордере, об обоих пользователях, переписка.
+
+    # TODO: support увидишь в ЛС (по аналогии с ГБ)
+
+    # TODO: Главное меню - /start /menu (ВАЖНО! ЦЕНА ДЛЯ ПОКУПКИ БУДЕТ ВЫШЕ ЦЕНЫ ДЛЯ ПРОДАЖИ НА 30%)
+    #       Выводится одно полное сообщение-приветствие с прикрепленными кнопками - Купить Продать Создать заявку
+    #       (Автопостер Discord, в разработке)
+    #       Купить - работает кнопка по аналогии (/orders /ordersbiz /ordersacc) Выбор покупки чего
+    #       Виртуальная валюта, Бизнес, Аккаунт. И далее по накатанной
+    #       Продать - создание ордера. Выбор продажи чего Виртуальная валюта, Бизнес, Аккаунт.
+    #       Бизнес - ввод платформы, проекта, описание(пользовательское), цена (пользовательская), подтверждение.
+    #       Аккаунт - ввод платформы, проекта, сервера, описание(пользовательское),
+    #       цена (пользовательская), подтверждение.
+    #       Виртуальная валюта - ввод платформы, проекта, сервера, кол-во валюты, подтверждение.
+
+    # TODO: Баланс, платежка, fsm и тп
+
+    pass
+
+
+if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

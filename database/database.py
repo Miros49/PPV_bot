@@ -4,65 +4,17 @@ import sqlite3
 from typing import List, Tuple, Optional
 
 
+database_file = 'database/database.db'
+
+
 def init_db():
     create_tables()
 
 
-def get_user(user_id):
-    conn = sqlite3.connect('../database.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, user_id, username, phone_number, ballance, created_at FROM users WHERE user_id=?",
-                   (user_id,))
-    user_data = cursor.fetchone()
-    conn.close()
-    return user_data
-
-
-def get_user_id_by_id(user_id_in_database: int) -> int | None:
-    conn = sqlite3.connect('../database.db')
-    cursor = conn.cursor()
-
-    # Query to get the user_id by id
-    cursor.execute("SELECT user_id FROM users WHERE id = ?", (user_id_in_database,))
-    result = cursor.fetchone()
-    conn.close()
-
-    if result:
-        return result[0]
-    return None
-
-
-def get_orders_by_user_id(user_id):
-    conn = sqlite3.connect('../database.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, user_id, action, project, server, amount, status, created_at
-        FROM orders
-        WHERE user_id = ?
-    """, (user_id,))
-    orders = cursor.fetchall()
-    conn.close()
-    return orders
-
-
-def get_user_id_by_order(order_id: int | str) -> int:
-    conn = sqlite3.connect('../database.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT user_id
-        FROM orders
-        WHERE id = ?
-    """, (int(order_id),))
-    result = cursor.fetchone()
-    conn.close()
-    return result[0] if result else None
-
-
 def create_tables():
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    # Создание таблицы users
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER UNIQUE,
@@ -71,7 +23,6 @@ def create_tables():
                         ballance REAL DEFAULT 0.00,
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
-    # Создание таблицы orders
     cursor.execute('''CREATE TABLE IF NOT EXISTS orders (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER,
@@ -83,7 +34,6 @@ def create_tables():
                         status TEXT DEFAULT 'active',
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
-    # Создание таблицы chat_logs
     cursor.execute('''CREATE TABLE IF NOT EXISTS chat_logs (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         chat_id TEXT,
@@ -122,8 +72,67 @@ def create_tables():
     conn.close()
 
 
+def get_user(user_id):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, user_id, username, phone_number, ballance, created_at FROM users WHERE user_id=?",
+                   (user_id,))
+
+    user_data = cursor.fetchone()
+    conn.close()
+
+    return user_data
+
+
+def get_user_id_by_id(user_id_in_database: int) -> int | None:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT user_id FROM users WHERE id = ?", (user_id_in_database,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        return result[0]
+    return None
+
+
+def get_orders_by_user_id(user_id):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, action, project, server, amount, status, created_at
+        FROM orders
+        WHERE user_id = ?
+    """, (user_id,))
+
+    orders = cursor.fetchall()
+    conn.close()
+
+    return orders
+
+
+def get_user_id_by_order(order_id: int | str) -> int:
+    conn = sqlite3.connect(database_file)
+
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT user_id
+        FROM orders
+        WHERE id = ?
+    """, (int(order_id),))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result[0] if result else None
+
+
 def add_user(user_id, username, phone_number):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
+
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id, username, phone_number) VALUES (?, ?, ?)",
                    (user_id, username, phone_number))
@@ -132,7 +141,7 @@ def add_user(user_id, username, phone_number):
 
 
 def edit_ballance(user_id: int, amount: float | int):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
@@ -144,7 +153,7 @@ def edit_ballance(user_id: int, amount: float | int):
 
 
 def add_order(user_id, username, action, project, server, amount):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO orders (user_id, username, action, project, server, amount, status)
@@ -157,7 +166,7 @@ def add_order(user_id, username, action, project, server, amount):
 
 
 def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, float, str, str]:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
                 SELECT *
@@ -170,7 +179,7 @@ def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, float,
 
 
 def save_chat_message(chat_id, sender_id, receiver_id, message):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO chat_logs (chat_id, sender_id, receiver_id, message) VALUES (?, ?, ?, ?)",
                    (chat_id, sender_id, receiver_id, message))
@@ -179,7 +188,7 @@ def save_chat_message(chat_id, sender_id, receiver_id, message):
 
 
 def update_order_status(order_id, status):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE orders
@@ -191,7 +200,7 @@ def update_order_status(order_id, status):
 
 
 def match_orders(user_id, action, project, server, amount):
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     if action == 'buy':
@@ -220,7 +229,7 @@ def match_orders(user_id, action, project, server, amount):
 
 def get_pending_sell_orders(user_id: int, project: str, server: str) \
         -> List[Tuple[int, int, str, str, str, str, float, str, str]]:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, user_id, username, action, project, server, amount, status, created_at
@@ -234,7 +243,7 @@ def get_pending_sell_orders(user_id: int, project: str, server: str) \
 
 
 def create_report(order_id: int | str, complainer_id: int | str, offender_id: int | str, complaint: str) -> int:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO reports (order_id, complainer_id, offender_id, complaint)
@@ -245,16 +254,16 @@ def create_report(order_id: int | str, complainer_id: int | str, offender_id: in
 
 
 def get_report(report_id: int | str) -> Tuple[int, int, int, int, str, str, str]:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    cursor.execute('''SELECT * FROM reports WHERE id = ?''', (int(report_id,)))
+    cursor.execute('''SELECT * FROM reports WHERE id = ?''', (int(report_id, )))
     report = cursor.fetchone()
     conn.close()
     return report
 
 
 def get_open_reports() -> List[Tuple[int, int, int, int, str]]:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     cursor.execute('''SELECT id, order_id, complainer_id, offender_id, complaint FROM reports WHERE status = 'open' ''')
@@ -266,7 +275,7 @@ def get_open_reports() -> List[Tuple[int, int, int, int, str]]:
 
 
 def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -283,7 +292,7 @@ def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, sel
 
 
 def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(order_id)), )
     order = cursor.fetchone()
@@ -292,7 +301,7 @@ def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str
 
 
 def update_matched_order_status(order_id: int, new_status: str) -> bool:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     try:
         cursor.execute('''
@@ -309,7 +318,7 @@ def update_matched_order_status(order_id: int, new_status: str) -> bool:
 
 
 def check_matched_order(matched_order_id: int, user_id: int) -> bool:
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id 
