@@ -5,16 +5,17 @@ import math
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from aiogram import Bot, Dispatcher  # , F
+from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command, CommandStart  # , StateFilter
+from aiogram.filters import Command, CommandStart, StateFilter
 
 from core import Config, load_config
 from database import *
-from keyboards import *
+from keyboards import UserKeyboards as User_kb
+from keyboards import AdminKeyboards as Admin_kb
 from lexicon import *
-# from states import UserState
-# from utils import convert_datetime
+from states import UserState
+from utils import convert_datetime
 
 logging.basicConfig(level=logging.INFO)
 config: Config = load_config('.env')
@@ -24,9 +25,6 @@ default = DefaultBotProperties(parse_mode='HTML')
 
 bot: Bot = Bot(token=config.tg_bot.token, default=default)
 dp: Dispatcher = Dispatcher(storage=storage)
-
-kb = UserKeyboards()
-admin_kb = AdminKeyboards()
 
 admin_ids = config.tg_bot.admin_ids
 
@@ -38,7 +36,7 @@ cancel_requests = {}
 
 @dp.message(CommandStart() or Command('menu'))
 async def start(message: Message):
-    await message.answer(LEXICON['start_message'], reply_markup=kb.start_kb())
+    await message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())
 
     if not get_user(message.from_user.id):
         user = message.from_user
@@ -46,35 +44,35 @@ async def start(message: Message):
         database.add_user(user.id, user.username, phone_number)
 
 
-@dp.callback_query(lambda callback: callback.data == 'start_buy_button')
+@dp.callback_query(F.data == 'start_buy_button')
 async def start_buy_button(callback: CallbackQuery):
-    await callback.message.edit_text('Выберите позицию, которую хотите приобрести', reply_markup=kb.buy_kb())
+    await callback.message.edit_text('Выберите позицию, которую хотите приобрести', reply_markup=User_kb.buy_kb())
 
 
 @dp.callback_query(lambda callback: callback.data == 'start_sell_button')
 async def start_sell_button(callback: CallbackQuery):
-    await callback.message.edit_text('Выберите позицию, которую хотите продать', reply_markup=kb.sell_kb())
+    await callback.message.edit_text('Выберите позицию, которую хотите продать', reply_markup=User_kb.sell_kb())
 
 
 @dp.callback_query(lambda callback: callback.data == 'start_create_order_button')
 async def start_create_order_button(callback: CallbackQuery):
     await callback.message.edit_text('Выберите позицию, для которой хотите создать заявку на покупку',
-                                     reply_markup=kb.create_order_kb())
+                                     reply_markup=User_kb.create_order_kb())
 
 
 @dp.callback_query(lambda callback: callback.data == 'start_autoposter_discord_button')
 async def autoposter_discord_button(callback: CallbackQuery):
-    await callback.message.edit_text('Soon..', reply_markup=kb.back_to_start_kb())
+    await callback.message.edit_text('Soon..', reply_markup=User_kb.back_to_start_kb())
 
 
 @dp.callback_query(lambda callback: callback.data == 'back_to_start')
 async def back_to_start(callback: CallbackQuery):
-    await callback.message.edit_text(LEXICON['start_message'], reply_markup=kb.start_kb())
+    await callback.message.edit_text(LEXICON['start_message'], reply_markup=User_kb.start_kb())
 
 
 @dp.message(lambda message: message.text == '/admin' and message.from_user.id in admin_ids)
 async def admin(message: Message):
-    await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=admin_kb.menu_kb())
+    await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=Admin_kb.menu_kb())
 
 
 @dp.callback_query(lambda callback: callback.data.split('_')[-1] == 'virt')
@@ -86,7 +84,7 @@ async def handle_action_callback(callback: CallbackQuery):
     action_text = "приобрести" if action_type == 'buy' else "продать"
 
     await callback.message.edit_text(f"Выберите платформу, где хотите {action_text} виртуальную валюту.",
-                                     reply_markup=kb.game_kb(action_type))
+                                     reply_markup=User_kb.game_kb(action_type))
 
 
 @dp.callback_query(lambda callback: callback.data.startswith('game_'))
@@ -97,10 +95,10 @@ async def game_callback_handler(callback: CallbackQuery):
     game = callback.data.split('_')[-1]
     user_data[user_id]['game'] = game
     if game == 'gta5':
-        await callback.message.edit_text('теперь пикни проект', reply_markup=kb.projects_kb(action_type))
+        await callback.message.edit_text('теперь пикни проект', reply_markup=User_kb.projects_kb(action_type))
     else:
         await callback.message.edit_text("I'm sorry, малышка, не готово ещё",
-                                         reply_markup=kb.back_to_start_kb())  # TODO: доделать
+                                         reply_markup=User_kb.back_to_start_kb())  # TODO: доделать
 
 
 @dp.callback_query(lambda callback: callback.data.startswith('back_to_games_'))
@@ -112,7 +110,7 @@ async def back_to_games_callback(callback: CallbackQuery):
     action_text = "приобрести" if action_type == 'buy' else "продать"
 
     await callback.message.edit_text(f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
-                                     reply_markup=kb.game_kb(action_type))
+                                     reply_markup=User_kb.game_kb(action_type))
 
 
 @dp.callback_query(
@@ -139,7 +137,7 @@ async def handle_project_callback(callback: CallbackQuery):
 
     await callback.message.edit_text(
         f"Вы выбрали проект {project_name}. Выберите сервер для {action_text} виртуальной валюты:",
-        reply_markup=kb.servers_kb(servers_for_project))
+        reply_markup=User_kb.servers_kb(servers_for_project))
 
 
 @dp.callback_query(lambda callback: callback.data == 'back_to_projects')
@@ -151,7 +149,7 @@ async def handle_main_menu_callback(callback: CallbackQuery):
 
     await callback.message.edit_text(
         f"Выберите проект на котором хотите {action_text} виртуальную валюту.",
-        reply_markup=kb.projects_kb(action_type))
+        reply_markup=User_kb.projects_kb(action_type))
 
 
 @dp.callback_query(lambda callback: callback.data.startswith('back_to_'))
@@ -180,7 +178,7 @@ async def back_to(callback: CallbackQuery):
 
         await callback.message.edit_text(
             f"Вы выбрали проект {project_name}. Выберите сервер для {action_text} виртуальной валюты:",
-            reply_markup=kb.servers_kb(servers_for_project))
+            reply_markup=User_kb.servers_kb(servers_for_project))
 
 
 @dp.callback_query(lambda callback: callback.data.startswith('server_'))
@@ -196,7 +194,7 @@ async def handle_server_callback(callback: CallbackQuery):
     await callback.message.edit_text(
         f"Вы выбрали проект {project_name}, сервер {server_name}. "
         f"Теперь выберите количество виртуальной валюты, которое хотите {action_text}:",
-        reply_markup=kb.amount_kb())
+        reply_markup=User_kb.amount_kb())
 
 
 @dp.callback_query(lambda callback: callback.data.startswith('amount_'))
@@ -235,7 +233,7 @@ async def handle_amount_callback(callback: CallbackQuery):
                         f"└ Количество виртов: {'{:,}'.format(amount)}\n\n"
                         f"Итоговая цена: {'{:,}'.format(cost)} руб.\n\n"
                         f"Подтвердить?")
-        await callback.message.edit_text(confirm_text, reply_markup=kb.confirmation_of_creation_kb())
+        await callback.message.edit_text(confirm_text, reply_markup=User_kb.confirmation_of_creation_kb())
 
     await callback.answer()
 
@@ -320,10 +318,15 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
     action_message = "Выберите действие:"
 
     await send_order_info(matched_orders_id, buyer_id, seller_id, order_id)
-    message_buyer = await bot.send_message(buyer_id, action_message,
-                                           reply_markup=kb.confirmation_of_deal_buyer_kb(seller_id, matched_orders_id))
-    message_seller = await bot.send_message(seller_id, action_message,
-                                            reply_markup=kb.confirmation_of_deal_seller_kb(buyer_id, matched_orders_id))
+    message_buyer = await bot.send_message(
+        chat_id=buyer_id,
+        text=action_message,
+        reply_markup=User_kb.confirmation_of_deal_buyer_kb(seller_id, matched_orders_id)
+    )
+    message_seller = await bot.send_message(
+        chat_id=seller_id,
+        text=action_message,
+        reply_markup=User_kb.confirmation_of_deal_seller_kb(buyer_id, matched_orders_id))
 
     cancel_requests[chat_id]['buyer_message_id'] = message_buyer.message_id
     cancel_requests[chat_id]['seller_message_id'] = message_seller.message_id
@@ -452,7 +455,7 @@ async def account_info(message: Message):
                             f"├ Telegram ID: {tg_id}\n" \
                             f"└ Дата захода в бота: {created_at}\n"
 
-        await message.answer(account_info_text, reply_markup=kb.account_kb())
+        await message.answer(account_info_text, reply_markup=User_kb.account_kb())
 
     else:
         await message.answer("❔ Я не могу найти ваши данные")
@@ -489,7 +492,7 @@ async def process_my_orders(callback_query: CallbackQuery):
 
 @dp.message(Command('report'))
 async def report_command(message: Message):
-    await message.answer(LEXICON['report_message'], reply_markup=kb.report_kb())
+    await message.answer(LEXICON['report_message'], reply_markup=User_kb.report_kb())
 
 
 @dp.callback_query(lambda c: c.data == 'write_ticket')
@@ -546,7 +549,7 @@ async def process_problem_description(message: Message):
     complaint_text = message.text
     user_data[message.from_user.id]['complaint']['complaint_text'] = complaint_text
 
-    await message.answer("Выберите действие:", reply_markup=kb.send_report_kb())
+    await message.answer("Выберите действие:", reply_markup=User_kb.send_report_kb())
 
 
 @dp.callback_query(lambda c: c.data in ['send_ticket', 'cancel_ticket'])
@@ -624,7 +627,7 @@ async def support_command(message: Message):
                    "Телефон: +1234567890\n" \
                    "Telegram: @support_username\n"
 
-    await message.answer(support_info, reply_markup=kb.support_kb())
+    await message.answer(support_info, reply_markup=User_kb.support_kb())
 
 
 @dp.callback_query(lambda callback: callback.data == 'contact_support')
