@@ -8,9 +8,9 @@ class UserKeyboards:
         kb = InlineKeyboardMarkup(row_width=1)
 
         kb.add(
-            InlineKeyboardButton(text='Купить', callback_data='start_buy_button'),
+            InlineKeyboardButton(text='Купить', callback_data='start_buy_button'), # /ORDERS /ORDERSBIZ /ORDERSACC
             InlineKeyboardButton(text='Продать', callback_data='start_sell_button'),
-            InlineKeyboardButton(text='Создать заказ', callback_data='start_create_order_button'),
+            InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='start_create_order_button'),
             InlineKeyboardButton(text='Автопостер Discord', callback_data='start_autoposter_discord_button')
         )
 
@@ -29,7 +29,7 @@ class UserKeyboards:
         return kb
 
     def sell_kb(self):
-        kb = InlineKeyboardMarkup(row_width=2)
+        kb = InlineKeyboardMarkup(row_width=3)
 
         kb.add(
             InlineKeyboardButton(text='Вирты', callback_data='sell_virt'),
@@ -41,14 +41,12 @@ class UserKeyboards:
         return kb
 
     def create_order_kb(self):
-        kb = InlineKeyboardMarkup(row_width=2)
+        kb = InlineKeyboardMarkup(row_width=3)
 
         kb.add(
-            InlineKeyboardButton(text='Купить вирты', callback_data='buy_virt'),
-            InlineKeyboardButton(text='Продать вирты', callback_data='sell_virt'),
-            InlineKeyboardButton(text='Купить бизнес', callback_data='buy_business'),
-            InlineKeyboardButton(text='Продать бизнес', callback_data='sell_business'),
-            InlineKeyboardButton(text='Продать аккаунт', callback_data='sell_account')
+            InlineKeyboardButton(text='Вирты', callback_data='buy_virt'),
+            InlineKeyboardButton(text='Бизнес', callback_data='buy_business'),
+            InlineKeyboardButton(text='Аккаунт', callback_data='buy_account'),
         )
         kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_start'))
 
@@ -63,8 +61,8 @@ class UserKeyboards:
         kb = InlineKeyboardMarkup(row_width=2)
 
         kb.add(
-            InlineKeyboardButton(text='gta5', callback_data='game_gta5'),
-            InlineKeyboardButton(text='похуй чё', callback_data='game_other'),
+            InlineKeyboardButton(text='GTA5', callback_data='game_gta5'),
+            InlineKeyboardButton(text='SAMP, CRMP, MTA', callback_data='game_other'),
             InlineKeyboardButton(text='← Назад', callback_data=f'back_to_{action_type}')
         )
 
@@ -76,7 +74,11 @@ class UserKeyboards:
         kb.add(
             InlineKeyboardButton(text="GTA5RP", callback_data='project_GTA5RP'),
             InlineKeyboardButton(text="Majestic", callback_data='project_Majestic'),
+            InlineKeyboardButton(text="Grand RP GTA5", callback_data='aghafgsafasd'),
             InlineKeyboardButton(text="Radmir GTA5", callback_data='project_Radmir GTA5'),
+            InlineKeyboardButton(text="Arizona RP GTA5", callback_data='fasfasfasfasfa'),
+            InlineKeyboardButton(text="RMRP GTA5", callback_data='fasfasfasfasfasfaf'),
+
             InlineKeyboardButton(text='← Назад', callback_data=f'back_to_games_{action_type}')
         )
 
