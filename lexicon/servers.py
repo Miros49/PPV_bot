@@ -1,4 +1,4 @@
-# GTA5
+# ----------------------------------GTA5
 
 # GTA5RP
 GTA5RP_SERVERS = [
@@ -26,8 +26,8 @@ ARIZONA_RP_GTA5_SERVERS = ['Liberty', 'Milton']
 # RMRP GTA5
 RMRP_GTA5_SERVERS = ['Рублёвка', 'Арбат']
 
-# CRMP, SAMP, MTA
 
+# ------------------------ CRMP, SAMP, MTA
 # Black Russia
 BLACK_RUSSIA_SERVERS = ["1. RED ", "2. GREEN ", "3. BLUE ", "4. ELLOW ", "5. ORANGE", "6. PURPLE", '7. LIME', '8. PINK',
                         '9. CHERRY', '10. BLACK', '11. INDIGO', '12. WHITE', '13. MAGENTA ',
@@ -65,3 +65,18 @@ NEXT_RP_SERVERS = ['1. Центральный', '2. Кавказский', '3. �
 
 # Evolve RP
 EVOLVE_RP_SERVERS = ['Saint-Louis']
+
+
+SERVERS = {
+    'GTA5RP': GTA5RP_SERVERS,
+    'Majestic': MAJESTIC_GTA5_SERVERS,
+    'Radmir GTA5': RADMIR_GTA5_SERVERS,
+    'Grand RP GTA5': GRAND_RP_GTA5_SERVERS,
+    'Arizona RP GTA5': ARIZONA_RP_SERVERS,
+    'RMRP GTA5': RMRP_GTA5_SERVERS,
+    'Black Russia': BLACK_RUSSIA_SERVERS,
+    'Arizona RP': ARIZONA_RP_SERVERS,
+    'Radmir RP': RADMIR_RP_SERVERS,
+    'NEXTRP': NEXT_RP_SERVERS,
+    'Evolve RP': EVOLVE_RP_SERVERS
+}

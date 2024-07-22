@@ -1,5 +1,14 @@
+from aiogram.fsm.storage.memory import MemoryStorage
+
 from dataclasses import dataclass
 from environs import Env
+
+
+user_data = {}
+active_chats = {}
+cancel_requests = {}
+
+storage = MemoryStorage()
 
 
 @dataclass
@@ -9,8 +18,14 @@ class TgBot:
 
 
 @dataclass
+class Payment:
+    token: str
+
+
+@dataclass
 class Config:
     tg_bot: TgBot
+    payment: Payment
 
 
 def load_config(path: str | None) -> Config:
@@ -21,5 +36,6 @@ def load_config(path: str | None) -> Config:
         tg_bot=TgBot(
             token=env('BOT_TOKEN'),
             admin_ids=list(map(int, env.list('ADMIN_IDS')))
-        )
+        ),
+        payment=Payment(token=env('PAYMENT_TOKEN'))
     )
