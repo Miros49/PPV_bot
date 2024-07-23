@@ -149,7 +149,7 @@ def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_orders_id: str |
 def support_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.add(InlineKeyboardButton(text='Связаться с поддержкой', callback_data='contact_support'))
+    kb.add(InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/hatepizza'))
 
     return kb.as_markup()
 

@@ -194,13 +194,13 @@ async def watch_other_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith('amount_'), StateFilter(default_state))
-async def handle_amount_callback(callback: CallbackQuery):
+async def handle_amount_callback(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     amount_value = callback.data.split('_')[1]
 
     if amount_value == 'custom':
-        await bot.send_message(callback.from_user.id, "Введите нужное количество виртуальной валюты:")
-        await callback.message.delete()
+        await callback.message.edit_text(callback.from_user.id, "Введите нужное количество виртуальной валюты:")
+        await state.set_state(UserStates.input_amount)
     else:
         amount = int(amount_value)
         if amount < 500000 or amount > 1000000000000:
@@ -233,25 +233,22 @@ async def handle_amount_callback(callback: CallbackQuery):
     await callback.answer()
 
 
+@router.message(StateFilter(UserStates.input_amount))
+async def input_amount(message: Message, state: FSMContext):
+    amount = message.text
+    if amount.isnumeric() and 500000 < int(amount) < 100000000000:
+        await message.answer('доделать')
+        await state.clear()
+    else:
+        await message.answer('Неправильно, попробуй ещё раз. Где буква "ы"?')
+
+
 @router.message(StateFilter(UserStates.input_business_name))
 async def business_name(message: Message, state: FSMContext):
     await message.answer(LEXICON['input_business_price'])
     data = await state.get_data()
-    data['name'] = message.text
-    await state.set_state(UserStates.input_business_price)
-    await state.update_data(data)
-
-
-@router.message(StateFilter(UserStates.input_business_price))
-async def business_price(message: Message, state: FSMContext):
-    try:
-        price_ = int(message.text)
-    except ValueError:
-        return await message.answer(LEXICON['incorrect_price'])
-
-    data = await state.get_data()
     await message.answer(
-        text=LEXICON['confirm_text_business'].format(data['project'], data['server'], data['name'], price_),
+        text=LEXICON['confirm_text_business'].format(data['project'], data['server'], message.text, 1000),
         reply_markup=User_kb.confirmation_of_creation_kb('business')
     )
     await state.clear()
@@ -261,21 +258,8 @@ async def business_price(message: Message, state: FSMContext):
 async def account_description(message: Message, state: FSMContext):
     await message.answer(LEXICON['input_account_price'])
     data = await state.get_data()
-    data['description'] = message.text
-    await state.set_state(UserStates.input_account_price)
-    await state.update_data(data)
-
-
-@router.message(StateFilter(UserStates.input_account_price))
-async def account_price(message: Message, state: FSMContext):
-    try:
-        price_ = int(message.text)
-    except ValueError:
-        return await message.answer(LEXICON['incorrect_price'])
-
-    data = await state.get_data()
     await message.answer(
-        text=LEXICON['confirm_text_account'].format(data['project'], data['server'], data['description'], price_),
+        text=LEXICON['confirm_text_account'].format(data['project'], data['server'], message.text, 1000),
         reply_markup=User_kb.confirmation_of_creation_kb('account')
     )
     await state.clear()
@@ -738,12 +722,6 @@ async def confirmation_of_buying(callback: CallbackQuery):
 def todo() -> None:
     # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
 
-    # TODO: (по технологии /orders)
-    #       /ordersbiz - Выбор платформы, проекта => выдает ордера
-    #       /ordersacc - Выбор платформы, проекта, сервера => выдает ордера
-
-    # TODO: Исправить user id. На один ТГ аккаунт будет 1 user id.
-
     # TODO: /report
     #       ID заказа на которы подается жалоба - соединение двух ордеров, которые взаимодействуют.
     #       (это не ID order не путай!, у каждого ордера свой ордер id)
@@ -758,8 +736,6 @@ def todo() -> None:
     #       Кнопки подветрждения и отмена сделки. + Кнопки с необходимой инфой.
     #       С инфой об самом ордере, об обоих пользователях, переписка.
 
-    # TODO: support увидишь в ЛС (по аналогии с ГБ)
-
     # TODO: Главное меню - /start /menu (ВАЖНО! ЦЕНА ДЛЯ ПОКУПКИ БУДЕТ ВЫШЕ ЦЕНЫ ДЛЯ ПРОДАЖИ НА 30%)
     #       Выводится одно полное сообщение-приветствие с прикрепленными кнопками - Купить Продать Создать заявку
     #       (Автопостер Discord, в разработке)
@@ -772,8 +748,6 @@ def todo() -> None:
     #       Виртуальная валюта - ввод платформы, проекта, сервера, кол-во валюты, подтверждение.
 
     # TODO: Баланс, платежка
-
-    # TODO: gmt +3
 
     # TODO: Нужно везде сделать ограничение по виртам. Минимум 500000 максимум 100000000000,
     #  и так же по цене, минимум 100 рублей максимум 1000000
