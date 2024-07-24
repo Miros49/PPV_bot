@@ -89,7 +89,6 @@ async def handle_business_callback(callback: CallbackQuery):
 async def handle_business_callback(callback: CallbackQuery):
     action_type = callback.data.split('_')[-1]
     action_text = "приобрести" if action_type in ['buy', 'show'] else "продать"
-    print(action_type, action_text)
     await callback.message.edit_text(f"Выберите платформу, где хотите {action_text} аккаунт.",
                                      reply_markup=User_kb.game_kb('account', action_type))
 
@@ -195,57 +194,58 @@ async def watch_other_handler(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith('amount_'), StateFilter(default_state))
 async def handle_amount_callback(callback: CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
     amount_value = callback.data.split('_')[1]
+    project = callback.data.split('_')[2]
+    server = callback.data.split('_')[3]
+    action_type = callback.data.split('_')[-1]
 
     if amount_value == 'custom':
-        await callback.message.edit_text(callback.from_user.id, "Введите нужное количество виртуальной валюты:")
+        await callback.message.edit_text("Введите нужное количество виртуальной валюты:")
         await state.set_state(UserStates.input_amount)
+        await state.update_data({'project': project, 'server': server, 'action_type': action_type})
+
     else:
         amount = int(amount_value)
-        if amount < 500000 or amount > 1000000000000:
-            await bot.send_message(user_id, "🤕 Количество виртуальной валюты должно быть от 500,000")
-            return await callback.answer()
-
-        action_type = callback.data.split('_')[-1]
-        project = callback.data.split('_')[2]
-        server = callback.data.split('_')[3]
         try:
             price_per_million = PRICE_PER_MILLION_VIRTS[project][action_type]
         except KeyError:
             price_per_million = 100
         cost = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
-
+        cost, amount = '{:,}'.format(cost), '{:,}'.format(amount)
         action_text = 'Купить' if action_type == 'buy' else 'Продать'
 
-        confirm_text = (f"Ваш заказ:\n"
-                        f"├ Операция: {action_text}\n"
-                        f"├ Проект: {project}\n"
-                        f"├ Сервер: {server}\n"
-                        f"└ Количество виртов: {'{:,}'.format(amount)}\n\n"
-                        f"Итоговая цена: {'{:,}'.format(cost)} руб.\n\n"
-                        f"Подтвердить?")
         await callback.message.edit_text(
-            text=confirm_text,
+            text=LEXICON['confirm_text_virt'].format(action_text, project, server, amount, cost),
             reply_markup=User_kb.confirmation_of_creation_kb('virt')
         )
-
-    await callback.answer()
 
 
 @router.message(StateFilter(UserStates.input_amount))
 async def input_amount(message: Message, state: FSMContext):
     amount = message.text
     if amount.isnumeric() and 500000 < int(amount) < 100000000000:
-        await message.answer('доделать')
+        data = await state.get_data()
+        amount = int(amount)
+        try:
+            price_per_million = PRICE_PER_MILLION_VIRTS[data['project']][data['action_type']]
+        except KeyError:
+            price_per_million = 100
+        action_text = 'Купить' if data['action_type'] == 'buy' else 'Продать'
+        cost = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
+        cost, amount = '{:,}'.format(cost), '{:,}'.format(amount)
+
+        await message.answer(
+            text=LEXICON['confirm_text_virt'].format(action_text, data['project'], data['server'], amount, cost),
+            reply_markup=User_kb.confirmation_of_creation_kb('virt')
+        )
         await state.clear()
+
     else:
-        await message.answer('Неправильно, попробуй ещё раз. Где буква "ы"?')
+        await message.answer('Неверный формат ввода. Попробуйте ещё раз.', reply_markup=User_kb.cancel_kb())
 
 
 @router.message(StateFilter(UserStates.input_business_name))
 async def business_name(message: Message, state: FSMContext):
-    await message.answer(LEXICON['input_business_price'])
     data = await state.get_data()
     await message.answer(
         text=LEXICON['confirm_text_business'].format(data['project'], data['server'], message.text, 1000),
@@ -256,7 +256,6 @@ async def business_name(message: Message, state: FSMContext):
 
 @router.message(StateFilter(UserStates.input_account_description))
 async def account_description(message: Message, state: FSMContext):
-    await message.answer(LEXICON['input_account_price'])
     data = await state.get_data()
     await message.answer(
         text=LEXICON['confirm_text_account'].format(data['project'], data['server'], message.text, 1000),
@@ -509,6 +508,20 @@ async def process_write_ticket_callback(callback: CallbackQuery, state: FSMConte
         return await callback.message.edit_text('🤕 Похоже, у Вас ещё нет совершённых сделок')
 
 
+@router.callback_query(F.data == 'my_tickets')
+async def process_my_tickets_callback(callback: CallbackQuery):
+    reports = complaints(callback.from_user.id)
+
+    if not reports:
+        return await callback.message.edit_text('У вас ещё нет жалоб')
+
+    text = ''
+    for report in reports:
+        text += LEXICON['report'].format(*report)
+
+    await callback.message.edit_text(text)
+
+
 @router.message(StateFilter(UserStates.waiting_for_order_id))
 async def process_order_id(message: Message, state: FSMContext):
     try:
@@ -614,53 +627,11 @@ async def info_command(message: Message):
     await message.answer(LEXICON['info_message'])
 
 
-# @dp.callback_query(lambda query: query.data.startswith('watch-other_'))
-# async def watch_other_callback(query: CallbackQuery):
-#     user_id = query.from_user.id
-#     _, project, server, watched_orders = query.data.split('_')
-#     watched_orders = list(map(int, watched_orders.split('-')))
-#     print(watched_orders)
-#
-#     kb = InlineKeyboardMarkup(row_width=1)
-#     kb.add(InlineKeyboardButton(text="✅ Купить!", callback_data=f'buy_order_{str(watched_orders[-1])}'))
-#     await query.message.edit_text(query.message.text, reply_markup=kb)
-#
-#     orders = get_pending_sell_orders(user_id, project, server)
-#
-#     if not orders:
-#         return await query.message.edit_text("Выше я предоставил все ордера по вашему запросу.")
-#
-#     orders_num = 0
-#     for order in orders:
-#         order_id, user_id, username, action, project, server, amount, status, created_at = order
-#
-#         if order_id in watched_orders:
-#             continue
-#
-#         price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
-#         price = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) *
-#                           (price_per_million / 1000000))
-#
-#         orders_text = ''
-#
-#         kb = InlineKeyboardMarkup(row_width=1)
-#         kb.add(InlineKeyboardButton(text="✅ Купить!", callback_data=f'buy_order_{str(order_id)}'))
-#
-#         if orders_num == 4:
-#             kb.add(InlineKeyboardButton(
-#                 text='⏬ Посмотреть ещё',
-#                 callback_data=f'watch_other_{project}_{server}_{"-".join(user_data[user_id]["watched_orders"])}')
-#             )
-#             return await query.message.answer(orders_text, reply_markup=kb)
-#
-#         await query.message.answer(orders_text, reply_markup=kb)
-#
-#         watched_orders.append(order_id)
-#         orders_num += 1
-#
-#
 @router.callback_query(F.data.startswith('buy_order_'), StateFilter(default_state))
 async def buy_order(callback: CallbackQuery):
+    if utils.extract_price(callback.message) > get_balance(callback.from_user.id):
+        return await callback.message.answer(f'Недостаточно средств')
+
     await callback.message.edit_text(
         text=callback.message.text + '\n\n🤔 Вы уверены?',
         reply_markup=User_kb.buy_order_kb(callback.data.split('_')[-1])
@@ -676,58 +647,11 @@ async def confirmation_of_buying(callback: CallbackQuery):
 
     await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
     await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id)
-
-
-# @dp.message(
-#     lambda message: message.from_user.id in user_data and 'amount' not in user_data[
-#         message.from_user.id] and '/orders' != message.text and message.from_user.id not in active_chats)
-# async def handle_custom_amount(message: Message):
-#     user_id = message.from_user.id
-#     try:
-#         amount = int(message.text.replace(".", "").replace(",", ""))
-#         if amount < 500000 or amount > 1000000000000:
-#             await message.answer("❔ Минимальное кол-во виртуальной валюты: 500.000 ")
-#             return
-#
-#         user_data[user_id]['amount'] = amount
-#
-#         action_type = user_data[user_id]['action']
-#         project = user_data[user_id]['project']
-#         server = user_data[user_id]['server']
-#
-#         price_per_million = PRICE_PER_MILLION_VIRTS[project][action_type.lower()]
-#         price = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) *
-#                           (price_per_million / 1000000))
-#
-#         if action_type == 'buy':
-#             action_text = "Купить"
-#         elif action_type == 'sell':
-#             action_text = "Продать"
-#         else:
-#             action_text = ""
-#
-#         confirm_text = (f"Ваш заказ:\n"
-#                         f"├ Операция: {action_text}\n"
-#                         f"├ Проект: {project}\n"
-#                         f"├ Сервер: {server}\n"
-#                         f"└ Количество виртов: {'{:,}'.format(amount)}\n\n"
-#                         f"Итоговая цена: {'{:,}'.format(price)} руб.\n\n"
-#                         f"Подтвердить?")
-#
-#         await message.answer(confirm_text, reply_markup=kb.confirmation_of_creation_kb())
-#     except ValueError:
-#         await message.answer("❔ Я не знаю таких чисел, введите пожалуйста корректное число")
+    edit_balance(callback.from_user.id, -utils.extract_price(callback.message))
 
 
 def todo() -> None:
     # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
-
-    # TODO: /report
-    #       ID заказа на которы подается жалоба - соединение двух ордеров, которые взаимодействуют.
-    #       (это не ID order не путай!, у каждого ордера свой ордер id)
-    #       Репорт будет выглядеть так - Ввод ID заказа, ввод проблемы, подтверждение.
-    #       (без user id, при подачи жалобы автоматически будет браться user id противоположного человека в заказе)
-    #       Пользователь может подать репорт только на свой заказ в котором он принимал или принимает участие.
 
     # TODO: /admin
     #       Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки:

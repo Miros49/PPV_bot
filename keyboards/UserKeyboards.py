@@ -25,7 +25,7 @@ def create_ordeer_kb():
     kb.add(
         InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='start_create_order_button'),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_show')
-    ).adjust(2)
+    ).adjust(1)
 
     return kb.as_markup()
 
@@ -168,8 +168,8 @@ def account_kb():
 def report_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text="Написать тикет", callback_data="write_ticket"),
-           InlineKeyboardButton(text="Мои тикеты", callback_data="my_tickets"))
+    kb.row(InlineKeyboardButton(text="Написать жалобу", callback_data="write_ticket"),
+           InlineKeyboardButton(text="Мои жалобы", callback_data="my_tickets"))
 
     return kb.as_markup()
 
@@ -178,8 +178,8 @@ def send_report_kb():
     kb = InlineKeyboardBuilder()
 
     kb.row(
-        InlineKeyboardButton(text="Отправить тикет", callback_data="send_ticket"),
-        InlineKeyboardButton(text="Отменить тикет", callback_data="cancel_ticket")
+        InlineKeyboardButton(text="Оставить жалобу", callback_data="send_ticket"),
+        InlineKeyboardButton(text="Отменить", callback_data="cancel_ticket")
     )
 
     return kb.as_markup()

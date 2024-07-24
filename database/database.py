@@ -67,7 +67,7 @@ def create_tables():
                             offender_id INTEGER,
                             complaint TEXT,
                             status TEXT DEFAULT 'open',
-                            timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
     conn.commit()
     conn.close()
@@ -118,7 +118,7 @@ def create_report(order_id: int | str, complainer_id: int | str, offender_id: in
     cursor = conn.cursor()
     current_time = get_current_time_formatted()
     cursor.execute("""
-        INSERT INTO reports (order_id, complainer_id, offender_id, complaint, timestamp)
+        INSERT INTO reports (order_id, complainer_id, offender_id, complaint, created_at)
         VALUES (?, ?, ?, ?, ?)
     """, (int(order_id), int(complainer_id), int(offender_id), complaint, current_time))
     conn.commit()
@@ -139,7 +139,7 @@ def get_user(user_id):
 
 
 def get_bot_user_id(user_id):
-    conn = sqlite3.connect('database/database.db')
+    conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id,))  # TODO: нафиг отсюда
     bot_user_id = cursor.fetchone()[0]
@@ -159,6 +159,17 @@ def get_user_id_by_id(user_id_in_database: int) -> int | None:
     if result:
         return result[0]
     return None
+
+
+def get_user_by_id(user_id_in_database: int):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id_in_database,))
+    result = cursor.fetchone()
+    conn.close()
+
+    return result
 
 
 def get_orders_by_user_id(user_id):
@@ -181,16 +192,24 @@ def get_user_id_by_order(order_id: int | str) -> int:
     conn = sqlite3.connect(database_file)
 
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT user_id
-        FROM orders
-        WHERE id = ?
-    """, (int(order_id),))
+    cursor.execute("""SELECT user_id FROM orders WHERE id = ?""", (int(order_id),))
 
     result = cursor.fetchone()
     conn.close()
 
     return result[0] if result else None
+
+
+def get_balance(user_id: int | str):
+    conn = sqlite3.connect(database_file)
+
+    cursor = conn.cursor()
+    cursor.execute("""SELECT balance FROM users WHERE user_id = ?""", (int(user_id),))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result[0]
 
 
 def edit_balance(user_id: int, amount: float | int):
@@ -205,14 +224,10 @@ def edit_balance(user_id: int, amount: float | int):
     conn.close()
 
 
-def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, float, str, str]:
+def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, str, float, str, str]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    cursor.execute("""
-                SELECT *
-                FROM orders
-                WHERE id = ?
-            """, (int(order_id),))
+    cursor.execute("""SELECT * FROM orders WHERE id = ?""", (int(order_id),))
     result = cursor.fetchone()
     conn.close()
     return result if result else None
@@ -254,7 +269,7 @@ def match_orders(user_id, action, project, server, amount):
     conn.close()
 
     if match:
-        return match[0], match[1]  # Returning order_id and user_id of the matched order
+        return match[0], match[1]
     return None
 
 
@@ -262,14 +277,16 @@ def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) 
         -> List[Tuple[int, int, str, str, str, str, str, float, str, str, str]]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT *
-        FROM orders
+
+    print(item, project, server)
+
+    cursor.execute("""SELECT * FROM orders
         WHERE user_id != ? AND action = 'sell' AND item = ? AND project = ? AND server = ? AND status = 'pending'
-        ORDER BY amount ASC
-    """, (user_id, item, project, server))
+        ORDER BY amount ASC""", (user_id, item, project, server))
+
     orders = cursor.fetchall()
     conn.close()
+
     return orders
 
 
@@ -282,16 +299,29 @@ def get_report(report_id: int | str) -> Tuple[int, int, int, int, str, str, str]
     return report
 
 
-def get_open_reports() -> List[Tuple[int, int, int, int, str]]:
+def get_open_complaints() -> List[Tuple[int, int, int, int, str, str]]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('''SELECT id, order_id, complainer_id, offender_id, complaint FROM reports WHERE status = 'open' ''')
-    open_reports = cursor.fetchall()
+    cursor.execute(
+        '''SELECT id, order_id, complainer_id, offender_id, complaint, created_at FROM reports WHERE status = 'open' ''')
 
+    open_reports = cursor.fetchall()
     conn.close()
 
     return open_reports
+
+
+def complaints(user_id) -> List[Tuple[int, int, str]]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''SELECT id, order_id, created_at, complaint FROM reports WHERE complainer_id = ? ''', (user_id,))
+
+    report_info = cursor.fetchall()
+    conn.close()
+
+    return report_info
 
 
 def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:

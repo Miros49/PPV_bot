@@ -15,8 +15,8 @@ default = DefaultBotProperties(parse_mode='HTML')
 bot: Bot = Bot(token=config.tg_bot.token, default=default)
 dp: Dispatcher = Dispatcher(storage=storage)
 
-dp.include_router(UserHandlers.router)
 dp.include_router(AdminHandlers.router)
+dp.include_router(UserHandlers.router)
 dp.include_router(PaymentHandlers.router)
 
 
