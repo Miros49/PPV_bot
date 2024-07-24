@@ -5,12 +5,6 @@ from datetime import datetime
 from lexicon import *
 
 
-# def convert_datetime(datetime_str: str) -> str:
-#     dt = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
-#
-#     return dt.strftime('%d.%m.%Y %H:%M')
-
-
 def determine_game(project: str):
     if project in PROJECTS['gta5']:
         return 'gta5'
@@ -115,3 +109,15 @@ def get_item_text_servers(item: str) -> str:
     elif item == 'business':
         return 'бизнеса'
     return 'аккаунта'
+
+
+def extract_price(message):
+    for line in message.split('\n'):
+        if line.startswith("Цена:"):
+            price_str = line.split(":")[1].strip().replace("руб", "").replace(" ", "")
+            try:
+                price = int(price_str)
+                return price
+            except ValueError:
+                return None
+    return None
