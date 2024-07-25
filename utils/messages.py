@@ -141,8 +141,10 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
                                (price_per_million / 1000000))
         elif item == 'business':
             item_text = f"Название бизнеса: {description}"
+            amount *= 1.3
         else:
             item_text = f"Описание аккаунта: {description}"
+            amount *= 1.3
 
         orders_text = LEXICON['orders_message'].format(
             id=order_id,

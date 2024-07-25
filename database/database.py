@@ -69,6 +69,13 @@ def create_tables():
                             status TEXT DEFAULT 'open',
                             created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS prices (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            item TEXT,
+                            project TEXT,
+                            server TEXT,
+                            price INTEGER DEFAULT 100)''')
+
     conn.commit()
     conn.close()
 
@@ -243,6 +250,15 @@ def update_order_status(order_id, status):
     """, (status, order_id))
     conn.commit()
     conn.close()
+
+
+def get_item(order_id: int | str) -> str:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+    cursor.execute('''SELECT item FROM orders WHERE id = ?''', (int(order_id),))
+    item = cursor.fetchone()
+    conn.close()
+    return item
 
 
 def match_orders(user_id, action, project, server, amount):

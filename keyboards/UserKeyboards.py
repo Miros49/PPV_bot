@@ -126,8 +126,10 @@ def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_orders_id: str |
         InlineKeyboardButton(text="📢 Сообщить о нарушении",
                              callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}'))
     kb.row(
-        InlineKeyboardButton(text="✅ Подтвердить сделку", callback_data='confirmation_of_deal_confirm'),
-        InlineKeyboardButton(text="❌ Отменить сделку", callback_data='confirmation_of_deal_cancel')
+        InlineKeyboardButton(text="✅ Подтвердить сделку",
+                             callback_data=f'confirmation_of_deal_confirm_{str(matched_orders_id)}'),
+        InlineKeyboardButton(text="❌ Отменить сделку",
+                             callback_data=f'confirmation_of_deal_cancel_{str(matched_orders_id)}')
     )
 
     return kb.as_markup()

@@ -338,8 +338,8 @@ async def report_callback(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer('📝 Пожалуйста, опишите подробно суть проблемы:')
 
 
-@router.callback_query(F.data.startswith('confirmation_of_deal_'))
-async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data.startswith('confirmation_of_deal'))
+async def handle_chat_action_callback(callback: CallbackQuery):
     user_id = callback.from_user.id
     action = callback.data.split('_')[-1]
     chat_id = active_chats[user_id]
@@ -348,21 +348,22 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
     if action == 'cancel':
         cancel_requests[chat_id][user_id] = True
-
-        await bot.delete_message(user_id, callback.message.message_id)
+        await callback.answer()
 
         if user_id == seller_id:
             del active_chats[buyer_id]
             del active_chats[seller_id]
-
-            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
-            await bot.send_message(seller_id, "🚫 Сделка отменена.")
 
             buyer_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=buyer_id, user_id=buyer_id))
             seller_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=seller_id, user_id=seller_id))
 
             await buyer_state.clear()
             await seller_state.clear()
+
+            edit_balance(buyer_id, utils.get_price(ord))
+
+            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
+            await bot.send_message(seller_id, "🚫 Сделка отменена.")
 
             try:
                 await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
@@ -405,6 +406,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
     elif action == 'confirm':
         if user_id == buyer_id:
+            # edit_balance(seller_id, )
 
             cancel_requests[chat_id][user_id] = True
 
@@ -629,19 +631,29 @@ async def info_command(message: Message):
 
 @router.callback_query(F.data.startswith('buy_order_'), StateFilter(default_state))
 async def buy_order(callback: CallbackQuery):
-    if utils.extract_price(callback.message) > get_balance(callback.from_user.id):
+    order_id = callback.data.split('_')[-1]
+
+    if utils.get_price(order_id) > get_balance(callback.from_user.id):
+        await callback.answer()
         return await callback.message.answer(f'Недостаточно средств')
 
     await callback.message.edit_text(
         text=callback.message.text + '\n\n🤔 Вы уверены?',
-        reply_markup=User_kb.buy_order_kb(callback.data.split('_')[-1])
+        reply_markup=User_kb.buy_order_kb(order_id)
     )
 
 
 @router.callback_query(F.data.startswith('confirmation_of_buying_'), StateFilter(default_state))
 async def confirmation_of_buying(callback: CallbackQuery):
     order_id = callback.data.split('_')[-1]
+
+    if utils.get_price(order_id) > get_balance(callback.from_user.id):
+        await callback.answer()
+        return await callback.message.answer(f'Недостаточно средств')
+
     buyer_id = callback.from_user.id
+    edit_balance(buyer_id, utils.get_price(order_id))
+
     seller_id = get_user_id_by_order(order_id)
     matched_orders_id = create_matched_order(buyer_id, 0, seller_id, int(order_id))
 
@@ -675,5 +687,7 @@ def todo() -> None:
 
     # TODO: Нужно везде сделать ограничение по виртам. Минимум 500000 максимум 100000000000,
     #  и так же по цене, минимум 100 рублей максимум 1000000
+
+    # TODO: если пользователю напишут во время другого чата
 
     pass

@@ -1,7 +1,9 @@
+import math
 import re
 
 from datetime import datetime
 
+from database import get_order
 from lexicon import *
 
 
@@ -112,12 +114,24 @@ def get_item_text_servers(item: str) -> str:
 
 
 def extract_price(message):
-    for line in message.split('\n'):
-        if line.startswith("Цена:"):
-            price_str = line.split(":")[1].strip().replace("руб", "").replace(" ", "")
-            try:
-                price = int(price_str)
-                return price
-            except ValueError:
-                return None
+    pattern = r'Цена:\s+(\d+\.\d+)\s+руб'
+
+    match = re.search(pattern, message)
+
+    if match:
+        return int(float(match.group(1)))
+
     return None
+
+
+def get_price(order_id: str | int, action_type: str = 'sell'):
+    order = get_order(order_id)
+    item, amount = order[4], order[7]
+
+    if item == 'virt':
+        try:
+            price_per_million = PRICE_PER_MILLION_VIRTS[order[5]][action_type]
+        except KeyError:
+            price_per_million = 100
+        return math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
+    return amount
