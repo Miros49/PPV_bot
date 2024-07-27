@@ -1,4 +1,5 @@
 import datetime
+import math
 import sqlite3
 
 from typing import List, Tuple, Optional
@@ -30,8 +31,9 @@ def create_tables():
                         item TEXT,
                         project TEXT,
                         server TEXT,
-                        amount REAL,
+                        amount INTEGER,
                         description TEXT,
+                        price INTEGER,
                         status TEXT DEFAULT 'pending',
                         created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
@@ -71,10 +73,10 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS prices (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            item TEXT,
                             project TEXT,
                             server TEXT,
-                            price INTEGER DEFAULT 100)''')
+                            buy INTEGER DEFAULT 100,
+                            sell INTEGER DEFAULT 100)''')
 
     conn.commit()
     conn.close()
@@ -96,14 +98,14 @@ def add_user(user_id, username, phone_number):
     conn.close()
 
 
-def add_order(user_id, username, action, item, project, server, amount, description: str = None):
+def add_order(user_id, username, action, item, project, server, amount, price, description: str = None):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     current_time = get_current_time_formatted()
     cursor.execute("""
-        INSERT INTO orders (user_id, username, action, item, project, server, amount, description, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (user_id, username, action, item, project, server, amount, description, current_time))
+        INSERT INTO orders (user_id, username, action, item, project, server, amount, description, price, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, username, action, item, project, server, amount, description, price, current_time))
     order_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -294,8 +296,6 @@ def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) 
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    print(item, project, server)
-
     cursor.execute("""SELECT * FROM orders
         WHERE user_id != ? AND action = 'sell' AND item = ? AND project = ? AND server = ? AND status = 'pending'
         ORDER BY amount ASC""", (user_id, item, project, server))
@@ -410,3 +410,75 @@ def check_matched_order(matched_order_id: int, user_id: int) -> bool:
     result = cursor.fetchone()
     conn.close()
     return result is not None
+
+
+def add_prices(item: str, project: str, buy_price: str | int, sell_price: str | int):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""SELECT id FROM prices WHERE item = ? AND project = ?""", (item, project))
+    result = cursor.fetchone()
+
+    if result:
+        cursor.execute("""
+            UPDATE prices
+            SET buy = ?, sell = ?
+            WHERE id = ?
+        """, (int(buy_price), int(sell_price), result[0]))
+    else:
+        cursor.execute("""
+            INSERT INTO prices (item, project, buy, sell)
+            VALUES (?, ?, ?, ?)
+        """, (item, project, int(buy_price), int(sell_price)))
+
+    conn.commit()
+    conn.close()
+
+
+def get_old_prices(item: str, project: str):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""SELECT buy, sell FROM prices WHERE item = ? AND project = ?""", (item, project))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result
+
+
+def get_db_price(order_id: str | int, action_type: str) -> int | float:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    order = get_order(int(order_id))
+    item, project, amount = order[4], order[5], order[7]
+
+    if action_type == 'buy':
+        cursor.execute('SELECT buy FROM prices WHERE item = ? AND project = ?', (item, project))
+    else:
+        cursor.execute('SELECT sell FROM prices WHERE item = ? AND project = ?', (item, project))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    if item == 'virt':
+        price_per_million = result[0] if result else 100
+        return math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
+
+    return amount if action_type == 'sell' else amount * 1.3
+
+
+def get_price(project: str, server: str, action_type: str) -> int | float:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    if action_type == 'buy':
+        cursor.execute('SELECT buy FROM prices WHERE project = ? AND server = ?', (project, server))
+    else:
+        cursor.execute('SELECT sell FROM prices WHERE project = ? AND server = ?', (project, server))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result[0] if result else 100

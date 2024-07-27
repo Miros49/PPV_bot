@@ -21,23 +21,27 @@ def parse_message_virt(message: str):
     project_pattern = re.compile(r'Проект: (.+)')
     server_pattern = re.compile(r'Сервер: (.+)')
     amount_pattern = re.compile(r'Количество виртов: ([\d,]+)')
+    price_pattern = re.compile(r'Итоговая цена: (\d+)\s*руб\.')
 
     action_type_match = action_type_pattern.search(message)
     project_match = project_pattern.search(message)
     server_match = server_pattern.search(message)
     amount_match = amount_pattern.search(message)
+    price_match = price_pattern.search(message)
 
     if action_type_match and project_match and server_match and amount_match:
         action_type = action_type_match.group(1).strip()
         project = project_match.group(1).strip()
         server = server_match.group(1).strip()
         amount = amount_match.group(1).strip().replace(',', '')
+        price_ = price_match.group(1).strip()
 
         return {
             'action_type': action_type,
             'project': project,
             'server': server,
-            'amount': amount
+            'amount': int(amount),
+            'price': int(price_)
         }
     else:
         return None
@@ -124,14 +128,20 @@ def extract_price(message):
     return None
 
 
-def get_price(order_id: str | int, action_type: str = 'sell'):
-    order = get_order(order_id)
-    item, amount = order[4], order[7]
+# def get_price(order_id: str | int, user: str):
+#     order = get_order(order_id)
+#     amount = order[7]
+#
+#     if order[4] == 'virt':
+#         try:
+#             price_per_million = PRICE_PER_MILLION_VIRTS[order[5]][user[:-2]]
+#         except KeyError:
+#             price_per_million = 100
+#         return math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
+#
+#     return amount if user == 'seller' else amount * 1.3
 
-    if item == 'virt':
-        try:
-            price_per_million = PRICE_PER_MILLION_VIRTS[order[5]][action_type]
-        except KeyError:
-            price_per_million = 100
-        return math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
-    return amount
+
+def calculate_price(amount: str | int, price_per_million: int):
+    return math.ceil(
+        (int(amount) // 1000000) * price_per_million + (int(amount) % 1000000) * (price_per_million / 1000000))

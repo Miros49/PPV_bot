@@ -31,7 +31,7 @@ async def admin(message: Message):
     await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=Admin_kb.menu_kb())
 
 
-@router.callback_query(F.data == 'back_to_menu')
+@router.callback_query(F.data == 'back_to_admin_menu')
 async def back_to_menu(callback: CallbackQuery):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
@@ -57,7 +57,8 @@ async def admin_reports(callback: CallbackQuery):
         offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
 
         await callback.message.answer(
-            LEXICON['admin_report'].format(str(order_id), str(complaint_id), complainer_username, complainer_id, offender_username,
+            LEXICON['admin_report'].format(str(order_id), str(complaint_id), complainer_username, complainer_id,
+                                           offender_username,
                                            offender_id, complaint_text, created_at))
         # TODO: добавить кнопку для того, чтобы отреагировать на репорт
 
@@ -101,3 +102,100 @@ async def send_information(message: Message, state: FSMContext):
     else:
         await message.answer('Will be soon')
         await state.clear()
+
+
+@router.callback_query(F.data.in_(['admin_edit_price', 'back_to_games']))
+async def admin_edit_price(callback: CallbackQuery):
+    await callback.message.edit_text(LEXICON['edit_price_1'], reply_markup=Admin_kb.game_kb())
+
+
+@router.callback_query(AdminGameFilter())
+async def admin_game(callback: CallbackQuery):
+    game = callback.data.split('_')[-1]
+    projects_list = PROJECTS[game]
+
+    await callback.message.edit_text(LEXICON['edit_price_2'].format(game),
+                                     reply_markup=Admin_kb.projects_kb(game, projects_list))
+
+
+@router.callback_query(F.data.startswith('admin_project'))
+async def admin_project(callback: CallbackQuery):
+    game = callback.data.split('_')[-2]
+    project = callback.data.split('_')[-1]
+
+    await callback.message.edit_text(LEXICON['edit_price_3'].format(game, project),
+                                     reply_markup=Admin_kb.items_kb(game, project))
+
+
+@router.callback_query(F.data.startswith('change'))
+async def admin_change(callback: CallbackQuery, state: FSMContext):
+    _, game, project, item = callback.data.split('_')
+    item_text = 'миллион вирты' if item == 'virt' else 'бизнес' if item == 'business' else 'аккаунт'
+
+    text = LEXICON['edit_price_4'].format(game, project, item_text)
+    old_prices = get_old_prices(item, project)
+    if old_prices:
+        text += LEXICON['edit_price_old'].format(old_prices[0], old_prices[1])
+    text += LEXICON['edit_price_buy']
+
+    await callback.message.edit_text(text)
+    await state.set_state(AdminStates.edit_price_buy)
+    await state.update_data({'item': item, 'game': game, 'project': project})
+
+
+@router.message(StateFilter(AdminStates.edit_price_buy))
+async def edit_price_buy(message: Message, state: FSMContext):
+    try:
+        amount = int(message.text)
+    except ValueError:
+        return await message.answer('Неверный формат ввода. Цена должна быть целым числом. Попробуйте ещё раз')
+
+    data = await state.get_data()
+    item, game, project = data['item'], data['game'], data['project']
+    item_text = 'миллион вирты' if item == 'virt' else 'бизнес' if item == 'business' else 'аккаунт'
+
+    text = LEXICON['edit_price_4'].format(game, project, item_text)
+    old_prices = get_old_prices(item, project)
+    if old_prices:
+        text += LEXICON['edit_price_old'].format(old_prices[0], old_prices[1])
+    text += LEXICON['edit_price_sell'].format(str(amount))
+
+    await message.answer(text)
+    await state.set_state(AdminStates.edit_price_sell)
+    data['new_buy'] = amount
+    await state.update_data(data)
+
+
+@router.message(StateFilter(AdminStates.edit_price_sell))
+async def edit_price_sell(message: Message, state: FSMContext):
+    try:
+        amount = int(message.text)
+    except ValueError:
+        return await message.answer('Неверный формат ввода. Цена должна быть целым числом. Попробуйте ещё раз')
+
+    data = await state.get_data()
+    item, game, project, new_buy = data['item'], data['game'], data['project'], data['new_buy']
+
+    old_prices = get_old_prices(item, project)
+    old_prices_text = LEXICON['edit_price_old'].format(old_prices[0], old_prices[1]) if old_prices else ''
+    item_text = 'миллион вирты' if item == 'virt' else 'бизнес' if item == 'business' else 'аккаунт'
+
+    text = LEXICON['edit_price_confirm'].format(game, project, item_text, old_prices_text, new_buy, str(amount))
+
+    await message.answer(text, reply_markup=Admin_kb.confirm_editing(item, project, new_buy, str(amount)))
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith('c-e'))
+async def insert_new_price(callback: CallbackQuery):
+    if callback.data[3] == 'N':
+        return callback.message.edit_text('🗑 Изменения отменены')
+
+    _, item, project, buy, sell = callback.data.split('_')
+
+    try:
+        add_prices(item, project, buy, sell)
+        await callback.message.edit_text(LEXICON['price_edited'].format(buy, sell))
+
+    except Exception as e:
+        await callback.message.edit_text(f'Что-то пошло не так: {e}')

@@ -7,6 +7,7 @@ from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery
 from core import Config, load_config
 from database import *
 from keyboards import UserKeyboards as User_kb
+from lexicon import LEXICON
 from states import UserStates
 
 config: Config = load_config('.env')
@@ -50,18 +51,27 @@ async def pre_checkout_query(pre_checkout_query: PreCheckoutQuery, bot: Bot):
 
 @router.message(F.successful_payment)
 async def succesful_payment_handler(message: Message):
-    user_id = message.from_user.id
-    amount = message.successful_payment.total_amount / 100
-    edit_balance(user_id, amount)
-    user_db_data = get_user(user_id)
+    pass
 
-    if user_db_data:
-        user_id, tg_id, username, phone_number, balance, created_at = user_db_data
-        account_info_text = f"Данные вашего аккаунта:\n\n" \
-                            f"├ Баланс: {balance}\n" \
-                            f"├ User ID: {user_id}\n" \
-                            f"├ Username: {username}\n" \
-                            f"└ Дата регистрации в боте: {created_at}\n"
 
-        await message.answer(account_info_text, reply_markup=User_kb.account_kb())
+@router.callback_query(F.data == 'cashout_request')
+async def cashout_request(callback: CallbackQuery, state: FSMContext):
+    balance = get_balance(callback.from_user.id)
 
+    if balance == 0:
+        return await callback.message.edit_text(LEXICON['no_money_to_cashout'], reply_markup=User_kb.top_up_kb())
+
+    await callback.message.edit_text(LEXICON['input_card_number'])
+    await state.set_state(UserStates.input_card_number)
+
+
+@router.message(StateFilter(UserStates.input_card_number))
+async def input_card_number(message: Message, state: FSMContext):
+    await message.answer(LEXICON['confirm_cashout'].format(str(get_balance(message.from_user.id)), message.text),
+                         reply_markup=User_kb.confirm_cashout_kb())
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith('cashout'))
+async def cashout_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer('я устал')

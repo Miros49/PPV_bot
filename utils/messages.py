@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 
 from core import *
 from database import *
@@ -28,31 +28,21 @@ async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int 
     buyer_message = "‼️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом.\n\n"
     seller_message = "‼️ Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем.\n\n"
 
-    order_ifo = ("{}<b><u>Информация по сделке:</u></b> \n\n"
-                 f"├ ID сделки: <b>{str(matched_orders_id)}</b>\n"
-                 "├ Операция: <b>{}</b>\n"
-                 f"├ Проект: <b>{project}</b>\n"
-                 f"├ Сервер: <b>{server}</b>\n"
-                 f"└ Кол-во виртов: <code>{str(amount)}</code>\n\n"
-                 "<b><u>Итоговая сумма</u>: {} руб</b>")
+    item_message = f'Кол-во виртов: <code>{amount}</code>'
+    if order[4] == 'business':
+        item_message = f'Название бизнеса: <i>{order[8]}</i>'
+    elif order[4] == 'account':
+        item_message = f'Описание аккаунта: <i>{order[8]}</i>'
 
-    try:
-        price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
-    except KeyError:
-        price_per_million = 100
+    cost = str(get_db_price(order_id, 'buy'))
+    buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, str(matched_orders_id), 'Покупка', project,
+                                                        server, item_message, cost)
+    await bot.send_message(buyer_id, buyer_order_ifo, parse_mode='HTML')
 
-    cost = str(math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000)))
-
-    await bot.send_message(buyer_id, order_ifo.format(buyer_message, 'Покупка', cost), parse_mode='HTML')
-
-    try:
-        price_per_million = PRICE_PER_MILLION_VIRTS[project]["sell"]
-    except KeyError:
-        price_per_million = 100
-
-    cost = str(math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000)))
-
-    await bot.send_message(seller_id, order_ifo.format(seller_message, 'Продажа', cost), parse_mode='HTML')
+    cost = str(get_db_price(order_id, 'sell'))
+    seller_order_ifo = LEXICON['order_info_text'].format(seller_message, str(matched_orders_id), 'Продажа', project,
+                                                         server, item_message, cost)
+    await bot.send_message(seller_id, seller_order_ifo, parse_mode='HTML')
 
 
 async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
@@ -164,3 +154,21 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
 
         await callback.message.answer(orders_text, reply_markup=User_kb.show_kb(order_id, item, project, server))
         orders_num += 1
+
+
+async def send_account_info(update: CallbackQuery | Message):
+    user_id = update.from_user.id
+    user_db_data = get_user(user_id)
+
+    if user_db_data:
+        user_id, tg_id, username, phone_number, balance, created_at = user_db_data
+        message_text = LEXICON['account_message'].format('{0:,}'.format(round(balance)), user_id, username, created_at)
+        reply_markup = User_kb.account_kb()
+    else:
+        message_text = "❔ Я не могу найти ваши данные"
+        reply_markup = None
+
+    if isinstance(update, Message):
+        await update.answer(message_text, reply_markup=reply_markup)
+    else:
+        await update.message.answer(message_text, reply_markup=reply_markup)

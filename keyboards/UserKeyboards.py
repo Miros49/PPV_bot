@@ -8,10 +8,24 @@ def start_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Купить', callback_data='start_buy_button'),  # /ORDERS /ORDERSBIZ /ORDERSACC
-        InlineKeyboardButton(text='Продать', callback_data='start_sell_button'),
-        InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='start_create_order_button'),
-        InlineKeyboardButton(text='Автопостер Discord', callback_data='start_autoposter_discord_button')
+        InlineKeyboardButton(text='Магазин', callback_data='shop_button'),
+        InlineKeyboardButton(text='Аккаунт', callback_data='account_button'),
+        InlineKeyboardButton(text='Жалобы', callback_data='complaints_button'),
+        InlineKeyboardButton(text='Поддержка', callback_data='support_button'),
+    ).adjust(1, 2, 1)
+
+    return kb.as_markup()
+
+
+def shop_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Купить', callback_data='shop_buy_button'),  # /ORDERS /ORDERSBIZ /ORDERSACC
+        InlineKeyboardButton(text='Продать', callback_data='shop_sell_button'),
+        InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='shop_create_order_button'),
+        # InlineKeyboardButton(text='Автопостер Discord', callback_data='shop_autoposter_discord_button'),
+        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     )
 
     kb.adjust(1)
@@ -38,7 +52,7 @@ def action_kb(action_type: str):
         InlineKeyboardButton(text='Бизнес', callback_data=f'business_{action_type}'),
         InlineKeyboardButton(text='Аккаунт', callback_data=f'account_{action_type}')
     )
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_start'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_shop'))
 
     return kb.as_markup()
 
@@ -46,7 +60,7 @@ def action_kb(action_type: str):
 def back_to_start_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_start'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_shop'))
 
     return kb.as_markup()
 
@@ -141,7 +155,8 @@ def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_orders_id: str |
     kb.add(
         InlineKeyboardButton(text="📢 Сообщить о нарушении",
                              callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}'),
-        InlineKeyboardButton(text="Отменить сделку", callback_data='confirmation_of_deal_cancel')
+        InlineKeyboardButton(text="❌ Отменить сделку",
+                             callback_data=f'confirmation_of_deal_cancel_{str(matched_orders_id)}')
     )
     kb.adjust(1)
 
@@ -151,7 +166,10 @@ def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_orders_id: str |
 def support_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.add(InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/hatepizza'))
+    kb.add(
+        InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/hatepizza'),
+        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
+    ).adjust(1)
 
     return kb.as_markup()
 
@@ -159,9 +177,32 @@ def support_kb():
 def account_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(
-        InlineKeyboardButton(text="Пополнить баланс", callback_data="top_up_balance"),
-        InlineKeyboardButton(text="Мои ордера", callback_data="my_orders")
+    kb.add(
+        InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="top_up_balance"),
+        InlineKeyboardButton(text='💸 Вывести деньги', callback_data='cashout_request'),
+        InlineKeyboardButton(text="🗂 Мои ордера", callback_data="my_orders"),
+        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
+    ).adjust(1)
+
+    return kb.as_markup()
+
+
+def top_up_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="top_up_balance")
+    )
+
+    return kb.as_markup()
+
+
+def confirm_cashout_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Вывести деньги', callback_data='cashout_confirm'),
+        InlineKeyboardButton(text='Отменить', callback_data='cashout_cancel')
     )
 
     return kb.as_markup()
@@ -170,8 +211,11 @@ def account_kb():
 def report_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text="Написать жалобу", callback_data="write_ticket"),
-           InlineKeyboardButton(text="Мои жалобы", callback_data="my_tickets"))
+    kb.add(
+        InlineKeyboardButton(text="📝 Написать жалобу", callback_data="write_ticket"),
+        InlineKeyboardButton(text="📂 Мои жалобы", callback_data="my_tickets"),
+        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
+    ).adjust(2)
 
     return kb.as_markup()
 
@@ -212,5 +256,59 @@ def buy_order_kb(order_id: str):
         text="🤝 Да, начать чат с продавцом",
         callback_data=f'confirmation_of_buying_{order_id}')
     )
+
+    return kb.as_markup()
+
+
+def co_game_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='GTA5', callback_data=f'co_game_gta5'),
+        InlineKeyboardButton(text='SAMP, CRMP, MTA', callback_data=f'co_game_other')
+    )
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_shop'))
+
+    return kb.as_markup()
+
+
+def co_project_kb(game: str):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(*[InlineKeyboardButton(text=project, callback_data=f'co_project_{project}') for project in PROJECTS[game]])
+    kb.adjust(3)
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'shop_create_order_button'))
+
+    return kb.as_markup()
+
+
+def co_server_kb(project: str):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(*[
+        InlineKeyboardButton(
+            text=server,
+            callback_data=f'co_server_{project}_{server}') for server in SERVERS[project]
+    ])
+    kb.adjust(2)
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_project_{project}'))
+
+    return kb.as_markup()
+
+
+def co_amount_kb(project: str, server: str):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text="1.000.000", callback_data=f'co_amount_{project}_{server}_1000000'),
+        InlineKeyboardButton(text="1.500.000", callback_data=f'co_amount_{project}_{server}_1500000'),
+        InlineKeyboardButton(text="2.000.000", callback_data=f'co_amount_{project}_{server}_2000000'),
+        InlineKeyboardButton(text="3.000.000", callback_data=f'co_amount_{project}_{server}_3000000'),
+        InlineKeyboardButton(text="5.000.000", callback_data=f'co_amount_{project}_{server}_5000000'),
+        InlineKeyboardButton(text="10.000.000", callback_data=f'co_amount_{project}_{server}_10000000'),
+        InlineKeyboardButton(text="Другое количество", callback_data=f'co_amount_{project}_{server}_custom')
+    )
+    kb.adjust(2)
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_server_{project}_{server}'))
 
     return kb.as_markup()

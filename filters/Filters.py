@@ -3,7 +3,6 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from core import *
-from lexicon import *
 
 config: Config = load_config('.env')
 ADMIN_IDS: list[int] = config.tg_bot.admin_ids
@@ -14,9 +13,6 @@ class IsAdminFilter(Filter):
         return update.from_user.id in ADMIN_IDS
 
 
-class ProjectsFilter(Filter):
+class AdminGameFilter(Filter):
     async def __call__(self, callback: CallbackQuery, *args, **kwargs):
-        for project in PROJECTS:
-            if f'project_{project}' in callback.data:
-                return True
-        return False
+        return ('admin_game' in callback.data) or ('a_back_to_projects' in callback.data)
