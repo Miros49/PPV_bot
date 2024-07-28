@@ -413,7 +413,7 @@ async def report_callback(callback: CallbackQuery, state: FSMContext):
     user_data[callback.from_user.id]['complaint']['order_id'] = order_id
     await state.set_state(UserStates.waiting_for_problem_description)
 
-    await callback.message.answer('📝 Пожалуйста, опишите подробно суть проблемы:')
+    await callback.message.answer('‼️ Подробно опишите суть проблемы:')
 
 
 @router.callback_query(F.data.startswith('confirmation_of_deal'))
@@ -443,7 +443,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
             edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'))
 
             await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
-            await bot.send_message(seller_id, "🚫 Сделка отменена.")
+            await bot.send_message(seller_id, "🚫 Вы отменили сделку.")
 
             try:
                 await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
@@ -459,9 +459,8 @@ async def handle_chat_action_callback(callback: CallbackQuery):
                 print(f"Error updating order status to 'deleted': {e}")
 
         else:
-            await bot.send_message(user_id, "‼️ Вы хотите отменить сделку. Ожидайте подтверждения от продавца.")
-            await bot.send_message(other_user_id, "‼️ Покупатель хочет отменить сделку. Если вы хотите отменить "
-                                                  "сделку, нажмите 'Отменить сделку'.")
+            await bot.send_message(user_id, "‼️ Вы предложили продавцу отменить сделку.")
+            await bot.send_message(other_user_id, "‼️ Покупатель предлагает вам отменить сделку.")
 
             if cancel_requests[chat_id][other_user_id]:
                 edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'))
@@ -497,8 +496,8 @@ async def handle_chat_action_callback(callback: CallbackQuery):
             await bot.delete_message(buyer_id, callback.message.message_id)
             await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
 
-            await bot.send_message(buyer_id, "✅ Сделка подтверждена вами.")
-            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Сделка завершена.")
+            await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.")
+            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены в ваш кошёлек.")
 
             try:
                 update_order_status(seller_order_id, 'confirmed')
@@ -559,7 +558,7 @@ async def process_my_orders(callback: CallbackQuery):
                                                     server,
                                                     '{0:,}'.format(int(price)), aditional))
     else:
-        await callback.message.answer("🤕 У вас пока нет ордеров.")
+        await callback.message.answer("❕ Вы не создавали заказы.")
 
 
 @router.callback_query(F.data == 'complaints_button')
@@ -578,7 +577,7 @@ async def process_write_ticket_callback(callback: CallbackQuery, state: FSMConte
 
     if get_user_matched_orders(callback.from_user.id):
         await bot.delete_message(callback.message.chat.id, callback.message.message_id)
-        await callback.message.answer("Введите ID сделки (только числом), по которому хотите написать жалобу:",
+        await callback.message.answer("‼️ Напишите ID сделки, на которую хотите подать жалобу",
                                       reply_markup=User_kb.cancel_kb())
 
         await state.set_state(UserStates.waiting_for_order_id)
@@ -586,7 +585,7 @@ async def process_write_ticket_callback(callback: CallbackQuery, state: FSMConte
         user_data[callback.from_user.id]['complaint'] = {}
 
     else:
-        return await callback.message.edit_text('🤕 Похоже, у Вас ещё нет совершённых сделок')
+        return await callback.message.edit_text('❕ Вы не участвовали в сделках, чтобы написать на них жалобу')
 
 
 @router.callback_query(F.data == 'my_tickets')
@@ -594,7 +593,7 @@ async def process_my_tickets_callback(callback: CallbackQuery):
     reports = complaints(callback.from_user.id)
 
     if not reports:
-        return await callback.message.edit_text('У вас ещё нет жалоб')
+        return await callback.message.edit_text('❕ Вы не подавали жалоб.')
 
     text = ''
     for report in reports:
@@ -608,16 +607,16 @@ async def process_order_id(message: Message, state: FSMContext):
     try:
         order_id = int(message.text.strip())
     except ValueError:
-        return await message.answer("❔ Я не могу найти сделку с таким ID, может вы ошиблись?")
+        return await message.answer("❕ Сделки с данным ID не существует.")
 
     if not check_matched_order(order_id, message.from_user.id):
-        return await message.answer("У вас не было сделки с данным ID, попробуйте еще раз",
+        return await message.answer("❕ Вы не принимали участие в сделке с данным ID.",
                                     reply_markup=User_kb.cancel_kb())
 
     user_data[message.from_user.id]['complaint']['order_id'] = order_id
     await state.set_state(UserStates.waiting_for_problem_description)
 
-    await message.answer("Теперь подробно изложите суть проблемы:")
+    await message.answer("‼️ Подробно опишите суть проблемы:")
 
 
 @router.callback_query(F.data == 'cancel_button', StateFilter(UserStates.waiting_for_problem_description))
@@ -648,7 +647,7 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
             create_report(order_id, complainer_id, offender_id, complaint)
 
             await callback.message.edit_text(
-                "✅ Тикет успешно отправлен. Пожалуйста, дождитесь ответа от администратора")
+                "✅ Жалоба успешно отправлена. Ожидайте ответа от Администрации.")
             await state.clear()
 
             for admin_id in ADMIN_IDS:
@@ -658,7 +657,7 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
                     print(f'Ошибка при попытке оповещения админа о новой жалобе: {str(e)}')
 
         except Exception as e:
-            await callback.message.answer("❔ Что-то пошло не так. Пожалуйста, свяжитесь с поддержкой напрямую")
+            await callback.message.answer("❕ Ошибка.")
             print(e, datetime.datetime.now().time(), sep='\n')
 
     elif callback.data == 'cancel_ticket':
@@ -694,7 +693,7 @@ async def my_orders_command(message: Message):
                                                     '{0:,}'.format(int(price)), aditional))
 
     else:
-        await message.answer("❔ У вас пока нет ордеров.")
+        await message.answer("❕ Вы не создавали заказов.")
 
 
 @router.callback_query(F.data == 'support_button', StateFilter(default_state))
@@ -737,7 +736,7 @@ async def confirmation_of_buying(callback: CallbackQuery):
 
     if utils.get_price(order_id, 'buy') > get_balance(callback.from_user.id):
         await callback.answer()
-        return await callback.message.answer('Недостаточно средств')
+        return await callback.message.answer('❕ Недостаточно средств')
 
     buyer_id = callback.from_user.id
     edit_balance(buyer_id, -utils.get_price(order_id, 'buy'))
