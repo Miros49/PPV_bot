@@ -13,7 +13,7 @@ def start_kb():
         InlineKeyboardButton(text='👤 Аккаунт', callback_data='account_button'),
         InlineKeyboardButton(text='📢 Жалобы', callback_data='complaints_button'),
         InlineKeyboardButton(text='📕 Правила', callback_data='rules_button'),
-        InlineKeyboardButton(text=' 🆘 Поддержка', callback_data='support_button'),
+        InlineKeyboardButton(text='🛡 Поддержка', callback_data='support_button'),
     ).adjust(1, 2, 2)
 
     return kb.as_markup()
