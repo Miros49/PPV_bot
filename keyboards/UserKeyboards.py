@@ -9,11 +9,12 @@ def start_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Магазин', callback_data='shop_button'),
-        InlineKeyboardButton(text='Аккаунт', callback_data='account_button'),
-        InlineKeyboardButton(text='Жалобы', callback_data='complaints_button'),
-        InlineKeyboardButton(text='Поддержка', callback_data='support_button'),
-    ).adjust(1, 2, 1)
+        InlineKeyboardButton(text='🛒 Магазин', callback_data='shop_button'),
+        InlineKeyboardButton(text='👤 Аккаунт', callback_data='account_button'),
+        InlineKeyboardButton(text='📢 Жалобы', callback_data='complaints_button'),
+        InlineKeyboardButton(text='📕 Правила', callback_data='rules_button'),
+        InlineKeyboardButton(text=' 🆘 Поддержка', callback_data='support_button'),
+    ).adjust(1, 2, 2)
 
     return kb.as_markup()
 
@@ -71,7 +72,7 @@ def game_kb(item: str, action_type: str):
 
     kb.row(
         InlineKeyboardButton(text='GTA5', callback_data=f'game_gta5_{item}_{action_type}'),
-        InlineKeyboardButton(text='SAMP, CRMP, MTA', callback_data=f'game_other_{item}_{action_type}')
+        InlineKeyboardButton(text='SAMP, MOBILE, CRMP', callback_data=f'game_other_{item}_{action_type}')
     )
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_{action_type}'))
 
@@ -179,11 +180,11 @@ def account_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="top_up_balance"),
-        InlineKeyboardButton(text='💸 Вывести деньги', callback_data='cashout_request'),
+        InlineKeyboardButton(text="💳 Пополнить", callback_data="top_up_balance"),
+        InlineKeyboardButton(text='💸 Вывести', callback_data='cashout_request'),
         InlineKeyboardButton(text="🗂 Мои ордера", callback_data="my_orders"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
-    ).adjust(1)
+    ).adjust(2,1)
 
     return kb.as_markup()
 
@@ -266,7 +267,7 @@ def co_game_kb():
 
     kb.row(
         InlineKeyboardButton(text='GTA5', callback_data=f'co_game_gta5'),
-        InlineKeyboardButton(text='SAMP, CRMP, MTA', callback_data=f'co_game_other')
+        InlineKeyboardButton(text='SAMP, MOBILE, CRMP', callback_data=f'co_game_other')
     )
     kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_shop'))
 
