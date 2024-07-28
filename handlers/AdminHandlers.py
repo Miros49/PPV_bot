@@ -7,6 +7,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 
+import utils
 from core import *
 from database import *
 from filters import *
@@ -124,23 +125,23 @@ async def admin_project(callback: CallbackQuery):
     project = callback.data.split('_')[-1]
 
     await callback.message.edit_text(LEXICON['edit_price_3'].format(game, project),
-                                     reply_markup=Admin_kb.items_kb(game, project))
+                                     reply_markup=Admin_kb.servers_kb(project))
 
 
 @router.callback_query(F.data.startswith('change'))
 async def admin_change(callback: CallbackQuery, state: FSMContext):
-    _, game, project, item = callback.data.split('_')
-    item_text = 'миллион вирты' if item == 'virt' else 'бизнес' if item == 'business' else 'аккаунт'
+    _, project, server = callback.data.split('_')
+    game = utils.determine_game(project)
 
-    text = LEXICON['edit_price_4'].format(game, project, item_text)
-    old_prices = get_old_prices(item, project)
+    text = LEXICON['edit_price_4'].format(game, project, server)
+    old_prices = get_old_prices(project, server)
     if old_prices:
         text += LEXICON['edit_price_old'].format(old_prices[0], old_prices[1])
     text += LEXICON['edit_price_buy']
 
     await callback.message.edit_text(text)
     await state.set_state(AdminStates.edit_price_buy)
-    await state.update_data({'item': item, 'game': game, 'project': project})
+    await state.update_data({'game': game, 'project': project, 'server': server})
 
 
 @router.message(StateFilter(AdminStates.edit_price_buy))
@@ -151,11 +152,10 @@ async def edit_price_buy(message: Message, state: FSMContext):
         return await message.answer('Неверный формат ввода. Цена должна быть целым числом. Попробуйте ещё раз')
 
     data = await state.get_data()
-    item, game, project = data['item'], data['game'], data['project']
-    item_text = 'миллион вирты' if item == 'virt' else 'бизнес' if item == 'business' else 'аккаунт'
+    game, project, server = data['game'], data['project'], data['server']
 
-    text = LEXICON['edit_price_4'].format(game, project, item_text)
-    old_prices = get_old_prices(item, project)
+    text = LEXICON['edit_price_4'].format(game, project, server)
+    old_prices = get_old_prices(project, server)
     if old_prices:
         text += LEXICON['edit_price_old'].format(old_prices[0], old_prices[1])
     text += LEXICON['edit_price_sell'].format(str(amount))
@@ -174,15 +174,14 @@ async def edit_price_sell(message: Message, state: FSMContext):
         return await message.answer('Неверный формат ввода. Цена должна быть целым числом. Попробуйте ещё раз')
 
     data = await state.get_data()
-    item, game, project, new_buy = data['item'], data['game'], data['project'], data['new_buy']
+    game, project, server, new_buy = data['game'], data['project'], data['server'], data['new_buy']
 
-    old_prices = get_old_prices(item, project)
+    old_prices = get_old_prices(project, server)
     old_prices_text = LEXICON['edit_price_old'].format(old_prices[0], old_prices[1]) if old_prices else ''
-    item_text = 'миллион вирты' if item == 'virt' else 'бизнес' if item == 'business' else 'аккаунт'
 
-    text = LEXICON['edit_price_confirm'].format(game, project, item_text, old_prices_text, new_buy, str(amount))
+    text = LEXICON['edit_price_confirm'].format(game, project, server, old_prices_text, new_buy, str(amount))
 
-    await message.answer(text, reply_markup=Admin_kb.confirm_editing(item, project, new_buy, str(amount)))
+    await message.answer(text, reply_markup=Admin_kb.confirm_editing(project, server, new_buy, str(amount)))
     await state.clear()
 
 
@@ -191,10 +190,10 @@ async def insert_new_price(callback: CallbackQuery):
     if callback.data[3] == 'N':
         return callback.message.edit_text('🗑 Изменения отменены')
 
-    _, item, project, buy, sell = callback.data.split('_')
+    _, project, server, buy, sell = callback.data.split('_')
 
     try:
-        add_prices(item, project, buy, sell)
+        add_prices(project, server, buy, sell)
         await callback.message.edit_text(LEXICON['price_edited'].format(buy, sell))
 
     except Exception as e:

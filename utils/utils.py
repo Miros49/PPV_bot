@@ -3,7 +3,7 @@ import re
 
 from datetime import datetime
 
-from database import get_order
+from database import get_order, get_price_db
 from lexicon import *
 
 
@@ -21,7 +21,7 @@ def parse_message_virt(message: str):
     project_pattern = re.compile(r'Проект: (.+)')
     server_pattern = re.compile(r'Сервер: (.+)')
     amount_pattern = re.compile(r'Количество виртов: ([\d,]+)')
-    price_pattern = re.compile(r'Итоговая цена: (\d+)\s*руб\.')
+    price_pattern = re.compile(r'Итоговая цена: ([\d,\s]+)\s*руб\.')
 
     action_type_match = action_type_pattern.search(message)
     project_match = project_pattern.search(message)
@@ -29,12 +29,12 @@ def parse_message_virt(message: str):
     amount_match = amount_pattern.search(message)
     price_match = price_pattern.search(message)
 
-    if action_type_match and project_match and server_match and amount_match:
+    if action_type_match and project_match and server_match and amount_match and price_match:
         action_type = action_type_match.group(1).strip()
         project = project_match.group(1).strip()
         server = server_match.group(1).strip()
         amount = amount_match.group(1).strip().replace(',', '')
-        price_ = price_match.group(1).strip()
+        price_ = price_match.group(1).strip().replace(' ', '').replace(',', '')
 
         return {
             'action_type': action_type,
@@ -142,6 +142,26 @@ def extract_price(message):
 #     return amount if user == 'seller' else amount * 1.3
 
 
-def calculate_price(amount: str | int, price_per_million: int):
+def calculate_virt_price(amount: str | int, price_per_million: int):
     return math.ceil(
         (int(amount) // 1000000) * price_per_million + (int(amount) % 1000000) * (price_per_million / 1000000))
+
+
+def get_item_for_show_text(item: str):
+    return 'Вирта' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
+
+
+def get_item_for_sell_text(item: str):
+    return 'вирты' if item == 'virt' else 'бизнеса' if item == 'business' else 'аккаунта'
+
+
+def get_price(order_id: int | str, action_type: str):
+    order = get_order(int(order_id))
+    item, amount, price_ = order[4], order[7], order[9]
+
+    if item != 'virt':
+        return price_ if action_type == 'sell' else round(price_ * 1.3)
+
+    if action_type == 'sell':
+        return calculate_virt_price(amount, get_price_db(order[5], order[6], action_type))
+    return int(order[8])

@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+import utils
 from lexicon import *
 
 
@@ -37,7 +38,7 @@ def create_ordeer_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='start_create_order_button'),
+        InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='shop_create_order_button'),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_show')
     ).adjust(1)
 
@@ -77,26 +78,26 @@ def game_kb(item: str, action_type: str):
     return kb.as_markup()
 
 
-def projects_kb(item: str, projects_list: list, action_type: str):
+def projects_kb(item: str, game: str, action_type: str):
+    projects_list = PROJECTS[game]
     kb = InlineKeyboardBuilder()
 
     kb.add(*[InlineKeyboardButton(text=project, callback_data=f'project_{item}_{project}_{action_type}') for project in
-             projects_list])
-    kb.adjust(3)
+             projects_list]).adjust(3)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_games_{item}_{action_type}'))
 
     return kb.as_markup()
 
 
-def servers_kb(item: str, game, project: str, servers_for_project: list, action_type: str):
+def servers_kb(item: str, game: str, project: str, action_type: str):
+    servers_for_project = SERVERS[project]
     kb = InlineKeyboardBuilder()
 
     kb.add(*[
         InlineKeyboardButton(
             text=server,
             callback_data=f'server_{item}_{project}_{server}_{action_type}') for server in servers_for_project
-    ])
-    kb.adjust(2)
+    ]).adjust(3)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_projects_{item}_{game}_{action_type}'))
 
     return kb.as_markup()
@@ -106,13 +107,13 @@ def amount_kb(project: str, server: str, action_type: str):
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text="1.000.000", callback_data=f'amount_1000000_{project}_{server}_{action_type}'),
-        InlineKeyboardButton(text="1.500.000", callback_data=f'amount_1500000_{project}_{server}_{action_type}'),
-        InlineKeyboardButton(text="2.000.000", callback_data=f'amount_2000000_{project}_{server}_{action_type}'),
-        InlineKeyboardButton(text="3.000.000", callback_data=f'amount_3000000_{project}_{server}_{action_type}'),
-        InlineKeyboardButton(text="5.000.000", callback_data=f'amount_5000000_{project}_{server}_{action_type}'),
-        InlineKeyboardButton(text="10.000.000", callback_data=f'amount_10000000_{project}_{server}_{action_type}'),
-        InlineKeyboardButton(text="Другое количество", callback_data=f'amount_custom_{project}_{server}_{action_type}')
+        InlineKeyboardButton(text="1.000.000", callback_data=f'amount_1000000_{project}_{server}'),
+        InlineKeyboardButton(text="1.500.000", callback_data=f'amount_1500000_{project}_{server}'),
+        InlineKeyboardButton(text="2.000.000", callback_data=f'amount_2000000_{project}_{server}'),
+        InlineKeyboardButton(text="3.000.000", callback_data=f'amount_3000000_{project}_{server}'),
+        InlineKeyboardButton(text="5.000.000", callback_data=f'amount_5000000_{project}_{server}'),
+        InlineKeyboardButton(text="10.000.000", callback_data=f'amount_10000000_{project}_{server}'),
+        InlineKeyboardButton(text="Другое количество", callback_data=f'amount_custom_{project}_{server}')
     )
     kb.adjust(2)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_servers_{project}_{action_type}'))
@@ -290,8 +291,8 @@ def co_server_kb(project: str):
             text=server,
             callback_data=f'co_server_{project}_{server}') for server in SERVERS[project]
     ])
-    kb.adjust(2)
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_project_{project}'))
+    kb.adjust(3)
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_game_{utils.determine_game(project)}'))
 
     return kb.as_markup()
 
@@ -309,6 +310,6 @@ def co_amount_kb(project: str, server: str):
         InlineKeyboardButton(text="Другое количество", callback_data=f'co_amount_{project}_{server}_custom')
     )
     kb.adjust(2)
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_server_{project}_{server}'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_project_{project}'))
 
     return kb.as_markup()

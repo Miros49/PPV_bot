@@ -186,7 +186,7 @@ def get_orders_by_user_id(user_id):
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, user_id, action, project, server, amount, status, created_at
+        SELECT *
         FROM orders
         WHERE user_id = ?
     """, (user_id,))
@@ -233,10 +233,12 @@ def edit_balance(user_id: int, amount: float | int):
     conn.close()
 
 
-def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, str, float, str, str]:
+def get_order(order_id: int | str):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    cursor.execute("""SELECT * FROM orders WHERE id = ?""", (int(order_id),))
+
+    cursor.execute('SELECT * FROM orders WHERE id = ?', (int(order_id),))
+
     result = cursor.fetchone()
     conn.close()
     return result if result else None
@@ -245,6 +247,7 @@ def get_order(order_id: int | str) -> Tuple[int, int, str, str, str, str, str, f
 def update_order_status(order_id, status):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
+
     cursor.execute("""
         UPDATE orders
         SET status = ?
@@ -257,7 +260,9 @@ def update_order_status(order_id, status):
 def get_item(order_id: int | str) -> str:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
+
     cursor.execute('''SELECT item FROM orders WHERE id = ?''', (int(order_id),))
+
     item = cursor.fetchone()
     conn.close()
     return item
@@ -412,11 +417,11 @@ def check_matched_order(matched_order_id: int, user_id: int) -> bool:
     return result is not None
 
 
-def add_prices(item: str, project: str, buy_price: str | int, sell_price: str | int):
+def add_prices(project: str, server: str, buy_price: str | int, sell_price: str | int):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("""SELECT id FROM prices WHERE item = ? AND project = ?""", (item, project))
+    cursor.execute("""SELECT id FROM prices WHERE """, (project, server))
     result = cursor.fetchone()
 
     if result:
@@ -427,19 +432,20 @@ def add_prices(item: str, project: str, buy_price: str | int, sell_price: str | 
         """, (int(buy_price), int(sell_price), result[0]))
     else:
         cursor.execute("""
-            INSERT INTO prices (item, project, buy, sell)
+            INSERT INTO prices (project, server, buy, sell)
             VALUES (?, ?, ?, ?)
-        """, (item, project, int(buy_price), int(sell_price)))
+        """, (project, server, int(buy_price), int(sell_price)))
 
     conn.commit()
     conn.close()
 
 
-def get_old_prices(item: str, project: str):
+def get_old_prices(project: str, server: str):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("""SELECT buy, sell FROM prices WHERE item = ? AND project = ?""", (item, project))
+    cursor.execute("""SELECT buy, sell FROM prices WHERE project = ? AND server = ?""",
+                   (project, server))
 
     result = cursor.fetchone()
     conn.close()
@@ -447,29 +453,7 @@ def get_old_prices(item: str, project: str):
     return result
 
 
-def get_db_price(order_id: str | int, action_type: str) -> int | float:
-    conn = sqlite3.connect(database_file)
-    cursor = conn.cursor()
-
-    order = get_order(int(order_id))
-    item, project, amount = order[4], order[5], order[7]
-
-    if action_type == 'buy':
-        cursor.execute('SELECT buy FROM prices WHERE item = ? AND project = ?', (item, project))
-    else:
-        cursor.execute('SELECT sell FROM prices WHERE item = ? AND project = ?', (item, project))
-
-    result = cursor.fetchone()
-    conn.close()
-
-    if item == 'virt':
-        price_per_million = result[0] if result else 100
-        return math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
-
-    return amount if action_type == 'sell' else amount * 1.3
-
-
-def get_price(project: str, server: str, action_type: str) -> int | float:
+def get_price_db(project: str, server: str, action_type: str) -> int | float:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 

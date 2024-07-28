@@ -1,6 +1,9 @@
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from lexicon import SERVERS
+from utils import utils
+
 
 def menu_kb():
     kb = InlineKeyboardBuilder()
@@ -61,24 +64,24 @@ def projects_kb(game: str, projects_list: list):
     return kb.as_markup()
 
 
-def items_kb(game: str, project: str):
+def servers_kb(project: str):
     kb = InlineKeyboardBuilder()
 
-    kb.add(
-        InlineKeyboardButton(text='💵 Вирту', callback_data=f'change_{game}_{project}_virt'),
-        InlineKeyboardButton(text='👨‍💼 Бизнес', callback_data=f'change_{game}_{project}_business'),
-        InlineKeyboardButton(text='👨‍💻 Аккаунт', callback_data=f'change_{game}_{project}_account'),
-        InlineKeyboardButton(text='← Назад', callback_data=f'a_back_to_projects_{game}')
-    ).adjust(3)
+    kb.add(*[
+        InlineKeyboardButton(
+            text=server,
+            callback_data=f'change_{project}_{server}') for server in SERVERS[project]
+    ]).adjust(3)
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'admin_game_{utils.determine_game(project)}'))
 
     return kb.as_markup()
 
 
-def confirm_editing(item: str, project: str, buy: str, sell: str):
+def confirm_editing(project: str, server: str, buy: str, sell: str):
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='✅ Подтвердить?', callback_data=f'c-eY_{item}_{project}_{buy}_{sell}'),
+        InlineKeyboardButton(text='✅ Подтвердить?', callback_data=f'c-eY_{project}_{server}_{buy}_{sell}'),
         InlineKeyboardButton(text='❌ Отменить', callback_data='c-eN')
     )
 

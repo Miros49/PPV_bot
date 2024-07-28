@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import CallbackQuery, Message
 
+import utils
 from core import *
 from database import *
 from keyboards import UserKeyboards as User_kb
@@ -34,12 +35,12 @@ async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int 
     elif order[4] == 'account':
         item_message = f'Описание аккаунта: <i>{order[8]}</i>'
 
-    cost = str(get_db_price(order_id, 'buy'))
+    cost = str(utils.get_price(order_id, 'buy'))
     buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, str(matched_orders_id), 'Покупка', project,
                                                         server, item_message, cost)
     await bot.send_message(buyer_id, buyer_order_ifo, parse_mode='HTML')
 
-    cost = str(get_db_price(order_id, 'sell'))
+    cost = str(utils.get_price(order_id, 'sell'))
     seller_order_ifo = LEXICON['order_info_text'].format(seller_message, str(matched_orders_id), 'Продажа', project,
                                                          server, item_message, cost)
     await bot.send_message(seller_id, seller_order_ifo, parse_mode='HTML')
@@ -77,18 +78,23 @@ async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id:
     cancel_requests[chat_id]['seller_message_id'] = message_seller.message_id
 
 
-async def show_servers(callback: CallbackQuery, item: str, project_name: str, action_type: str):
-    try:
-        servers_for_project = SERVERS[project_name]
-    except KeyError:
-        return await callback.message.edit_text("Нет информации о серверах")
+async def show_projects(callback: CallbackQuery, item: str, game: str, action_type: str):
+    if action_type == 'sell':
+        text = sell_lexicon['project'].format(utils.get_item_for_sell_text(item), game)
+    else:
+        text = show_lexicon['project'].format(utils.get_item_for_show_text(item), game)
 
-    action_text = "покупки" if action_type in ['buy', 'show'] else "продажи"
-    game = determine_game(project_name)
+    await callback.message.edit_text(text, reply_markup=User_kb.projects_kb(item, game, action_type))
 
-    await callback.message.edit_text(
-        f"Вы выбрали проект {project_name}. Выберите сервер для {action_text} {get_item_text_servers(item)}:",
-        reply_markup=User_kb.servers_kb(item, game, project_name, servers_for_project, action_type))
+
+async def show_servers(callback: CallbackQuery, item: str, project: str, action_type: str):
+    game = determine_game(project)
+    if action_type == 'sell':
+        text = sell_lexicon['server'].format(utils.get_item_for_sell_text(item), game, project)
+    else:
+        text = show_lexicon['server'].format(utils.get_item_for_show_text(item), game, project)
+
+    await callback.message.edit_text(text, reply_markup=User_kb.servers_kb(item, game, project, action_type))
 
 
 async def show_orders(callback: CallbackQuery, state: FSMContext, item, project, server, watch_other: bool = False,
@@ -114,7 +120,7 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
 
     orders_num = 0
     for order in orders:
-        order_id, _, _, _, item, project, server, amount, description, status, created_at = order
+        order_id, _, _, _, item, project, server, amount, description, price_, status, created_at = order
 
         if order_id in watched_orders:
             continue
@@ -122,19 +128,12 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
         if item == 'virt':
             item_text = f"Кол-во валюты: {math.ceil(amount)}"
 
-            try:
-                price_per_million = PRICE_PER_MILLION_VIRTS[project]["buy"]
-            except KeyError:
-                price_per_million = 100
-
-            amount = math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) *
-                               (price_per_million / 1000000))
         elif item == 'business':
             item_text = f"Название бизнеса: {description}"
-            amount *= 1.3
+            price_ *= 1.3
         else:
             item_text = f"Описание аккаунта: {description}"
-            amount *= 1.3
+            price_ *= 1.3
 
         orders_text = LEXICON['orders_message'].format(
             id=order_id,
@@ -142,7 +141,7 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
             server=server,
             item_text=item_text,
             created_at=created_at,
-            price=amount
+            price=price_
         )
 
         watched_orders.append(order_id)
@@ -171,4 +170,94 @@ async def send_account_info(update: CallbackQuery | Message):
     if isinstance(update, Message):
         await update.answer(message_text, reply_markup=reply_markup)
     else:
-        await update.message.answer(message_text, reply_markup=reply_markup)
+        await update.message.edit_text(message_text, reply_markup=reply_markup)
+
+
+#
+#
+#
+#
+#
+# ----------  Функции управления кнопками в чате между продавцом и покупателем  -----------
+#
+#
+#
+#
+
+async def handle_cancel_action(callback: CallbackQuery, user_id: int, buyer_id: int, seller_id: int, other_user_id: int,
+                               chat_id: str, seller_order_id: int, buyer_order_id: int):
+    cancel_requests[chat_id][user_id] = True
+    await callback.answer()
+
+    if user_id == seller_id:
+        await cancel_deal_for_seller(buyer_id, seller_id, chat_id, seller_order_id, buyer_order_id)
+    else:
+        await request_buyer_cancellation(user_id, other_user_id, chat_id, buyer_id, seller_id, seller_order_id,
+                                         buyer_order_id)
+
+
+async def cancel_deal_for_seller(bot: Bot, buyer_id: int, seller_id: int, chat_id: str, seller_order_id: int,
+                                 buyer_order_id: int):
+    clear_active_chats(buyer_id, seller_id)
+    await clear_states(buyer_id, seller_id)
+    edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'))
+
+    await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
+    await bot.send_message(seller_id, "🚫 Сделка отменена.")
+
+    try:
+        await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
+    except Exception:
+        pass
+    del cancel_requests[chat_id]
+
+    update_order_status_safe(seller_order_id, buyer_order_id, 'pending')
+
+
+async def request_buyer_cancellation(bot: Bot, user_id: int, other_user_id: int, chat_id: str, buyer_id: int,
+                                     seller_id: int, seller_order_id: int, buyer_order_id: int):
+    await bot.send_message(user_id, LEXICON['I_want_to_cancel_deal'])
+    await bot.send_message(other_user_id, LEXICON['buyer_want_to_cancel_deal'])
+
+    if cancel_requests[chat_id][other_user_id]:
+        await cancel_deal_for_seller(buyer_id, seller_id, chat_id, seller_order_id, buyer_order_id)
+
+
+async def handle_confirm_action(bot: Bot, callback: CallbackQuery, user_id: int, buyer_id: int, seller_id: int,
+                                chat_id: str, seller_order_id: int, buyer_order_id: int):
+    if user_id == buyer_id:
+        edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'))
+        cancel_requests[chat_id][user_id] = True
+
+        await bot.delete_message(buyer_id, callback.message.message_id)
+        await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
+
+        await bot.send_message(buyer_id, "✅ Сделка подтверждена вами.")
+        await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Сделка завершена.")
+
+        update_order_status_safe(seller_order_id, buyer_order_id, 'confirmed')
+        clear_active_chats(buyer_id, seller_id)
+        del cancel_requests[chat_id]
+        await clear_states(buyer_id, seller_id)
+
+
+def clear_active_chats(buyer_id: int, seller_id: int):
+    del active_chats[buyer_id]
+    del active_chats[seller_id]
+
+
+async def clear_states(buyer_id: int, seller_id: int):
+    buyer_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=buyer_id, user_id=buyer_id))
+    seller_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=seller_id, user_id=seller_id))
+
+    await buyer_state.clear()
+    await seller_state.clear()
+
+
+def update_order_status_safe(seller_order_id: int, buyer_order_id: int, status: str):
+    try:
+        update_order_status(seller_order_id, status)
+        if buyer_order_id != 0:
+            update_order_status(buyer_order_id, status)
+    except sqlite3.Error as e:
+        print(f"Error updating order status to '{status}': {e}")
