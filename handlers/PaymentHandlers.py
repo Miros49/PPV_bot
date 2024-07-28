@@ -16,7 +16,7 @@ router: Router = Router()
 
 @router.callback_query(F.data == 'top_up_balance')
 async def start_top_up(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Пожалуйста, введите сумму для пополнения (от 60 руб):")
+    await callback.message.edit_text("‼️ Введите сумму для пополнения (мин. 60 руб):")
     await state.set_state(UserStates.top_up)
 
 
@@ -27,7 +27,7 @@ async def order(message: Message, bot: Bot, state: FSMContext):
     if amount_text.isdigit() and int(amount_text) >= 60:
         amount = int(amount_text) * 100
     else:
-        return await message.answer('Неверный формат ввода, попробуй ещё раз')
+        return await message.answer('❕Введите корректное число')
 
     await bot.send_invoice(
         chat_id=message.from_user.id,
