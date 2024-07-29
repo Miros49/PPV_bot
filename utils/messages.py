@@ -13,7 +13,7 @@ from database import *
 from keyboards import UserKeyboards as User_kb
 from lexicon import *
 from states import UserStates
-from utils import determine_game, get_item_text_servers
+from utils import determine_game
 
 config: Config = load_config('.env')
 
@@ -80,9 +80,11 @@ async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id:
 
 async def show_projects(callback: CallbackQuery, item: str, game: str, action_type: str):
     if action_type == 'sell':
-        text = sell_lexicon['project'].format(utils.get_item_for_sell_text(item), game)
+        text = orders_lexicon['project'].format('Продажа', utils.get_item_text(item), utils.get_game_text(game))
     else:
-        text = show_lexicon['project'].format(utils.get_item_for_show_text(item), game)
+        print(game)
+        text = show_lexicon['project'].format(utils.get_item_text(item),
+                                              utils.get_game_text(game))
 
     await callback.message.edit_text(text, reply_markup=User_kb.projects_kb(item, game, action_type))
 
@@ -90,9 +92,10 @@ async def show_projects(callback: CallbackQuery, item: str, game: str, action_ty
 async def show_servers(callback: CallbackQuery, item: str, project: str, action_type: str):
     game = determine_game(project)
     if action_type == 'sell':
-        text = sell_lexicon['server'].format(utils.get_item_for_sell_text(item), game, project)
+        text = orders_lexicon['server'].format('Продажа', utils.get_item_text(item), utils.get_game_text(game), project)
     else:
-        text = show_lexicon['server'].format(utils.get_item_for_show_text(item), game, project)
+        text = show_lexicon['server'].format(utils.get_item_text(item),
+                                             utils.get_game_text(game), project)
 
     await callback.message.edit_text(text, reply_markup=User_kb.servers_kb(item, game, project, action_type))
 
@@ -111,7 +114,8 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
     else:
         if not orders:
             return await callback.message.edit_text(
-                text="❔ Я не могу найти свободных ордеров, вы можете создать ордер самостоятельно",
+                text=show_lexicon['no_orders'].format(
+                    utils.get_item_text(item), utils.get_game_text(utils.determine_game(project)), project, server),
                 reply_markup=User_kb.create_ordeer_kb()
             )
 
@@ -161,7 +165,7 @@ async def send_account_info(update: CallbackQuery | Message):
 
     if user_db_data:
         user_id, tg_id, username, phone_number, balance, created_at = user_db_data
-        message_text = LEXICON['account_message'].format('{0:,}'.format(round(balance)), user_id, username, created_at)
+        message_text = LEXICON['account_message'].format(user_id, created_at.split()[0], '{0:,}'.format(round(balance)))
         reply_markup = User_kb.account_kb()
     else:
         message_text = "❔ Я не могу найти ваши данные"
@@ -171,6 +175,37 @@ async def send_account_info(update: CallbackQuery | Message):
         await update.answer(message_text, reply_markup=reply_markup)
     else:
         await update.message.edit_text(message_text, reply_markup=reply_markup)
+
+
+async def send_my_orders(update: CallbackQuery | Message):
+    orders = get_orders_by_user_id(update.from_user.id)
+
+    async def send_order_message(update_method, order):
+        order_id, _, _, action, item, project, server, amount, description, price, status, created_at = order
+        action_text = 'Продажа' if action == 'sell' else 'Покупка'
+        item_text = 'Вирты' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
+        status_text = 'Создано 🌀' if status == 'pending' else ''
+        kb = User_kb.cancel_order_kb(order_id) if status == 'pending' else User_kb.hide_order_kb()
+        aditional = (LEXICON[f'aditional_{item}'].format(description) if item != 'virt' else
+                     LEXICON['aditional_virt'].format('{0:,}'.format(int(amount))))
+        message_text = LEXICON['my_orders_message'].format(order_id, created_at, status_text, action_text, item_text,
+                                                           project, server, '{0:,}'.format(int(price)), aditional)
+        await update_method(message_text, reply_markup=kb)
+
+    if orders:
+        if isinstance(update, CallbackQuery):
+            await update.message.delete()
+            update_method = update.message.answer
+        else:
+            update_method = update.answer
+
+        for order in orders:
+            await send_order_message(update_method, order)
+    else:
+        if isinstance(update, CallbackQuery):
+            await update.message.edit_text("❕ Вы не создавали заказов.")
+        else:
+            await update.answer("❕ Вы не создавали заказов.")
 
 
 #

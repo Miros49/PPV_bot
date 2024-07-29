@@ -98,7 +98,7 @@ def add_user(user_id, username, phone_number):
     conn.close()
 
 
-def add_order(user_id, username, action, item, project, server, amount, price, description: str = None):
+def add_order(user_id, username, action, item, project, server, amount, description, price):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     current_time = get_current_time_formatted()
@@ -333,7 +333,7 @@ def get_open_complaints() -> List[Tuple[int, int, int, int, str, str]]:
     return open_reports
 
 
-def complaints(user_id) -> List[Tuple[int, int, str]]:
+def get_complaints(user_id) -> List[Tuple[int, int, str]]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 

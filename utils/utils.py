@@ -17,27 +17,35 @@ def determine_game(project: str):
 
 
 def parse_message_virt(message: str):
-    action_type_pattern = re.compile(r'Операция: (.+)')
+    type_pattern = re.compile(r'Тип: (.+)')
+    category_pattern = re.compile(r'Категория: (.+)')
+    platform_pattern = re.compile(r'Платформа: (.+)')
     project_pattern = re.compile(r'Проект: (.+)')
     server_pattern = re.compile(r'Сервер: (.+)')
-    amount_pattern = re.compile(r'Количество виртов: ([\d,]+)')
-    price_pattern = re.compile(r'Итоговая цена: ([\d,\s]+)\s*руб\.')
+    amount_pattern = re.compile(r'Кол-во валюты: ([\d,]+)')
+    price_pattern = re.compile(r'Стоимость: ([\d,\s]+)\s*руб')
 
-    action_type_match = action_type_pattern.search(message)
+    type_match = type_pattern.search(message)
+    category_match = category_pattern.search(message)
+    platform_match = platform_pattern.search(message)
     project_match = project_pattern.search(message)
     server_match = server_pattern.search(message)
     amount_match = amount_pattern.search(message)
     price_match = price_pattern.search(message)
 
-    if action_type_match and project_match and server_match and amount_match and price_match:
-        action_type = action_type_match.group(1).strip()
+    if type_match and category_match and platform_match and project_match and server_match and amount_match and price_match:
+        action_type = type_match.group(1).strip()
+        category = category_match.group(1).strip()
+        platform = platform_match.group(1).strip()
         project = project_match.group(1).strip()
         server = server_match.group(1).strip()
         amount = amount_match.group(1).strip().replace(',', '')
         price_ = price_match.group(1).strip().replace(' ', '').replace(',', '')
 
         return {
-            'action_type': action_type,
+            'type': action_type,
+            'category': category,
+            'platform': platform,
             'project': project,
             'server': server,
             'amount': int(amount),
@@ -47,24 +55,36 @@ def parse_message_virt(message: str):
         return None
 
 
-def parse_message_business(message):
+def parse_message_business(message: str):
+    type_pattern = re.compile(r'Тип: (.+)')
+    category_pattern = re.compile(r'Категория: (.+)')
+    platform_pattern = re.compile(r'Платформа: (.+)')
     project_pattern = re.compile(r'Проект: (.+)')
     server_pattern = re.compile(r'Сервер: (.+)')
-    business_name_pattern = re.compile(r'Название бизнеса: (.+)')
-    final_price_pattern = re.compile(r'Итоговая цена: (\d+) руб\.')
+    business_name_pattern = re.compile(r'Наименование: (.+)')
+    final_price_pattern = re.compile(r'Стоимость: (\d+)\s*руб')
 
+    type_match = type_pattern.search(message)
+    category_match = category_pattern.search(message)
+    platform_match = platform_pattern.search(message)
     project_match = project_pattern.search(message)
     server_match = server_pattern.search(message)
     business_name_match = business_name_pattern.search(message)
     final_price_match = final_price_pattern.search(message)
 
-    if project_match and server_match and business_name_match and final_price_match:
+    if type_match and category_match and platform_match and project_match and server_match and business_name_match and final_price_match:
+        action_type = type_match.group(1).strip()
+        category = category_match.group(1).strip()
+        platform = platform_match.group(1).strip()
         project = project_match.group(1).strip()
         server = server_match.group(1).strip()
         business_name = business_name_match.group(1).strip()
         final_price = final_price_match.group(1).strip()
 
         return {
+            'type': action_type,
+            'category': category,
+            'platform': platform,
             'project': project,
             'server': server,
             'business_name': business_name,
@@ -74,24 +94,39 @@ def parse_message_business(message):
         return None
 
 
-def parse_message_account(message):
+import re
+
+
+def parse_message_account(message: str):
+    type_pattern = re.compile(r'Тип: (.+)')
+    category_pattern = re.compile(r'Категория: (.+)')
+    platform_pattern = re.compile(r'Платформа: (.+)')
     project_pattern = re.compile(r'Проект: (.+)')
     server_pattern = re.compile(r'Сервер: (.+)')
-    description_pattern = re.compile(r'Описание аккаунта: (.+)')
-    final_price_pattern = re.compile(r'Итоговая цена: (\d+) руб\.')
+    description_pattern = re.compile(r'Описание: (.+)')
+    final_price_pattern = re.compile(r'Стоимость: (\d+)\s*руб')
 
+    type_match = type_pattern.search(message)
+    category_match = category_pattern.search(message)
+    platform_match = platform_pattern.search(message)
     project_match = project_pattern.search(message)
     server_match = server_pattern.search(message)
     description_match = description_pattern.search(message)
     final_price_match = final_price_pattern.search(message)
 
-    if project_match and server_match and description_match and final_price_match:
+    if type_match and category_match and platform_match and project_match and server_match and description_match and final_price_match:
+        action_type = type_match.group(1).strip()
+        category = category_match.group(1).strip()
+        platform = platform_match.group(1).strip()
         project = project_match.group(1).strip()
         server = server_match.group(1).strip()
         description = description_match.group(1).strip()
         final_price = final_price_match.group(1).strip()
 
         return {
+            'type': action_type,
+            'category': category,
+            'platform': platform,
             'project': project,
             'server': server,
             'description': description,
@@ -101,61 +136,20 @@ def parse_message_account(message):
         return None
 
 
-def get_item_text_projects(item: str) -> str:
-    if item == 'virt':
-        return 'виртуальную валюту'
-    elif item == 'business':
-        return 'бизнес'
-    return 'аккаунт'
-
-
-def get_item_text_servers(item: str) -> str:
-    if item == 'virt':
-        return 'виртуальной валюты'
-    elif item == 'business':
-        return 'бизнеса'
-    return 'аккаунта'
-
-
-def extract_price(message):
-    pattern = r'Цена:\s+(\d+\.\d+)\s+руб'
-
-    match = re.search(pattern, message)
-
-    if match:
-        return int(float(match.group(1)))
-
-    return None
-
-
-# def get_price(order_id: str | int, user: str):
-#     order = get_order(order_id)
-#     amount = order[7]
-#
-#     if order[4] == 'virt':
-#         try:
-#             price_per_million = PRICE_PER_MILLION_VIRTS[order[5]][user[:-2]]
-#         except KeyError:
-#             price_per_million = 100
-#         return math.ceil((amount // 1000000) * price_per_million + (amount % 1000000) * (price_per_million / 1000000))
-#
-#     return amount if user == 'seller' else amount * 1.3
-
-
-def calculate_virt_price(amount: str | int, price_per_million: int):
+def calculate_virt_price(amount: str | int, price_per_million: int) -> int:
     return math.ceil(
         (int(amount) // 1000000) * price_per_million + (int(amount) % 1000000) * (price_per_million / 1000000))
 
 
-def get_item_for_show_text(item: str):
-    return 'Вирта' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
+def get_item_text(item: str) -> str:
+    return 'Вирты' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
 
 
-def get_item_for_sell_text(item: str):
-    return 'вирты' if item == 'virt' else 'бизнеса' if item == 'business' else 'аккаунта'
+def get_game_text(game: str) -> str:
+    return 'GTA 5' if game == 'gta5' else 'SAMP, MOBILE, CRMP'
 
 
-def get_price(order_id: int | str, action_type: str):
+def get_price(order_id: int | str, action_type: str) -> int:
     order = get_order(int(order_id))
     item, amount, price_ = order[4], order[7], order[9]
 

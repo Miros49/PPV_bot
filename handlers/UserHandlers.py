@@ -1,23 +1,16 @@
-import math
-from idlelib.query import Query
-
+from aiogram import Bot, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction
-
-from aiogram import Bot, F, Router
-from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, StateFilter
-from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.fsm.storage.base import StorageKey
 
-from core import *
+import utils
 from database import *
 from filters import *
 from keyboards import UserKeyboards as User_kb
 from lexicon import *
 from states import UserStates
-import utils
 
 config: Config = load_config('.env')
 
@@ -41,6 +34,16 @@ async def start(message: Message, state: FSMContext):
         database.add_user(user.id, user.username, phone_number)
 
 
+@router.message(Command('shop'), StateFilter(default_state))
+async def shop_command_handler(message: Message):
+    await message.answer(LEXICON['shop_message'], disable_web_page_preview=True, reply_markup=User_kb.shop_kb())
+
+
+@router.callback_query(F.data == 'hide_button')
+async def hide_button_handler(callback: CallbackQuery):
+    await callback.message.delete()
+
+
 @router.callback_query(F.data == 'back_to_menu', StateFilter(default_state))
 async def back_to_start(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['start_message'], reply_markup=User_kb.start_kb())
@@ -48,7 +51,8 @@ async def back_to_start(callback: CallbackQuery):
 
 @router.callback_query(F.data == 'shop_button', StateFilter(default_state))
 async def shop_button(callback: CallbackQuery):
-    await callback.message.edit_text(LEXICON['shop_message'], reply_markup=User_kb.shop_kb())
+    await callback.message.edit_text(LEXICON['shop_message'], disable_web_page_preview=True,
+                                     reply_markup=User_kb.shop_kb())
 
 
 @router.callback_query(F.data == 'account_button', StateFilter(default_state))
@@ -63,65 +67,79 @@ async def start_buy_button(callback: CallbackQuery):
 
 @router.callback_query(F.data == 'shop_sell_button', StateFilter(default_state))
 async def start_sell_button(callback: CallbackQuery):
-    await callback.message.edit_text(sell_lexicon['item'], reply_markup=User_kb.action_kb('sell'))
+    await callback.message.edit_text(orders_lexicon['item'].format('Продажа'), reply_markup=User_kb.action_kb('sell'))
 
 
 @router.callback_query(F.data == 'shop_create_order_button', StateFilter(default_state))
 async def start_create_order_button(callback: CallbackQuery):
-    await callback.message.edit_text(co_lexicon['game'], reply_markup=User_kb.co_game_kb())
+    await callback.message.edit_text(orders_lexicon['game'].format('Вирты'),
+                                     reply_markup=User_kb.co_game_kb())
 
 
 @router.callback_query(F.data.startswith('co_game'), StateFilter(default_state))
 async def co_game(callback: CallbackQuery):
     game = callback.data.split('_')[-1]
-    await callback.message.edit_text(co_lexicon['project'], reply_markup=User_kb.co_project_kb(game))
+    game_text = utils.get_game_text(game)
+    await callback.message.edit_text(orders_lexicon['project'].format('Покупка', 'Вирты', game_text),
+                                     reply_markup=User_kb.co_project_kb(game))
 
 
 @router.callback_query(F.data.startswith('co_project'), StateFilter(default_state))
 async def co_project(callback: CallbackQuery):
     project = callback.data.split('_')[-1]
-    await callback.message.edit_text(co_lexicon['server'].format(project), reply_markup=User_kb.co_server_kb(project))
+    game_text = utils.get_game_text(utils.determine_game(project))
+    await callback.message.edit_text(orders_lexicon['server'].format('Покупка', 'Вирты', game_text, project),
+                                     reply_markup=User_kb.co_server_kb(project))
 
 
 @router.callback_query(F.data.startswith('co_server'), StateFilter(default_state))
 async def co_server(callback: CallbackQuery):
     project, server = callback.data.split('_')[-2], callback.data.split('_')[-1]
-    await callback.message.edit_text(co_lexicon['amount'].format(project, server),
-                                     reply_markup=User_kb.co_amount_kb(project, server))
+    game_text = utils.get_game_text(utils.determine_game(project))
+    await callback.message.edit_text(
+        orders_lexicon['special_1'].format('Покупка', 'Вирты', game_text, project, server, orders_lexicon['virt_1'],
+                                           orders_lexicon['virt_2']),
+        reply_markup=User_kb.co_amount_kb(project, server))
 
 
 @router.callback_query(F.data.startswith('co_amount'), StateFilter(default_state))
 async def co_amount(callback: CallbackQuery, state: FSMContext):
     _, _, project, server, amount = callback.data.split('_')
+    game_text = utils.get_game_text(utils.determine_game(project))
 
     if amount == 'custom':
-        await callback.message.edit_text(co_lexicon['virt_custom'].format(project, server))
+        await callback.message.edit_text(
+            orders_lexicon['special_1'].format('Покупка', 'Вирты', game_text, project, server, orders_lexicon['virt_1'],
+                                               orders_lexicon['virt_custom']))
         await state.set_state(UserStates.input_amount)
         return await state.update_data({'project': project, 'server': server, 'action_type': 'buy'})
 
     price_ = utils.calculate_virt_price(amount, get_price_db(project, server, 'buy'))
 
     await callback.message.edit_text(
-        text=LEXICON['confirm_text_virt'].format('Покупка', project, server, amount, price_),
+        text=orders_lexicon['special_2'].format('Покупка', 'Вирты', game_text, project, server,
+                                                orders_lexicon['virt_1'], '{:,}'.format(int(amount)),
+                                                '{:,}'.format(price_), orders_lexicon['confirm']),
         reply_markup=User_kb.confirmation_of_creation_kb('virt')
     )
 
 
 @router.callback_query(F.data == 'shop_autoposter_discord_button', StateFilter(default_state))
 async def autoposter_discord_button(callback: CallbackQuery):
-    await callback.message.edit_text('Soon..', reply_markup=User_kb.back_to_start_kb())
+    await callback.message.edit_text('Soon..', reply_markup=User_kb.back_to_menu_kb())
 
 
 @router.callback_query(F.data == 'back_to_shop', StateFilter(default_state))
 async def back_to_shop(callback: CallbackQuery):
-    await callback.message.edit_text(LEXICON['shop_message'], reply_markup=User_kb.shop_kb())
+    await callback.message.edit_text(LEXICON['shop_message'], disable_web_page_preview=True,
+                                     reply_markup=User_kb.shop_kb())
 
 
 @router.callback_query(F.data.startswith('virt_'), StateFilter(default_state))
 async def handle_virt_callback(callback: CallbackQuery):
-    text = show_lexicon['game'].format('Вирта')
+    text = show_lexicon['game'].format('Вирты')
     if callback.data.split('_')[-1] == 'sell':
-        text = sell_lexicon['game'].format('вирты')
+        text = orders_lexicon['game'].format('Продажа', 'Вирты')
 
     await callback.message.edit_text(
         text=text,
@@ -133,7 +151,7 @@ async def handle_virt_callback(callback: CallbackQuery):
 async def handle_business_callback(callback: CallbackQuery):
     text = show_lexicon['game'].format('Бизнес')
     if callback.data.split('_')[-1] == 'sell':
-        text = sell_lexicon['game'].format('бизнеса')
+        text = orders_lexicon['game'].format('Продажа', 'Бизнес')
 
     await callback.message.edit_text(
         text=text,
@@ -145,7 +163,7 @@ async def handle_business_callback(callback: CallbackQuery):
 async def handle_business_callback(callback: CallbackQuery):
     text = show_lexicon['game'].format('Аккаунт')
     if callback.data.split('_')[-1] == 'sell':
-        text = sell_lexicon['game'].format('аккаунта')
+        text = orders_lexicon['game'].format('Продажа', 'Аккаунт')
 
     await callback.message.edit_text(
         text=text,
@@ -167,11 +185,12 @@ async def back_to_games_callback(callback: CallbackQuery):
     item = callback.data.split('_')[-2]
     action_type = callback.data.split('_')[-1]
 
-    text = show_lexicon['game'].format('Аккаунт')
+    text = show_lexicon['game']
     if action_type == 'sell':
-        text = sell_lexicon['game'].format('аккаунта')
+        text = orders_lexicon['game'].format('Продажа', '{}')
 
-    await callback.message.edit_text(text, reply_markup=User_kb.game_kb(item, action_type))
+    await callback.message.edit_text(text.format(utils.get_item_text(item)),
+                                     reply_markup=User_kb.game_kb(item, action_type))
 
 
 @router.callback_query(F.data.startswith('project_'), StateFilter(default_state))
@@ -213,17 +232,18 @@ async def back_to_handler(callback: CallbackQuery):
 @router.callback_query(F.data.startswith('server_'), ~F.data.endswith('show'), StateFilter(default_state))
 async def handle_server_callback(callback: CallbackQuery, state: FSMContext):
     _, item, project, server, action_type = callback.data.split('_')
-    text = sell_lexicon['special_1'].format(utils.get_item_for_sell_text(item), utils.determine_game(project),
-                                            project, server, '{}')
+    text = orders_lexicon['special_1'].format('Продажа', utils.get_item_text(item),
+                                              utils.get_game_text(utils.determine_game(project)),
+                                              project, server, '{}', '{}')
 
     if item == 'virt':
-        return await callback.message.edit_text(text.format(sell_lexicon['virt_1']),
+        return await callback.message.edit_text(text.format(orders_lexicon['virt_1'], orders_lexicon['virt_2']),
                                                 reply_markup=User_kb.amount_kb(project, server, action_type))
     elif item == 'business':
-        await callback.message.edit_text(text.format(LEXICON['input_business_name']))
+        await callback.message.edit_text(text.format(orders_lexicon['business_1'], orders_lexicon['business_2']))
         await state.set_state(UserStates.input_business_name)
     elif item == 'account':
-        await callback.message.edit_text(text.format(LEXICON['input_account_description']))
+        await callback.message.edit_text(text.format(orders_lexicon['account_1'], orders_lexicon['account_2']))
         await state.set_state(UserStates.input_account_description)
     await state.update_data({'project': project, 'server': server, 'action_type': action_type})
 
@@ -247,18 +267,23 @@ async def handle_amount_callback(callback: CallbackQuery, state: FSMContext):
     _, amount, project, server = callback.data.split('_')
 
     if amount == 'custom':
-        await callback.message.edit_text("Введите нужное количество виртуальной валюты:")
-        await state.set_state(UserStates.input_amount)
-        await state.update_data({'project': project, 'server': server, 'action_type': 'sell'})
-
-    else:
-        price_ = utils.calculate_virt_price(amount, get_price_db(project, server, 'sell'))
-        price_, amount = '{:,}'.format(price_), '{:,}'.format(int(amount))
-
-        await callback.message.edit_text(
-            text=LEXICON['confirm_text_virt'].format('Продажа', project, server, amount, price_),
-            reply_markup=User_kb.confirmation_of_creation_kb('virt')
+        text = orders_lexicon['special_1'].format(
+            'Продажа', 'Вирты', utils.get_game_text(utils.determine_game(project)),
+            project, server, orders_lexicon['virt_1'], orders_lexicon['virt_custom']
         )
+        await callback.message.edit_text(text)
+        await state.set_state(UserStates.input_amount)
+        return await state.update_data({'project': project, 'server': server, 'action_type': 'sell'})
+
+    price_ = utils.calculate_virt_price(amount, get_price_db(project, server, 'sell'))
+    price_, amount = '{:,}'.format(price_), '{:,}'.format(int(amount))
+
+    await callback.message.edit_text(
+        text=orders_lexicon['special_2'].format(
+            'Продажа', 'Вирты', utils.get_game_text(utils.determine_game(project)), project,
+            server, 'Кол-во валюты', amount, price_, orders_lexicon['confirm']),
+        reply_markup=User_kb.confirmation_of_creation_kb('virt')
+    )
 
 
 @router.message(StateFilter(UserStates.input_amount))
@@ -266,13 +291,16 @@ async def input_amount(message: Message, state: FSMContext):
     amount = message.text
     if amount.isnumeric() and 500000 <= int(amount) <= 100000000000:
         data = await state.get_data()
-        cost = get_price_db(data['project'], data['server'], data['action_type'])
-        cost, amount = '{:,}'.format(cost), '{:,}'.format(amount)
+        price_ = utils.calculate_virt_price(amount, get_price_db(data['project'], data['server'], data['action_type']))
+        price_, amount = '{:,}'.format(price_), '{:,}'.format(int(amount))
 
         action_text = 'Покупка' if data['action_type'] == 'buy' else 'Продажа'
 
         await message.answer(
-            text=LEXICON['confirm_text_virt'].format(action_text, data['project'], data['server'], amount, cost),
+            text=orders_lexicon['special_2'].format(action_text,
+                                                    'Вирты', utils.get_game_text(utils.determine_game(data['project'])),
+                                                    data['project'], data['server'], orders_lexicon['virt_1'], amount,
+                                                    price_, orders_lexicon['confirm']),
             reply_markup=User_kb.confirmation_of_creation_kb('virt')
         )
         await state.clear()
@@ -284,8 +312,13 @@ async def input_amount(message: Message, state: FSMContext):
 @router.message(StateFilter(UserStates.input_business_name))
 async def business_name(message: Message, state: FSMContext):
     data = await state.get_data()
-    mes = await message.answer(LEXICON['input_business_price'], reply_markup=User_kb.cancel_kb())
-    data['message'] = mes
+    mes = await message.answer(
+        orders_lexicon['special_2'].format('Продажа', 'Бизнес',
+                                           utils.get_game_text(utils.determine_game(data['project'])), data['project'],
+                                           data['server'], orders_lexicon['business_1'], message.text, '____',
+                                           orders_lexicon['business_3'])
+    )
+    # data['message'] = mes
     data['name'] = message.text
     await state.set_state(UserStates.input_business_price)
     await state.update_data(data)
@@ -299,10 +332,13 @@ async def business_price(message: Message, state: FSMContext):
         return await message.answer('Цена должна быть числом', reply_markup=User_kb.cancel_kb())
 
     data = await state.get_data()
-    mes: Message = data['message']
-    await mes.edit_text(mes.text)
+    # mes: Message = data['message']
+    # await mes.delete()
     await message.answer(
-        text=LEXICON['confirm_text_business'].format(data['project'], data['server'], data['name'], price_),
+        orders_lexicon['special_2'].format('Продажа', 'Бизнес',
+                                           utils.get_game_text(utils.determine_game(data['project'])), data['project'],
+                                           data['server'], orders_lexicon['business_1'], data['name'], price_,
+                                           orders_lexicon['confirm']),
         reply_markup=User_kb.confirmation_of_creation_kb('business')
     )
     await state.clear()
@@ -310,9 +346,17 @@ async def business_price(message: Message, state: FSMContext):
 
 @router.message(StateFilter(UserStates.input_account_description))
 async def account_description(message: Message, state: FSMContext):
+    if len(message.text) > 150:
+        return await message.answer(LEXICON['description_limit'].format(len(message.text)))
+
     data = await state.get_data()
     data['description'] = message.text
-    await message.answer(LEXICON['input_account_price'], reply_markup=User_kb.cancel_kb())
+    await message.answer(
+        orders_lexicon['special_2'].format('Продажа', 'Аккаунт',
+                                           utils.get_game_text(utils.determine_game(data['project'])), data['project'],
+                                           data['server'], orders_lexicon['account_1'], message.text, '____',
+                                           orders_lexicon['account_3'])
+    )
     await state.set_state(UserStates.input_account_price)
     await state.update_data(data)
 
@@ -326,14 +370,15 @@ async def account_price(message: Message, state: FSMContext):
 
     data = await state.get_data()
     await message.answer(
-        text=LEXICON['confirm_text_account'].format(data['project'], data['server'], data['description'], price_),
-        reply_markup=User_kb.confirmation_of_creation_kb('account')
-    )
+        orders_lexicon['special_2'].format('Продажа', 'Аккаунт',
+                                           utils.get_game_text(utils.determine_game(data['project'])), data['project'],
+                                           data['server'], orders_lexicon['account_1'], data['description'], price_,
+                                           orders_lexicon['confirm']),
+        reply_markup=User_kb.confirmation_of_creation_kb('account'))
     await state.clear()
 
 
-@router.callback_query(F.data == 'cancel_button',
-                       StateFilter(UserStates.input_business_name, UserStates.input_account_description))
+@router.callback_query(F.data == 'cancel_button')
 async def cancel_button_order_creation(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text('🗑 Составление заказа отменено')
     await state.clear()
@@ -347,20 +392,31 @@ async def handle_confirm_callback(callback: CallbackQuery):
     if action_type == 'confirm':
         username = callback.from_user.username
         item = callback.data.split('_')[-2]
+        text = orders_lexicon['saved']
 
         if item == 'virt':
             data = utils.parse_message_virt(callback.message.text)
             if not data:
                 return await callback.message.edit_text("Кажется, что-то пошло не так...")
-            action_text, project, server, amount, price_ = data.values()
-            action_type = 'sell' if action_text == 'Продать' else 'buy'
+            action_text, item, game, project, server, amount, price_ = data.values()
+            action_type = 'sell' if action_text == 'Продажа' else 'buy'
 
             if action_type == 'buy' and get_balance(user_id) < price_:
                 return await callback.message.edit_text('Недостаточно средств')
+            else:
+                edit_balance(user_id, -price_)
 
-            order_id = add_order(user_id, username, action_type, item, project, server, amount, price_)
+            opposite_action_type = 'buy' if action_text == 'Продажа' else 'sell'
+            opposite_price = utils.calculate_virt_price(amount, get_price_db(project, server, opposite_action_type))
 
-            await callback.message.edit_text("✅ Ваш заказ подтвержден и сохранен. Ожидайте ответа.")
+            order_id = add_order(user_id, username, action_type, 'virt', project, server, amount, opposite_price,
+                                 price_)
+
+            price_, amount = '{:,}'.format(price_), '{:,}'.format(int(amount))
+            text += orders_lexicon['special_2'].format(action_text, item, game, project, server,
+                                                       orders_lexicon['virt_1'], amount, price_, '')
+
+            await callback.message.edit_text(text)
 
             matched_order = match_orders(user_id, action_type, project, server, amount)
             if matched_order:
@@ -382,20 +438,33 @@ async def handle_confirm_callback(callback: CallbackQuery):
             if not data:
                 return await callback.message.edit_text("Кажется, что-то пошло не так...")
 
-            project, server, name, price_ = data.values()
-            add_order(user_id, username, 'sell', item, project, server, price_, name)
+            action_text, item, game, project, server, name, price_ = data.values()
+            action_type = 'sell' if action_text == 'Продажа' else 'buy'
 
-            await callback.message.edit_text("✅ Ваш заказ подтвержден и сохранен. Ожидайте ответа.")
+            add_order(user_id, username, action_type, 'business', project, server, None, name, price_)
+
+            text += orders_lexicon['special_2'].format(
+                action_text, item, game, project, server,
+                orders_lexicon['business_1'], name, '{:,}'.format(int(price_)), ''
+            )
+
+            await callback.message.edit_text(text)
 
         else:
             data = utils.parse_message_account(callback.message.text)
             if not data:
                 return await callback.message.edit_text("Кажется, что-то пошло не так...")
 
-            project, server, description, price_ = data.values()
-            add_order(user_id, username, 'sell', item, project, server, price_, description)
+            action_text, item, game, project, server, description, price_ = data.values()
+            action_type = 'sell' if action_text == 'Продажа' else 'buy'
 
-            await callback.message.edit_text("✅ Ваш заказ подтвержден и сохранен. Ожидайте ответа.")
+            add_order(user_id, username, action_type, 'account', project, server, None, description, price_)
+
+            text += orders_lexicon['special_2'].format(
+                action_text, item, game, project, server,
+                orders_lexicon['account_1'], description, '{:,}'.format(int(price_)), '')
+
+            await callback.message.edit_text(text)
 
     else:
         await callback.message.edit_text("🚫 Ваш заказ отменен.")
@@ -537,28 +606,7 @@ async def account_info(message: Message):
 
 @router.callback_query(F.data == 'my_orders', StateFilter(default_state))
 async def process_my_orders(callback: CallbackQuery):
-    await callback.answer()
-    orders = get_orders_by_user_id(callback.from_user.id)
-
-    if orders:
-        for order in orders:
-            order_id, _, _, action, item, project, server, amount, description, price, status, created_at = order
-            action_text = 'Продажа' if action == 'sell' else 'Покупка'
-            item_text = 'Вирты' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
-            status_text = 'Создано 🌀' if status == 'pending' else ''
-            if item == 'virt':
-                aditional = LEXICON['aditional_virt'].format('{0:,}'.format(int(amount)))
-            elif item == 'business':
-                aditional = LEXICON['aditional_business'].format(description)
-            else:
-                aditional = LEXICON['aditional_account'].format(description)
-
-            await callback.message.edit_text(
-                LEXICON['my_orders_message'].format(order_id, created_at, status_text, action_text, item_text, project,
-                                                    server,
-                                                    '{0:,}'.format(int(price)), aditional))
-    else:
-        await callback.message.answer("❕ Вы не создавали заказы.")
+    await utils.send_my_orders(callback)
 
 
 @router.callback_query(F.data == 'complaints_button')
@@ -578,7 +626,7 @@ async def process_write_ticket_callback(callback: CallbackQuery, state: FSMConte
     if get_user_matched_orders(callback.from_user.id):
         await bot.delete_message(callback.message.chat.id, callback.message.message_id)
         await callback.message.answer("‼️ Напишите ID сделки, на которую хотите подать жалобу",
-                                      reply_markup=User_kb.cancel_kb())
+                                      reply_markup=User_kb.cancel_complaint_kb())
 
         await state.set_state(UserStates.waiting_for_order_id)
         user_data.setdefault(callback.from_user.id, {})
@@ -590,7 +638,7 @@ async def process_write_ticket_callback(callback: CallbackQuery, state: FSMConte
 
 @router.callback_query(F.data == 'my_tickets')
 async def process_my_tickets_callback(callback: CallbackQuery):
-    reports = complaints(callback.from_user.id)
+    reports = get_complaints(callback.from_user.id)
 
     if not reports:
         return await callback.message.edit_text('❕ Вы не подавали жалоб.')
@@ -611,7 +659,7 @@ async def process_order_id(message: Message, state: FSMContext):
 
     if not check_matched_order(order_id, message.from_user.id):
         return await message.answer("❕ Вы не принимали участие в сделке с данным ID.",
-                                    reply_markup=User_kb.cancel_kb())
+                                    reply_markup=User_kb.cancel_complaint_kb())
 
     user_data[message.from_user.id]['complaint']['order_id'] = order_id
     await state.set_state(UserStates.waiting_for_problem_description)
@@ -619,7 +667,7 @@ async def process_order_id(message: Message, state: FSMContext):
     await message.answer("‼️ Подробно опишите суть проблемы:")
 
 
-@router.callback_query(F.data == 'cancel_button', StateFilter(UserStates.waiting_for_problem_description))
+@router.callback_query(F.data == 'cancel_complaint_button', StateFilter(UserStates.waiting_for_problem_description))
 async def cancel_callback(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
     await state.clear()
@@ -672,28 +720,7 @@ async def help_command(message: Message):
 
 @router.message(Command('myorders'), StateFilter(default_state))
 async def my_orders_command(message: Message):
-    orders = get_orders_by_user_id(message.from_user.id)
-
-    if orders:
-        for order in orders:
-            order_id, _, _, action, item, project, server, amount, description, price, status, created_at = order
-            action_text = 'Продажа' if action == 'sell' else 'Покупка'
-            item_text = 'Вирты' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
-            status_text = 'Создано 🌀' if status == 'pending' else ''
-            if item == 'virt':
-                aditional = LEXICON['aditional_virt'].format('{0:,}'.format(int(amount)))
-            elif item == 'business':
-                aditional = LEXICON['aditional_business'].format(description)
-            else:
-                aditional = LEXICON['aditional_account'].format(description)
-
-            await message.answer(
-                LEXICON['my_orders_message'].format(order_id, created_at, status_text, action_text, item_text, project,
-                                                    server,
-                                                    '{0:,}'.format(int(price)), aditional))
-
-    else:
-        await message.answer("❕ Вы не создавали заказов.")
+    await utils.send_my_orders(message)
 
 
 @router.callback_query(F.data == 'support_button', StateFilter(default_state))
@@ -746,6 +773,11 @@ async def confirmation_of_buying(callback: CallbackQuery):
 
     await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
     await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id)
+
+
+@router.callback_query(F.data.startswith('cancel_order_'))
+async def cancel_order_handler(callback: CallbackQuery):
+    await callback.message.edit_text('пока что не кликабельно :(')
 
 
 def todo() -> None:

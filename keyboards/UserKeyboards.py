@@ -12,7 +12,7 @@ def start_kb():
         InlineKeyboardButton(text='🛒 Магазин', callback_data='shop_button'),
         InlineKeyboardButton(text='👤 Аккаунт', callback_data='account_button'),
         InlineKeyboardButton(text='📢 Жалобы', callback_data='complaints_button'),
-        InlineKeyboardButton(text='📕 Правила', callback_data='rules_button'),
+        InlineKeyboardButton(text='📕 Правила', url='https://telegra.ph/Pravila-Bota-DD-07-28'),
         InlineKeyboardButton(text='🛡 Поддержка', callback_data='support_button'),
     ).adjust(1, 2, 2)
 
@@ -59,10 +59,10 @@ def action_kb(action_type: str):
     return kb.as_markup()
 
 
-def back_to_start_kb():
+def back_to_menu_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_shop'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_menu'))
 
     return kb.as_markup()
 
@@ -241,6 +241,14 @@ def cancel_kb():
     return kb.as_markup()
 
 
+def cancel_complaint_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='❌ Отмена', callback_data='cancel_complaint_button'))
+
+    return kb.as_markup()
+
+
 def show_kb(order_id: int | str, item: str, project: str, server: str, key: bool = False):
     kb = InlineKeyboardBuilder()
 
@@ -314,3 +322,17 @@ def co_amount_kb(project: str, server: str):
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_project_{project}'))
 
     return kb.as_markup()
+
+
+def cancel_order_kb(order_id: int | str):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Отменить заказ', callback_data=f'cancel_order_{str(order_id)}'))
+
+    return kb.as_markup()
+
+
+def hide_order_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Скрыть', callback_data=f'hide_button'))
