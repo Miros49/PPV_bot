@@ -16,9 +16,7 @@ MAJESTIC_GTA5_SERVERS = [
 RADMIR_GTA5_SERVERS = ['Server 1', 'Server 2', 'Server 3', 'Мой ДОМ']
 
 # Grand RP
-GRAND_RP_GTA5_SERVERS = ['Русский #1', 'Русский #2', 'English #1', 'English #2', 'English #3', 'German #1', 'German #2',
-                         'German #3', 'German #4', 'Italian #1', 'French #1', 'Portuguese #1', 'Spanish #1',
-                         'Japanese #1', ]
+GRAND_RP_GTA5_SERVERS = ['Русский #1', 'Русский #2']
 
 # Arizona RP GTA5
 ARIZONA_RP_GTA5_SERVERS = ['Liberty', 'Milton']
@@ -26,13 +24,12 @@ ARIZONA_RP_GTA5_SERVERS = ['Liberty', 'Milton']
 # RMRP GTA5
 RMRP_GTA5_SERVERS = ['Рублёвка', 'Арбат']
 
-
 # ------------------------ CRMP, SAMP, MTA
 # Black Russia
 BLACK_RUSSIA_SERVERS = ["1. RED ", "2. GREEN ", "3. BLUE ", "4. ELLOW ", "5. ORANGE", "6. PURPLE", '7. LIME', '8. PINK',
                         '9. CHERRY', '10. BLACK', '11. INDIGO', '12. WHITE', '13. MAGENTA ',
                         '14. CRIMSON ', '15. GOLD ', '16. AZURE ', '17. PLATINUM ', '18. AQUA ', '19. GRAY ',
-                        '20. ICE ', '21. CHILLI ''22. CHOCO ', '23. MOSCOW ', '24. SPB ', '25. UFA ',
+                        '20. ICE ', '21. CHILLI ', '22. CHOCO ', '23. MOSCOW ', '24. SPB ', '25. UFA ',
                         '26. SOCHI ', '27. KAZAN ', '28. SAMARA ', '29. ROSTOV ', '30. ANAPA ', '31. EKATERINBURG ',
                         '32. KRASNODAR ', '33. ARZAMAS ', '34. NOVOSIBIRSK ', '35. GROZNY ',
                         '36. SARATOV ', '37. OMSK ', '38. IRKUTSK ', '39. VOLGOGRAD ', '40. VORONEZH ', '41. BELGOROD ',
@@ -53,30 +50,52 @@ ARIZONA_RP_SERVERS = ['1.Phoenix', '2. Tucson', '3. Scottdale', '4. Chandler', '
                       '26. Faraway', '27. Bumble Bee', '28. Christmas', 'Arizona Mobile 1', 'Arizona Mobile 2',
                       'Arizona Mobile 3', ]
 
+GRAND_MOBILE = [f'Server {str(el)}' for el in range(1, 34)]
+
+MATRYOSHKA_RP_SERVERS = [f'Server {str(num)}' for num in range(1, 31)]
+
 # Radmir RP
-RADMIR_RP_SERVERS = ['Server 1', 'Server 2', 'Server 3', 'Server 4', 'Server 5', 'Server 6', 'Server 7', 'Server 8',
-                     'Server 9', 'Server 10', 'Server 11', 'Server 12', 'Server 13', 'Server 14',
-                     'Server 15', 'Server 16', 'Server 17', 'Server 18', 'Server 19', 'Server 20', 'Server 21', ]
+RADMIR_RP_SERVERS = [f'Server {str(num)}' for num in range(1, 22)]
 
 # NEXTRP
-NEXT_RP_SERVERS = ['1. Центральный', '2. Кавказский', '3. Невский', '4. Сибирский', '5. Восточный', '6. Советский',
-                   '7. Братский', '8. Федеральный', '9. Рублевский',
-                   '10. Амурский', '11. Байкальский', '12. Балтийский', '13. Каспийский', '14. Московский']
+NEXT_RP_SERVERS = [
+    '1. Центральный', '2. Кавказский', '3. Невский', '4. Сибирский', '5. Восточный', '6. Советский',
+    '7. Братский', '8. Федеральный', '9. Рублевский',
+    '10. Амурский', '11. Байкальский', '12. Балтийский', '13. Каспийский', '14. Московский'
+]
 
 # Evolve RP
 EVOLVE_RP_SERVERS = ['Saint-Louis']
 
+RODINA_RP_SERVERS = [
+    'Центральный округ', 'Южный округ', 'Северный округ',
+    'Восточный округ', 'Западный округ', 'Приморский округ',
+    'Федеральный округ'
+]
+
+AMAZING_RP_SERVERS = [
+    'Red', 'Yellow', 'Green',
+    'Azure', 'Silver', 'Rose',
+    'Black'
+]
 
 SERVERS = {
     'GTA5RP': GTA5RP_SERVERS,
     'Majestic': MAJESTIC_GTA5_SERVERS,
     'Radmir GTA5': RADMIR_GTA5_SERVERS,
     'Grand RP GTA5': GRAND_RP_GTA5_SERVERS,
-    'Arizona RP GTA5': ARIZONA_RP_SERVERS,
+    'Arizona V': ARIZONA_RP_GTA5_SERVERS,
+    'SMOTRArage': ['#1'],
+    'Quant RP': ['#1'],
     'RMRP GTA5': RMRP_GTA5_SERVERS,
     'Black Russia': BLACK_RUSSIA_SERVERS,
     'Arizona RP': ARIZONA_RP_SERVERS,
     'Radmir RP': RADMIR_RP_SERVERS,
     'NEXTRP': NEXT_RP_SERVERS,
-    'Evolve RP': EVOLVE_RP_SERVERS
+    'Evolve RP': EVOLVE_RP_SERVERS,
+    'Grand Mobile': GRAND_MOBILE,
+    'МАТРЕШКА RP': MATRYOSHKA_RP_SERVERS,
+    'HASSLE Online': RADMIR_RP_SERVERS,
+    'RODINA RP': RODINA_RP_SERVERS,
+    'Amazing RP': AMAZING_RP_SERVERS
 }

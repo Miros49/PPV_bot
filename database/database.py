@@ -296,8 +296,7 @@ def match_orders(user_id, action, project, server, amount):
     return None
 
 
-def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) \
-        -> List[Tuple[int, int, str, str, str, str, str, float, str, str, str]]:
+def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) -> List[Tuple]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 

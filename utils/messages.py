@@ -80,9 +80,8 @@ async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id:
 
 async def show_projects(callback: CallbackQuery, item: str, game: str, action_type: str):
     if action_type == 'sell':
-        text = orders_lexicon['project'].format('Продажа', utils.get_item_text(item), utils.get_game_text(game))
+        text = orders_lexicon['project'].format('📘', 'Продажа', utils.get_item_text(item), utils.get_game_text(game))
     else:
-        print(game)
         text = show_lexicon['project'].format(utils.get_item_text(item),
                                               utils.get_game_text(game))
 
@@ -92,7 +91,8 @@ async def show_projects(callback: CallbackQuery, item: str, game: str, action_ty
 async def show_servers(callback: CallbackQuery, item: str, project: str, action_type: str):
     game = determine_game(project)
     if action_type == 'sell':
-        text = orders_lexicon['server'].format('Продажа', utils.get_item_text(item), utils.get_game_text(game), project)
+        text = orders_lexicon['server'].format('📘', 'Продажа', utils.get_item_text(item), utils.get_game_text(game),
+                                               project)
     else:
         text = show_lexicon['server'].format(utils.get_item_text(item),
                                              utils.get_game_text(game), project)
@@ -113,14 +113,25 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
             return await callback.message.answer('Что-то пошло не так, попробуйте ещё раз')
     else:
         if not orders:
-            return await callback.message.edit_text(
-                text=show_lexicon['no_orders'].format(
-                    utils.get_item_text(item), utils.get_game_text(utils.determine_game(project)), project, server),
-                reply_markup=User_kb.create_ordeer_kb()
-            )
+            text = show_lexicon['no_orders'].format(
+                utils.get_item_text(item), utils.get_game_text(utils.determine_game(project)), project, server)
+            key = False
+            if item == 'virt':
+                text += show_lexicon['create_order']
+                key = True
 
-        await callback.message.delete()
+            data = {
+                'project': project, 'server': server, 'action_type': 'sell', 'attempt': True,
+                'mes_original': await callback.message.edit_text(
+                    text=text,
+                    reply_markup=User_kb.create_ordeer_kb(key, project, server)
+                )
+            }
+
+            return await state.update_data(data)
+
         watched_orders = []
+        await callback.message.delete()
 
     orders_num = 0
     for order in orders:

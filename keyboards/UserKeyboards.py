@@ -25,7 +25,7 @@ def shop_kb():
     kb.add(
         InlineKeyboardButton(text='Купить', callback_data='shop_buy_button'),  # /ORDERS /ORDERSBIZ /ORDERSACC
         InlineKeyboardButton(text='Продать', callback_data='shop_sell_button'),
-        InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='shop_create_order_button'),
+        InlineKeyboardButton(text='Создать заказ на покупку ', callback_data='shop_create_order_button'),
         # InlineKeyboardButton(text='Автопостер Discord', callback_data='shop_autoposter_discord_button'),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     )
@@ -35,13 +35,12 @@ def shop_kb():
     return kb.as_markup()
 
 
-def create_ordeer_kb():
+def create_ordeer_kb(key: bool, project: str, server: str):
     kb = InlineKeyboardBuilder()
 
-    kb.add(
-        InlineKeyboardButton(text='Создать заявку на покупку ', callback_data='shop_create_order_button'),
-        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_show')
-    ).adjust(1)
+    kb.add(InlineKeyboardButton(text='Создать заказ на покупку ',
+                                callback_data=f'co_server_{project}_{server}')) if key else None
+    kb.add(InlineKeyboardButton(text='🛒 Магазин', callback_data=f'shop_button')).adjust(1)
 
     return kb.as_markup()
 
@@ -81,10 +80,11 @@ def game_kb(item: str, action_type: str):
 
 def projects_kb(item: str, game: str, action_type: str):
     projects_list = PROJECTS[game]
+    sizes = [1, 3] if game == 'gta5' else [3]
     kb = InlineKeyboardBuilder()
 
     kb.add(*[InlineKeyboardButton(text=project, callback_data=f'project_{item}_{project}_{action_type}') for project in
-             projects_list]).adjust(3)
+             projects_list]).adjust(*sizes)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_games_{item}_{action_type}'))
 
     return kb.as_markup()
@@ -104,7 +104,7 @@ def servers_kb(item: str, game: str, project: str, action_type: str):
     return kb.as_markup()
 
 
-def amount_kb(project: str, server: str, action_type: str):
+def amount_kb(project: str, server: str, action_type: str, item='virt'):
     kb = InlineKeyboardBuilder()
 
     kb.add(
@@ -117,20 +117,21 @@ def amount_kb(project: str, server: str, action_type: str):
         InlineKeyboardButton(text="Другое количество", callback_data=f'amount_custom_{project}_{server}')
     )
     kb.adjust(2)
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_servers_{project}_{action_type}'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_servers_{item}_{project}_{action_type}'))
 
     return kb.as_markup()
 
 
-def confirmation_of_creation_kb(item: str):
+def confirmation_of_creation_kb(item: str, project: str, server: str, action_type: str):
     kb = InlineKeyboardBuilder()
 
     kb.row(
-        InlineKeyboardButton(
-            text='Подтвердить',
-            callback_data=f'confirmation_of_creation_{item}_confirm'),
-        InlineKeyboardButton(text="Отменить", callback_data='confirmation_of_creation_cancel')
-    )
+        InlineKeyboardButton(text='Подтвердить', callback_data=f'confirmation_of_creation_{item}_confirm'),
+        InlineKeyboardButton(text="Отменить", callback_data='confirmation_of_creation_cancel'),
+        InlineKeyboardButton(text='← Назад',
+                             callback_data=f'{"server" if item == "virt" else "btls"}_{item}_{project}_'
+                                           f'{server}_{action_type}')
+    ).adjust(2)
 
     return kb.as_markup()
 
@@ -184,7 +185,7 @@ def account_kb():
         InlineKeyboardButton(text='💸 Вывести', callback_data='cashout_request'),
         InlineKeyboardButton(text="🗂 Мои ордера", callback_data="my_orders"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
-    ).adjust(2,1)
+    ).adjust(2, 1)
 
     return kb.as_markup()
 
@@ -241,12 +242,12 @@ def cancel_kb():
     return kb.as_markup()
 
 
-def cancel_complaint_kb():
-    kb = InlineKeyboardBuilder()
-
-    kb.row(InlineKeyboardButton(text='❌ Отмена', callback_data='cancel_complaint_button'))
-
-    return kb.as_markup()
+# def cancel_complaint_kb():
+#     kb = InlineKeyboardBuilder()
+#
+#     kb.row(InlineKeyboardButton(text='❌ Отмена', callback_data='cancel_complaint_button'))
+#
+#     return kb.as_markup()
 
 
 def show_kb(order_id: int | str, item: str, project: str, server: str, key: bool = False):
@@ -283,10 +284,11 @@ def co_game_kb():
 
 
 def co_project_kb(game: str):
+    sizes = [1, 3] if game == 'gta5' else [3]
     kb = InlineKeyboardBuilder()
 
-    kb.add(*[InlineKeyboardButton(text=project, callback_data=f'co_project_{project}') for project in PROJECTS[game]])
-    kb.adjust(3)
+    kb.add(*[InlineKeyboardButton(text=project, callback_data=f'co_project_{project}') for project in
+             PROJECTS[game]]).adjust(*sizes)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'shop_create_order_button'))
 
     return kb.as_markup()
@@ -299,8 +301,7 @@ def co_server_kb(project: str):
         InlineKeyboardButton(
             text=server,
             callback_data=f'co_server_{project}_{server}') for server in SERVERS[project]
-    ])
-    kb.adjust(3)
+    ]).adjust(3)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_game_{utils.determine_game(project)}'))
 
     return kb.as_markup()
@@ -317,8 +318,7 @@ def co_amount_kb(project: str, server: str):
         InlineKeyboardButton(text="5.000.000", callback_data=f'co_amount_{project}_{server}_5000000'),
         InlineKeyboardButton(text="10.000.000", callback_data=f'co_amount_{project}_{server}_10000000'),
         InlineKeyboardButton(text="Другое количество", callback_data=f'co_amount_{project}_{server}_custom')
-    )
-    kb.adjust(2)
+    ).adjust(2)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_project_{project}'))
 
     return kb.as_markup()
@@ -336,3 +336,45 @@ def hide_order_kb():
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='Скрыть', callback_data=f'hide_button'))
+
+
+def back_to_complaint_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='← Назад', callback_data='complaints_button'))
+
+    return kb.as_markup()
+
+
+def to_main_menu(from_orders: bool = False):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Вернуться в меню',
+                                callback_data='send_main_menu_{"True" if from_orders else "False"}'))
+
+    return kb.as_markup()
+
+
+def order_back_to_servers(item: str, project: str, action_type: str):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_servers_{item}_{project}_{action_type}'))
+
+    return kb.as_markup()
+
+
+def back_to_filling():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_filling'))
+
+    return kb.as_markup()
+
+
+def test_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='нажми', callback_data='test_kb'))
+
+    return kb.as_markup()
