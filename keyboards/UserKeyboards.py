@@ -71,7 +71,7 @@ def game_kb(item: str, action_type: str):
 
     kb.row(
         InlineKeyboardButton(text='GTA5', callback_data=f'game_gta5_{item}_{action_type}'),
-        InlineKeyboardButton(text='SAMP, MOBILE, CRMP', callback_data=f'game_other_{item}_{action_type}')
+        InlineKeyboardButton(text='SAMP, CRMP', callback_data=f'game_other_{item}_{action_type}')
     )
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_{action_type}'))
 
@@ -80,7 +80,7 @@ def game_kb(item: str, action_type: str):
 
 def projects_kb(item: str, game: str, action_type: str):
     projects_list = PROJECTS[game]
-    sizes = [1, 3] if game == 'gta5' else [3]
+    sizes = [2, 3] if game == 'gta5' else [3]
     kb = InlineKeyboardBuilder()
 
     kb.add(*[InlineKeyboardButton(text=project, callback_data=f'project_{item}_{project}_{action_type}') for project in
@@ -215,7 +215,7 @@ def report_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text="📝 Написать жалобу", callback_data="write_ticket"),
+        InlineKeyboardButton(text="📝 Пожаловаться", callback_data="write_ticket"),
         InlineKeyboardButton(text="📂 Мои жалобы", callback_data="my_tickets"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     ).adjust(2)
@@ -276,7 +276,7 @@ def co_game_kb():
 
     kb.row(
         InlineKeyboardButton(text='GTA5', callback_data=f'co_game_gta5'),
-        InlineKeyboardButton(text='SAMP, MOBILE, CRMP', callback_data=f'co_game_other')
+        InlineKeyboardButton(text='SAMP, CRMP', callback_data=f'co_game_other')
     )
     kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_shop'))
 
