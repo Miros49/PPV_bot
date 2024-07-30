@@ -19,7 +19,7 @@ RADMIR_GTA5_SERVERS = ['Server 1', 'Server 2', 'Server 3', 'Мой ДОМ']
 GRAND_RP_GTA5_SERVERS = ['Русский #1', 'Русский #2']
 
 # Arizona RP GTA5
-ARIZONA_RP_GTA5_SERVERS = ['Liberty', 'Milton']
+ARIZONA_RP_GTA5_SERVERS = ['1. Liberty', '2. Milton']
 
 # RMRP GTA5
 RMRP_GTA5_SERVERS = ['Рублёвка', 'Арбат']
@@ -39,7 +39,7 @@ BLACK_RUSSIA_SERVERS = ["1. RED ", "2. GREEN ", "3. BLUE ", "4. ELLOW ", "5. ORA
                         "57. ORENBURG ", "58. KIROV ", "59. KEMEROVO ", "60. TYUMEN ", "61. TOLYATTI ", "62. IVANOVO ",
                         "63. STAVROPOL ", "64. SMOLENSK", "65. PSKOV ", "66. BRYANSK", "67. OREL ", "68. YAROSLAVL ",
                         "69. BARNAUL ", "70. LIPETSK ", "71. ULYANOVSK ", "72. YAKUTSK ", "73. TAMBOV ", "74. BRATSK ",
-                        "75. ASTRAKHAN "]
+                        "75. ASTRAKHAN ", ' 76. Chita', '77. Kostroma']
 
 # Arizona RP
 ARIZONA_RP_SERVERS = ['1.Phoenix', '2. Tucson', '3. Scottdale', '4. Chandler', '5. Brainburg', '6. Saint Rose',
@@ -47,7 +47,7 @@ ARIZONA_RP_SERVERS = ['1.Phoenix', '2. Tucson', '3. Scottdale', '4. Chandler', '
                       '13. Kingman',
                       '14. Winslow', '15. Payson', '16. Gilbert', '17. Show-Low', '18. Casa-Grande', '19. Page',
                       '20. Sun-City', '21. Queen Creek', '22. Sedona', '23. Holiday', '24. Wednesday', '25. Yava',
-                      '26. Faraway', '27. Bumble Bee', '28. Christmas', 'Arizona Mobile 1', 'Arizona Mobile 2',
+                      '26. Faraway', '27. Bumble Bee', '28. Christmas',  '29. Mirage', '30. Love','Arizona Mobile 1', 'Arizona Mobile 2',
                       'Arizona Mobile 3', ]
 
 GRAND_MOBILE = [f'Server {str(el)}' for el in range(1, 34)]
@@ -63,9 +63,6 @@ NEXT_RP_SERVERS = [
     '7. Братский', '8. Федеральный', '9. Рублевский',
     '10. Амурский', '11. Байкальский', '12. Балтийский', '13. Каспийский', '14. Московский'
 ]
-
-# Evolve RP
-EVOLVE_RP_SERVERS = ['Saint-Louis']
 
 RODINA_RP_SERVERS = [
     'Центральный округ', 'Южный округ', 'Северный округ',
@@ -92,7 +89,6 @@ SERVERS = {
     'Arizona RP': ARIZONA_RP_SERVERS,
     'Radmir RP': RADMIR_RP_SERVERS,
     'NEXTRP': NEXT_RP_SERVERS,
-    'Evolve RP': EVOLVE_RP_SERVERS,
     'Grand Mobile': GRAND_MOBILE,
     'МАТРЕШКА RP': MATRYOSHKA_RP_SERVERS,
     'HASSLE Online': RADMIR_RP_SERVERS,
