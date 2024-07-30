@@ -856,7 +856,7 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
         create_report(data['order_id'], complainer_id, offender_id, data['complaint_text'])
 
         await callback.message.edit_text(
-            "✅ Жалоба успешно отправлена. Ожидайте ответа от Администрации.")
+            "✅ Жалоба успешно отправлена. Ожидайте ответа от администрации.")
         await state.clear()
 
         for admin_id in config.tg_bot.admin_ids:
@@ -866,7 +866,7 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
                 print(f'Ошибка при попытке оповещения админа о новой жалобе: {str(e)}')
 
     elif callback.data == 'cancel_ticket':
-        await callback.message.edit_text("Вы отменили создание тикета.", reply_markup=User_kb.back_to_menu_kb())
+        await callback.message.edit_text("Вы отменили создание жалобы.", reply_markup=User_kb.back_to_menu_kb())
 
 
 @router.message(Command('help'), StateFilter(default_state))
