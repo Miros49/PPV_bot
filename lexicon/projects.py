@@ -1,14 +1,14 @@
 GTA5_PROJECTS = [
-    'GTA5RP', 'Majestic', 'Grand RP GTA5',
-    'Radmir GTA5', 'Arizona V', 'RMRP GTA5',
+    'GTA5RP', 'Majestic RP', 'Radmir V RP', 'RMRP', 'Arizona V',  'Grand RP',
+
     'SMOTRArage', 'Quant RP'
 ]
 
 OTHER_PROJECTS = [
-    'Black Russia', 'Arizona RP', 'Radmir RP',
-    'NEXTRP', 'Evolve RP', 'Grand Mobile',
-    'МАТРЕШКА RP', 'HASSLE Online', 'RODINA RP',
-    'Amazing RP',
+    'BLACK RUSSIA', 'Arizona RP', 'Grand Mobile', 'Матрёшка RP', 'HASSLE ONLINE', 'Radmir RP', 'Rodina RP', 'Amazing RP',
+    'NEXTRP',
+
+
 ]
 
 PROJECTS = {
