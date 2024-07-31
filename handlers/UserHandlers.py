@@ -82,7 +82,8 @@ async def start_buy_button(callback: CallbackQuery):
 
 @router.callback_query(F.data == 'shop_sell_button', StateFilter(default_state))
 async def start_sell_button(callback: CallbackQuery):
-    await callback.message.edit_text(orders_lexicon['item'].format('📘', 'Продажа'), reply_markup=User_kb.action_kb('sell'))
+    await callback.message.edit_text(orders_lexicon['item'].format('📘', 'Продажа'),
+                                     reply_markup=User_kb.action_kb('sell'))
 
 
 @router.callback_query(F.data == 'shop_create_order_button', StateFilter(default_state))
@@ -231,11 +232,6 @@ async def back_to_servers_handler(callback: CallbackQuery, state: FSMContext):
     _, _, _, item, project, action_type = callback.data.split('_')
 
     data = await state.get_data()
-    if 'mes' in data:
-        mes_to_delete: Message = data['mes']
-        await mes_to_delete.delete()
-        data['latest_mes'] = mes_to_delete
-        del data['mes']
 
     await utils.show_servers(callback, item, project, action_type)
     await state.clear()
@@ -266,18 +262,16 @@ async def handle_server_callback(callback: CallbackQuery, state: FSMContext):
         return await callback.message.edit_text(text.format(orders_lexicon['virt_1'], orders_lexicon['virt_2']),
                                                 reply_markup=User_kb.amount_kb(project, server, action_type))
     elif item == 'business':
-        text = text.format(orders_lexicon['business_1'], orders_lexicon['business_2'])
-        mes = await callback.message.edit_text(text,
+        mes = await callback.message.edit_text(text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
                                                reply_markup=User_kb.order_back_to_servers(item, project, action_type))
         await state.set_state(UserStates.input_business_name)
     else:
-        text = text.format(orders_lexicon['account_1'], orders_lexicon['account_2'])
-        mes = await callback.message.edit_text(text,
+        mes = await callback.message.edit_text(text.format(orders_lexicon['account_1'], orders_lexicon['account_2']),
                                                reply_markup=User_kb.order_back_to_servers(item, project, action_type))
         await state.set_state(UserStates.input_account_description)
 
     await state.update_data({'item': item, 'project': project, 'server': server, 'action_type': action_type,
-                             'mes_original': mes, 'mes_original_text': text})
+                             'mes_original': mes, 'mes_original_text': text, 'attempt': True})
 
 
 @router.callback_query(F.data.startswith('server_'), F.data.endswith('show'), StateFilter(default_state))
@@ -358,8 +352,8 @@ async def input_amount(message: Message, state: FSMContext):
         )
 
     else:
-        attempt_text = orders_lexicon['virt_custom'] + orders_lexicon['virt_attempt_1'] if data['attempt'] else \
-            orders_lexicon['virt_custom'] + orders_lexicon['virt_attempt_2']
+        attempt_text = orders_lexicon['virt_custom'] + orders_lexicon['attempt_1'] if data['attempt'] else \
+            orders_lexicon['virt_custom'] + orders_lexicon['attempt_2']
         data['attempt'] = not data['attempt']
 
         await mes.edit_text(orders_lexicon['special_1'].format(
@@ -374,41 +368,41 @@ async def business_name(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
 
-    if 'mes' in data:
-        mes_to_delete: Message = data['mes']
-        await bot.delete_message(message.from_user.id, mes_to_delete.message_id + 1)
-        await mes_to_delete.delete()
-    else:
-        if 'latest_mes' in data:
-            latest_mes: Message = data['latest_mes']
-            await bot.delete_message(message.from_user.id, latest_mes.message_id + 1)
-        else:
-            try:
-                await bot.delete_message(message.from_user.id, mes.message_id + 1)
-            except TelegramBadRequest:
-                pass
+    await bot.delete_message(message.from_user.id, message.message_id)
+
+    text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(data['item']),
+                                              utils.get_game_text(utils.determine_game(data['project'])),
+                                              data['project'], data['server'], orders_lexicon['business_1'], '{}')
 
     if not message.text:
-        data['mes'] = await message.answer(LEXICON['text_needed'])
+        try:
+            data['mes_original'] = await message.edit_text(
+                text.format(orders_lexicon['business_2'] + LEXICON['text_needed']),
+                reply_markup=User_kb.order_back_to_servers('business', data['project'], 'sell')
+            )
+        except TelegramBadRequest:
+            pass
+
         return await state.update_data(data)
+
     elif len(message.text) > 50:
-        data['mes'] = await message.answer(LEXICON['name_limit'].format(len(message.text), message.text))
+        try:
+            data['mes_original'] = await mes.edit_text(
+                text=text.format(
+                    orders_lexicon['business_2'] + LEXICON['name_limit'].format(
+                        len(message.text), message.text)),
+                reply_markup=User_kb.order_back_to_servers('business', data['project'], 'sell')
+            )
+        except TelegramBadRequest:
+            pass
         return await state.update_data(data)
 
-    await mes.delete()
+    text = orders_lexicon['special_2'].format(
+        '📘', 'Продажа', 'Бизнес', utils.get_game_text(utils.determine_game(data['project'])), data['project'],
+        data['server'], orders_lexicon['business_1'], message.text, '____', orders_lexicon['business_3'])
 
-    text = orders_lexicon['special_2'].format('📘', 'Продажа', 'Бизнес',
-                                              utils.get_game_text(utils.determine_game(data['project'])),
-                                              data['project'],
-                                              data['server'], orders_lexicon['business_1'], message.text, '____',
-                                              orders_lexicon['business_3'])
-
-    data['mes_original'] = await message.answer(text, reply_markup=User_kb.back_to_filling())
-    # data['mes_original_text'] = text
+    data['mes_original'] = await mes.edit_text(text, reply_markup=User_kb.back_to_filling())
     data['name'] = message.text
-    if 'mes' in data:
-        del data['mes']
-    await state.clear()
     await state.set_state(UserStates.input_business_price)
     await state.update_data(data)
 
@@ -418,29 +412,30 @@ async def business_price(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
 
-    if 'mes' in data:
-        mes_to_delete: Message = data['mes']
-        await bot.delete_message(message.from_user.id, mes_to_delete.message_id + 1)
-        await mes_to_delete.delete()
-    else:
-        try:
-            await bot.delete_message(message.from_user.id, mes.message_id + 1)
-        except TelegramBadRequest:
-            pass
+    await bot.delete_message(message.from_user.id, message.message_id)
 
     try:
         price_ = int(message.text)
     except ValueError:
-        data['mes'] = await message.answer('<u>Цена должна быть числом</u>')
+        additional = orders_lexicon['business_3'] + orders_lexicon['attempt_1'] if data['attempt'] \
+            else orders_lexicon['business_3'] + orders_lexicon['attempt_2']
+
+        data['mes_original'] = await mes.edit_text(
+            text=orders_lexicon['special_2'].format(
+                '📘', 'Продажа', 'Бизнес', utils.get_game_text(utils.determine_game(data['project'])),
+                data['project'], data['server'], orders_lexicon['business_1'], data['name'], '____', additional),
+            reply_markup=User_kb.back_to_filling()
+        )
+        data['attempt'] = not data['attempt']
         return await state.update_data(data)
 
-    await mes.edit_text(
-        orders_lexicon['show_order'].format('📘', 'Продажа', 'Бизнес', data['project'],
-                                            data['server'], orders_lexicon['business_1'], data['name'], price_,
-                                            orders_lexicon['confirm']),
-        reply_markup=User_kb.confirmation_of_creation_kb('business', data['project'], data['server'], 'sell')
-    )
+    data['mes_original'] = await mes.edit_text(
+        text=orders_lexicon['show_order'].format('📘', 'Продажа', 'Бизнес', data['project'],
+                                                 data['server'], orders_lexicon['business_1'], data['name'],
+                                                 price_, orders_lexicon['confirm']),
+        reply_markup=User_kb.confirmation_of_creation_kb('business', data['project'], data['server'], 'sell'))
     await state.clear()
+    await state.update_data(data)
 
 
 @router.message(StateFilter(UserStates.input_account_description))
@@ -448,40 +443,42 @@ async def account_description(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
 
-    if 'mes' in data:
-        mes_to_delete: Message = data['mes']
-        await bot.delete_message(message.from_user.id, mes_to_delete.message_id + 1)
-        await mes_to_delete.delete()
-    else:
-        if 'latest_mes' in data:
-            latest_mes: Message = data['latest_mes']
-            await bot.delete_message(message.from_user.id, latest_mes.message_id + 1)
-        else:
-            try:
-                await bot.delete_message(message.from_user.id, mes.message_id + 1)
-            except TelegramBadRequest:
-                pass
+    await bot.delete_message(message.from_user.id, message.message_id)
+
+    text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(data['item']),
+                                              utils.get_game_text(utils.determine_game(data['project'])),
+                                              data['project'], data['server'], orders_lexicon['account_1'], '{}')
 
     if not message.text:
-        data['mes'] = await message.answer(LEXICON['text_needed'])
-        return await state.update_data(data)
-    elif len(message.text) > 300:
-        data['mes'] = await message.answer(LEXICON['description_limit'].format(len(message.text), message.text))
+        try:
+            data['mes_original'] = await message.edit_text(
+                text.format(orders_lexicon['account_2'] + LEXICON['text_needed']),
+                reply_markup=User_kb.order_back_to_servers('account', data['project'], 'sell')
+            )
+        except TelegramBadRequest:
+            pass
+
         return await state.update_data(data)
 
-    await mes.delete()
+    elif len(message.text) > 300:
+        try:
+            data['mes_original'] = await mes.edit_text(
+                text=text.format(
+                    orders_lexicon['account_2'] + LEXICON['description_limit'].format(len(message.text), message.text)),
+                reply_markup=User_kb.order_back_to_servers('account', data['project'], 'sell')
+            )
+        except TelegramBadRequest:
+            pass
+        return await state.update_data(data)
 
     text = orders_lexicon['special_2'].format('📘', 'Продажа', 'Аккаунт',
                                               utils.get_game_text(utils.determine_game(data['project'])),
                                               data['project'],
                                               data['server'], orders_lexicon['account_1'], message.text, '____',
                                               orders_lexicon['account_3'])
-    data['mes_original'] = await message.answer(text, reply_markup=User_kb.back_to_filling())
+
+    data['mes_original'] = await mes.edit_text(text, reply_markup=User_kb.back_to_filling())
     data['description'] = message.text
-    # data['mes_original_text'] = text
-    if 'mes' in data:
-        del data['mes']
-    await state.clear()
     await state.set_state(UserStates.input_account_price)
     await state.update_data(data)
 
@@ -491,34 +488,30 @@ async def account_price(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
 
-    if 'mes' in data:
-        mes_to_delete: Message = data['mes']
-        await bot.delete_message(message.from_user.id, mes_to_delete.message_id + 1)
-        await mes_to_delete.delete()
-    else:
-        try:
-            await bot.delete_message(message.from_user.id, mes.message_id + 1)
-        except TelegramBadRequest:
-            pass
+    await bot.delete_message(message.from_user.id, message.message_id)
 
     try:
         price_ = int(message.text)
     except ValueError:
-        data['mes'] = await message.answer('<u>Цена должна быть числом</u>')
+        additional = orders_lexicon['account_3'] + orders_lexicon['attempt_1'] if data['attempt'] \
+            else orders_lexicon['account_3'] + orders_lexicon['attempt_2']
+
+        data['mes_original'] = await mes.edit_text(
+            text=orders_lexicon['special_2'].format(
+                '📘', 'Продажа', 'Аккаунт', utils.get_game_text(utils.determine_game(data['project'])),
+                data['project'], data['server'], orders_lexicon['account_1'], data['description'], '____', additional),
+            reply_markup=User_kb.back_to_filling()
+        )
+        data['attempt'] = not data['attempt']
         return await state.update_data(data)
 
-    await mes.edit_text(
+    data['mes_original'] = await mes.edit_text(
         text=orders_lexicon['show_order'].format('📘', 'Продажа', 'Аккаунт', data['project'],
                                                  data['server'], orders_lexicon['account_1'], data['description'],
                                                  price_, orders_lexicon['confirm']),
         reply_markup=User_kb.confirmation_of_creation_kb('account', data['project'], data['server'], 'sell'))
     await state.clear()
-
-
-@router.callback_query(F.data == 'cancel_button')
-async def cancel_button_order_creation(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text('🗑 Составление заказа отменено')
-    await state.clear()
+    await state.update_data(data)
 
 
 @router.callback_query(F.data.startswith('confirmation_of_creation_'), StateFilter(default_state))
@@ -550,9 +543,9 @@ async def handle_confirm_callback(callback: CallbackQuery):
             order_id = add_order(user_id, username, action_type, 'virt', project, server, amount, opposite_price,
                                  price_)
 
-            price_, amount = '{:,}'.format(price_), '{:,}'.format(int(amount))
+            price_, amount_text = '{:,}'.format(price_), '{:,}'.format(int(amount))
             text += orders_lexicon['show_order'].format(emoji, action_text, item, project, server,
-                                                        orders_lexicon['virt_1'], amount, price_, '')
+                                                        orders_lexicon['virt_1'], amount_text, price_, '')
 
             await callback.message.edit_text(text, reply_markup=User_kb.to_main_menu(True))
 
@@ -616,13 +609,10 @@ async def report_callback(callback: CallbackQuery, state: FSMContext):
         return await callback.answer()
     _, offender_id, order_id = callback.data.split('_')
 
-    user_data.setdefault(callback.from_user.id, {})
-    user_data[callback.from_user.id]['complaint'] = {}
-    user_data[callback.from_user.id]['complaint']['offender_id'] = offender_id
-    user_data[callback.from_user.id]['complaint']['order_id'] = order_id
+    mes = await callback.message.answer('‼️ Подробно опишите суть проблемы:',
+                                        reply_markup=User_kb.cancel_complaint_kb())
     await state.set_state(UserStates.waiting_for_problem_description)
-
-    await callback.message.answer('‼️ Подробно опишите суть проблемы:')
+    await state.update_data({'offender_id': offender_id, 'order_id': order_id, 'mes_original': mes})
 
 
 @router.callback_query(F.data.startswith('confirmation_of_deal'))
@@ -793,7 +783,7 @@ async def process_my_tickets_callback(callback: CallbackQuery):
 @router.message(StateFilter(UserStates.waiting_for_order_id))
 async def process_order_id(message: Message, state: FSMContext):
     data = await state.get_data()
-    mes: Message = data['mes']
+    mes: Message = data['mes_original']
     try:
         await mes.edit_text(mes.text)
     except TelegramBadRequest:
@@ -818,17 +808,19 @@ async def process_order_id(message: Message, state: FSMContext):
     await state.update_data({'order_id': order_id, 'mes': mes})
 
 
-# @router.callback_query(F.data == 'cancel_complaint_button')
-# async def cancel_callback(callback: CallbackQuery, state: FSMContext):
-#     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
-#     await callback.message.edit_text('🗑 Отправка жалобы отменена')
-#     await state.clear()
+@router.callback_query(F.data == 'cancel_complaint_button')
+async def cancel_callback(callback: CallbackQuery, state: FSMContext):
+    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+    data = await state.get_data()
+    mes: Message = data['mes_original']
+    await mes.delete()
+    await callback.answer('✅ Отправка жалобы отменена', show_alert=True)
 
 
 @router.message(StateFilter(UserStates.waiting_for_problem_description))
 async def process_problem_description(message: Message, state: FSMContext):
     data = await state.get_data()
-    mes: Message = data['mes']
+    mes: Message = data['mes_original']
     try:
         await mes.edit_text(mes.text)
     except TelegramBadRequest:
@@ -940,34 +932,51 @@ async def cancel_order_handler(callback: CallbackQuery):
 async def back_to_filling_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
-    if 'mes' in data:
-        mes_to_delete: Message = data['mes']
-        await mes_to_delete.delete()
 
-    data['mes_original'] = await mes.edit_text(
-        data['mes_original_text'],
-        reply_markup=User_kb.order_back_to_servers(data['item'], data['project'], data['action_type'])
-    )
+    text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(data['item']),
+                                              utils.get_game_text(utils.determine_game(data['project'])),
+                                              data['project'], data['server'], '{}', '{}')
 
-    if await state.get_data() == UserStates.input_business_price:
+    if await state.get_state() == UserStates.input_business_price:
+        data['mes_original'] = await mes.edit_text(
+            text=text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
+            reply_markup=User_kb.order_back_to_servers(data['item'], data['project'], data['action_type'])
+        )
         await state.set_state(UserStates.input_business_name)
+
     else:
+        data['mes_original'] = await mes.edit_text(
+            text=text.format(orders_lexicon['account_1'], orders_lexicon['account_2']),
+            reply_markup=User_kb.order_back_to_servers(data['item'], data['project'], data['action_type'])
+        )
         await state.set_state(UserStates.input_account_description)
+
+    await state.update_data(data)
 
 
 @router.callback_query(F.data.startswith('btls'))
-async def back_to_last_step_handler(callback: CallbackQuery):
-    _, item, project, action_type = callback.data.split('_')
-    if item == 'business':
-        # text = orders_lexicon['special_2'].format('Продажа', 'Бизнес',
-        #                                           utils.get_game_text(utils.determine_game(data['project'])),
-        #                                           data['project'],
-        #                                           data['server'], orders_lexicon['business_1'], message.text, '____',
-        #                                           orders_lexicon['business_3'])
-        #
-        # data['mes_original'] = await message.answer(text, reply_markup=User_kb.back_to_filling())
+async def back_to_last_step_handler(callback: CallbackQuery, state: FSMContext):
+    _, item, project, server, action_type = callback.data.split('_')
+    data = await state.get_data()
+    mes: Message = data['mes_original']
 
-        pass
+    text = orders_lexicon['special_2'].format(
+        '📘', 'Продажа', utils.get_item_text(data['item']),
+        utils.get_game_text(utils.determine_game(data['project'])),
+        data['project'], data['server'], '{}', '{}', '____', '{}')
+
+    if item == 'business':
+        data['mes_original'] = await mes.edit_text(
+            text=text.format(orders_lexicon['business_1'], data['name'], orders_lexicon['business_3']),
+            reply_markup=User_kb.back_to_filling())
+        await state.set_state(UserStates.input_business_price)
+    else:
+        data['mes_original'] = await mes.edit_text(
+            text=text.format(orders_lexicon['account_1'], data['description'], orders_lexicon['account_3']),
+            reply_markup=User_kb.back_to_filling())
+        await state.set_state(UserStates.input_account_price)
+
+    await state.update_data(data)
 
 
 def todo() -> None:

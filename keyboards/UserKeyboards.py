@@ -242,12 +242,12 @@ def cancel_kb():
     return kb.as_markup()
 
 
-# def cancel_complaint_kb():
-#     kb = InlineKeyboardBuilder()
-#
-#     kb.row(InlineKeyboardButton(text='❌ Отмена', callback_data='cancel_complaint_button'))
-#
-#     return kb.as_markup()
+def cancel_complaint_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='❌ Отменить', callback_data='cancel_complaint_button'))
+
+    return kb.as_markup()
 
 
 def show_kb(order_id: int | str, item: str, project: str, server: str, key: bool = False):
@@ -347,10 +347,11 @@ def back_to_complaint_kb():
 
 
 def to_main_menu(from_orders: bool = False):
+    key = "True" if from_orders else "False"
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='Вернуться в меню',
-                                callback_data='send_main_menu_{"True" if from_orders else "False"}'))
+                                callback_data=f'send_main_menu_{key}'))
 
     return kb.as_markup()
 

@@ -268,25 +268,57 @@ def get_item(order_id: int | str) -> str:
     return item
 
 
+# def match_orders(user_id, action, project, server, amount):
+#     conn = sqlite3.connect(database_file)
+#     cursor = conn.cursor()
+#
+#     if action == 'buy':
+#         cursor.execute("""
+#             SELECT id, user_id
+#             FROM orders
+#             WHERE action = 'sell' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
+#             LIMIT 1
+#
+#         """, (project, server, amount, user_id))
+#     else:
+#         cursor.execute("""
+#             SELECT id, user_id
+#             FROM orders
+#             WHERE action = 'buy' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
+#             LIMIT 1
+#         """, (project, server, amount, user_id))
+#
+#     match = cursor.fetchone()
+#     conn.close()
+#
+#     if match:
+#         return match[0], match[1]
+#     return None
+
+
 def match_orders(user_id, action, project, server, amount):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    if action == 'buy':
-        cursor.execute("""
+    if project in ["HASSLE Online", "Radmir RP"]:
+        projects_to_check = ["HASSLE Online", "Radmir RP"]
+        query = """
             SELECT id, user_id
             FROM orders
-            WHERE action = 'sell' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
+            WHERE action = ? AND project IN (?, ?) AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
             LIMIT 1
-
-        """, (project, server, amount, user_id))
+        """
+        params = (('sell' if action == 'buy' else 'buy'), *projects_to_check, server, amount, user_id)
     else:
-        cursor.execute("""
+        query = """
             SELECT id, user_id
             FROM orders
-            WHERE action = 'buy' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
+            WHERE action = ? AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
             LIMIT 1
-        """, (project, server, amount, user_id))
+        """
+        params = (('sell' if action == 'buy' else 'buy'), project, server, amount, user_id)
+
+    cursor.execute(query, params)
 
     match = cursor.fetchone()
     conn.close()
@@ -300,10 +332,23 @@ def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) 
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("""SELECT * FROM orders
-        WHERE user_id != ? AND action = 'sell' AND item = ? AND project = ? AND server = ? AND status = 'pending'
-        ORDER BY amount ASC""", (user_id, item, project, server))
+    if project in ["HASSLE Online", "Radmir RP"]:
+        projects_to_check = ["HASSLE Online", "Radmir RP"]
+        query = """
+            SELECT * FROM orders
+            WHERE user_id != ? AND action = 'sell' AND item = ? AND project IN (?, ?) AND server = ? AND status = 'pending'
+            ORDER BY amount ASC
+        """
+        params = (user_id, item, *projects_to_check, server)
+    else:
+        query = """
+            SELECT * FROM orders
+            WHERE user_id != ? AND action = 'sell' AND item = ? AND project = ? AND server = ? AND status = 'pending'
+            ORDER BY amount ASC
+        """
+        params = (user_id, item, project, server)
 
+    cursor.execute(query, params)
     orders = cursor.fetchall()
     conn.close()
 

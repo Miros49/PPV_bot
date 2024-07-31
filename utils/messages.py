@@ -3,9 +3,10 @@ import math
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, FSInputFile, InlineKeyboardMarkup
 
 import utils
 from core import *
@@ -38,12 +39,13 @@ async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int 
     cost = str(utils.get_price(order_id, 'buy'))
     buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, str(matched_orders_id), 'Покупка', project,
                                                         server, item_message, cost)
-    await bot.send_message(buyer_id, buyer_order_ifo, parse_mode='HTML')
+
+    await bot.send_photo(buyer_id, FSInputFile('img/to_buyer.png'), caption=buyer_order_ifo)
 
     cost = str(utils.get_price(order_id, 'sell'))
     seller_order_ifo = LEXICON['order_info_text'].format(seller_message, str(matched_orders_id), 'Продажа', project,
                                                          server, item_message, cost)
-    await bot.send_message(seller_id, seller_order_ifo, parse_mode='HTML')
+    await bot.send_photo(seller_id, FSInputFile('img/to_seller.png'), caption=seller_order_ifo)
 
 
 async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
@@ -54,8 +56,8 @@ async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id:
     active_chats[seller_id] = chat_id
     cancel_requests[chat_id] = {buyer_id: False, seller_id: False}
 
-    buyer_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=buyer_id, user_id=buyer_id))
-    seller_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=seller_id, user_id=seller_id))
+    buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
+    seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
 
     await buyer_state.set_state(UserStates.in_chat)
     await seller_state.set_state(UserStates.in_chat)
@@ -307,3 +309,18 @@ def update_order_status_safe(seller_order_id: int, buyer_order_id: int, status: 
             update_order_status(buyer_order_id, status)
     except sqlite3.Error as e:
         print(f"Error updating order status to '{status}': {e}")
+
+
+async def modify_message(message: Message, state: FSMContext, text: str, kb: InlineKeyboardMarkup):
+    data = await state.get_data()
+
+    data['mes_original'] = await message.edit_text(
+        text.format(orders_lexicon['account_2'] + LEXICON['text_needed']),
+        reply_markup=kb
+    )
+    print(2)
+
+    return await state.update_data(data)
+
+    # except TelegramBadRequest:
+    #     pass
