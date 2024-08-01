@@ -21,7 +21,7 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 router: Router = Router()
 
 
-@router.message(Command('menu', 'start'))
+@router.message(Command('menu', 'start'), ~StateFilter(UserStates.in_chat))
 async def start(message: Message, state: FSMContext):
     await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
     await message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())
@@ -605,14 +605,47 @@ async def handle_confirm_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('report_'), StateFilter(UserStates.in_chat))
 async def report_callback(callback: CallbackQuery, state: FSMContext):
-    if await state.get_data() == UserStates.waiting_for_problem_description:
-        return await callback.answer()
+    await callback.answer()
     _, offender_id, order_id = callback.data.split('_')
 
-    mes = await callback.message.answer('‼️ Подробно опишите суть проблемы:',
+    mes = await callback.message.answer(complaint_lexicon['description'].format(order_id, ''),
                                         reply_markup=User_kb.cancel_complaint_kb())
-    await state.set_state(UserStates.waiting_for_problem_description)
+    await state.set_state(UserStates.in_chat_waiting_complaint)
     await state.update_data({'offender_id': offender_id, 'order_id': order_id, 'mes_original': mes})
+
+
+@router.message(StateFilter(UserStates.in_chat_waiting_complaint))
+async def complaint_in_chat_callback(message: Message, state: FSMContext):
+    data = await state.get_data()
+    mes: Message = data['mes_original']
+
+    await bot.delete_message(message.chat.id, message.message_id)
+
+    if not message.text:
+        try:
+            data['mes_original'] = await mes.edit_text(complaint_lexicon['description'].format(data['order_id']),
+                                                       reply_markup=User_kb.cancel_complaint_kb())
+        except TelegramBadRequest:
+            pass
+
+        return state.update_data(data)
+
+    data['mes_original'] = await mes.edit_text(complaint_lexicon['info'].format(data['order_id'], message.text),
+                                               reply_markup=User_kb.back_to_complaint_description())
+    await state.set_state(UserStates.in_chat)
+    await state.update_data(data)
+
+
+@router.callback_query(F.data == 'back_to_complaint_description')
+async def back_to_complaint_description_callback(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    mes: Message = data['mes_original']
+
+    data['mes_original'] = await mes.edit_text(complaint_lexicon['description'].format(data['order_id']),
+                                               reply_markup=User_kb.cancel_complaint_kb())
+
+    await state.set_state(UserStates.in_chat_waiting_complaint)
+    await state.update_data(data)
 
 
 @router.callback_query(F.data.startswith('confirmation_of_deal'))
@@ -751,104 +784,135 @@ async def report_command(message: Message, state: FSMContext):
     await state.clear()
 
 
-@router.callback_query(F.data == 'write_ticket')
+@router.callback_query(F.data == 'my_complaints')
+async def process_my_tickets_callback(callback: CallbackQuery):
+    reports = get_complaints(callback.from_user.id)
+
+    if not reports:
+        return await callback.message.edit_text(
+            '❕  У вас нет жалоб',
+            reply_markup=User_kb.back_to_complaint_kb()
+        )
+
+    await callback.message.delete()
+
+    for report in reports:
+        text = complaint_lexicon['show_complaint'].format(
+            report[0], report[6], 'На рассмотрении 🌀', report[1], report[4]
+        )
+
+        await callback.message.answer(text)
+
+
+@router.callback_query(F.data == 'write_complaint')
 async def process_write_ticket_callback(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
     if get_user_matched_orders(callback.from_user.id):
         await callback.message.delete()
-        mes = await callback.message.answer("‼️ Напишите ID сделки, на которую хотите подать жалобу",
+        mes = await callback.message.answer(complaint_lexicon['order_id'].format(''),
                                             reply_markup=User_kb.back_to_complaint_kb())
         await state.set_state(UserStates.waiting_for_order_id)
+        await state.update_data({'mes_original': mes, 'attempt': True})
 
     else:
-        mes = await callback.message.edit_text('❕ Вы не участвовали в сделках, чтобы написать на них жалобу')
-    await state.update_data({'mes': mes})
-
-
-@router.callback_query(F.data == 'my_tickets')
-async def process_my_tickets_callback(callback: CallbackQuery):
-    reports = get_complaints(callback.from_user.id)
-
-    if not reports:
-        return await callback.message.edit_text('❕ Вы не подавали жалоб.')
-
-    text = ''
-    for report in reports:
-        text += LEXICON['report'].format(*report)
-
-    await callback.message.edit_text(text)
+        return await callback.message.edit_text('❕ Вы не участвовали в сделках, чтобы написать жалобу.',
+                                                reply_markup=User_kb.back_to_complaint_kb())
 
 
 @router.message(StateFilter(UserStates.waiting_for_order_id))
 async def process_order_id(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
-    try:
-        await mes.edit_text(mes.text)
-    except TelegramBadRequest:
-        pass
+
+    await bot.delete_message(message.chat.id, message.message_id)
+
     if not message.text:
-        await message.answer('Введите, пожалуйста, id сделки', reply_markup=User_kb.back_to_complaint_kb())
+        try:
+            data['mes_original'] = await mes.edit_text(complaint_lexicon['order_id'].format(LEXICON['text_needed']),
+                                                       reply_markup=User_kb.back_to_complaint_kb())
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
     try:
         order_id = int(message.text.strip())
     except ValueError:
-        data['mes'] = await message.answer("❕ Сделки с данным ID не существует. Попробуйте ещё раз",
-                                           reply_markup=User_kb.back_to_complaint_kb())
+        try:
+            additional = complaint_lexicon['id_attempt_1'] if data['attempt'] else complaint_lexicon['id_attempt_2']
+            data['mes_original'] = await mes.edit_text(complaint_lexicon['order_id'].format(additional),
+                                                       reply_markup=User_kb.back_to_complaint_kb())
+            data['attempt'] = not data['attempt']
+        except TelegramBadRequest:
+            pass
         return await state.update_data(data)
 
     if not check_matched_order(order_id, message.from_user.id):
-        data['mes'] = await message.answer("❕ Вы не принимали участие в сделке с данным ID.",
-                                           reply_markup=User_kb.back_to_complaint_kb())
+        data['mes_original'] = await mes.edit_text(complaint_lexicon['order_id'].format(complaint_lexicon['no_order']),
+                                                   reply_markup=User_kb.back_to_complaint_kb())
         return await state.update_data(data)
 
+    data['order_id'] = order_id
+    data['mes_original'] = await mes.edit_text(complaint_lexicon['description'].format(order_id, ''),
+                                               reply_markup=User_kb.back_to_complaint_order_id())
+
     await state.set_state(UserStates.waiting_for_problem_description)
-
-    mes = await message.answer("‼️ Подробно опишите суть проблемы:", reply_markup=User_kb.back_to_complaint_kb())
-    await state.update_data({'order_id': order_id, 'mes': mes})
+    await state.update_data(data)
 
 
-@router.callback_query(F.data == 'cancel_complaint_button')
-async def cancel_callback(callback: CallbackQuery, state: FSMContext):
-    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
-    data = await state.get_data()
-    mes: Message = data['mes_original']
-    await mes.delete()
-    await callback.answer('✅ Отправка жалобы отменена', show_alert=True)
+@router.callback_query(F.data == 'back_to_complaint_order_id', StateFilter(UserStates.waiting_for_problem_description))
+async def back_to_complaint_order_id_handler(callback: CallbackQuery, state: FSMContext):
+    mes = await callback.message.edit_text(complaint_lexicon['order_id'].format(''),
+                                           reply_markup=User_kb.back_to_complaint_kb())
+    await state.set_state(UserStates.waiting_for_order_id)
+    await state.update_data({'mes_original': mes, 'attempt': True})
 
 
 @router.message(StateFilter(UserStates.waiting_for_problem_description))
 async def process_problem_description(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
-    try:
-        await mes.edit_text(mes.text)
-    except TelegramBadRequest:
-        pass
-    complaint_text = message.text
-    if not complaint_text:
-        return await message.answer('Описание проблемы должно быть текстом. Попробуйте ещё раз',
-                                    reply_markup=User_kb.back_to_complaint_kb())
 
-    data['complaint_text'] = complaint_text
+    await bot.delete_message(message.chat.id, message.message_id)
+
+    if not message.text:
+        try:
+            data['mes_original'] = await mes.edit_text(
+                complaint_lexicon['description'].format(data['order_id'], LEXICON['text_needed']),
+                reply_markup=User_kb.back_to_complaint_kb()
+            )
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
+    data['mes_original'] = await mes.edit_text(
+        complaint_lexicon['info'].format(data['order_id'], message.text) + complaint_lexicon['confirm'],
+        reply_markup=User_kb.send_report_kb()
+    )
+    data['complaint_text'] = message.text
+
     await state.clear()
     await state.update_data(data)
-
-    await message.answer("Выберите действие:", reply_markup=User_kb.send_report_kb())
 
 
 @router.callback_query(F.data.in_(['send_ticket', 'cancel_ticket']))
 async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+
     if callback.data == 'send_ticket':
         data = await state.get_data()
+        mes: Message = data['mes_original']
+
         complaint = get_matched_order(data['order_id'])
         complainer_id = callback.from_user.id
         offender_id = complaint[1] if complaint[1] != complainer_id else complaint[3]
         create_report(data['order_id'], complainer_id, offender_id, data['complaint_text'])
 
-        await callback.message.edit_text(
-            "✅ Жалоба успешно отправлена. Ожидайте ответа от администрации.")
+        await mes.edit_text(
+            complaint_lexicon['saved'] + complaint_lexicon['info'].format(data['order_id'], data['complaint_text'])
+        )
         await state.clear()
 
         for admin_id in config.tg_bot.admin_ids:
@@ -861,9 +925,12 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("Вы отменили создание жалобы.", reply_markup=User_kb.back_to_menu_kb())
 
 
-@router.message(Command('help'), StateFilter(default_state))
-async def help_command(message: Message):
-    await message.answer(LEXICON['help_message'])
+@router.callback_query(F.data == 'cancel_complaint_button')
+async def cancel_callback(callback: CallbackQuery, state: FSMContext):
+    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+    await callback.message.delete()
+    await state.set_state(UserStates.in_chat)
+    await callback.answer('✅ Отправка жалобы отменена', show_alert=True)
 
 
 @router.message(Command('myorders'), StateFilter(default_state))
@@ -876,7 +943,7 @@ async def support_callback(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['support_message'], reply_markup=User_kb.support_kb())
 
 
-@router.message(Command('support'))
+@router.message(Command('support', 'help'))
 async def support_command(message: Message):
     await message.answer(LEXICON['support_message'], reply_markup=User_kb.support_kb())
 

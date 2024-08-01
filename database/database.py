@@ -381,7 +381,7 @@ def get_complaints(user_id) -> List[Tuple[int, int, str]]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('''SELECT id, order_id, created_at, complaint FROM reports WHERE complainer_id = ? ''', (user_id,))
+    cursor.execute('''SELECT * FROM reports WHERE complainer_id = ? ''', (user_id,))
 
     report_info = cursor.fetchall()
     conn.close()
@@ -409,9 +409,12 @@ def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, sel
 def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
+
     cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(order_id),))
+
     order = cursor.fetchone()
     conn.close()
+
     return order
 
 

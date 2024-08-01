@@ -215,8 +215,8 @@ def report_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text="📝 Пожаловаться", callback_data="write_ticket"),
-        InlineKeyboardButton(text="📂 Мои жалобы", callback_data="my_tickets"),
+        InlineKeyboardButton(text="📝 Пожаловаться", callback_data="write_complaint"),
+        InlineKeyboardButton(text="📂 Мои жалобы", callback_data="my_complaints"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     ).adjust(2)
 
@@ -346,6 +346,22 @@ def back_to_complaint_kb():
     return kb.as_markup()
 
 
+def back_to_complaint_order_id():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_complaint_order_id'))
+
+    return kb.as_markup()
+
+
+def back_to_complaint_description():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='back_to_complaint_description'))
+
+    return kb.as_markup()
+
+
 def to_main_menu(from_orders: bool = False):
     key = "True" if from_orders else "False"
     kb = InlineKeyboardBuilder()
@@ -373,9 +389,9 @@ def back_to_filling():
     return kb.as_markup()
 
 
-def test_kb():
+def complaint_management():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='нажми', callback_data='test_kb'))
+    kb.row(InlineKeyboardButton(text='', callback_data=''))
 
-    return kb.as_markup()
+    pass

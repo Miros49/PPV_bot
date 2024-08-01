@@ -309,18 +309,3 @@ def update_order_status_safe(seller_order_id: int, buyer_order_id: int, status: 
             update_order_status(buyer_order_id, status)
     except sqlite3.Error as e:
         print(f"Error updating order status to '{status}': {e}")
-
-
-async def modify_message(message: Message, state: FSMContext, text: str, kb: InlineKeyboardMarkup):
-    data = await state.get_data()
-
-    data['mes_original'] = await message.edit_text(
-        text.format(orders_lexicon['account_2'] + LEXICON['text_needed']),
-        reply_markup=kb
-    )
-    print(2)
-
-    return await state.update_data(data)
-
-    # except TelegramBadRequest:
-    #     pass
