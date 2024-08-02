@@ -191,10 +191,7 @@ async def insert_new_price(callback: CallbackQuery):
         return callback.message.edit_text('🗑 Изменения отменены')
 
     _, project, server, buy, sell = callback.data.split('_')
+    print(callback.data)
 
-    try:
-        add_prices(project, server, buy, sell)
-        await callback.message.edit_text(LEXICON['price_edited'].format(buy, sell))
-
-    except Exception as e:
-        await callback.message.edit_text(f'Что-то пошло не так: {e}')
+    add_prices(project, server, buy, sell)
+    await callback.message.edit_text(LEXICON['price_edited'].format(buy, sell))

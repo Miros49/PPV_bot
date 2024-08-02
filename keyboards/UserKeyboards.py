@@ -190,6 +190,18 @@ def account_kb():
     return kb.as_markup()
 
 
+def my_orders_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Активные', callback_data='my_orders_pending'),
+        InlineKeyboardButton(text='Завершёные', callback_data='my_orders_confirmed'),
+        InlineKeyboardButton(text='← Назад', callback_data=f'my_orders')
+    ).adjust(2)
+
+    return kb.as_markup()
+
+
 def top_up_kb():
     kb = InlineKeyboardBuilder()
 
@@ -230,14 +242,6 @@ def send_report_kb():
         InlineKeyboardButton(text="Оставить жалобу", callback_data="send_ticket"),
         InlineKeyboardButton(text="Отменить", callback_data="cancel_ticket")
     )
-
-    return kb.as_markup()
-
-
-def cancel_kb():
-    kb = InlineKeyboardBuilder()
-
-    kb.row(InlineKeyboardButton(text='❌ Отмена', callback_data='cancel_button'))
 
     return kb.as_markup()
 
@@ -324,18 +328,25 @@ def co_amount_kb(project: str, server: str):
     return kb.as_markup()
 
 
-def cancel_order_kb(order_id: int | str):
+def cancel_order_kb(order_id: int | str, target: str, show_more: bool = False):
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='Отменить заказ', callback_data=f'cancel_order_{str(order_id)}'))
+    kb.row(InlineKeyboardButton(text='Показать ещё',
+                                callback_data=f'my_orders_{target}_w-o_{order_id}')) if show_more else None
 
     return kb.as_markup()
 
 
-def hide_order_kb():
+def confirmation_of_deleting_kb(order_id: str | int):
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='Скрыть', callback_data=f'hide_button'))
+    kb.row(
+        InlineKeyboardButton(text='Подтвердить', callback_data=f'confirmation_of_deleting_{str(order_id)}'),
+        InlineKeyboardButton(text='Отменить', callback_data='cancel_deleting_order')
+    )
+
+    return kb.as_markup()
 
 
 def back_to_complaint_kb():

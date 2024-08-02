@@ -181,15 +181,15 @@ def get_user_by_id(user_id_in_database: int):
     return result
 
 
-def get_orders_by_user_id(user_id):
+def get_orders_by_user_id(user_id, status):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT *
         FROM orders
-        WHERE user_id = ?
-    """, (user_id,))
+        WHERE user_id = ? and status = ?
+    """, (user_id, status))
 
     orders = cursor.fetchall()
     conn.close()
@@ -255,6 +255,21 @@ def update_order_status(order_id, status):
     """, (status, order_id))
     conn.commit()
     conn.close()
+
+
+def delete_order(order_id: int | str) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM orders WHERE id = ?", (int(order_id),))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Ошибка при удалении заказа: {e}", datetime.datetime.now().time(), sep='\n')
+        return False
+    finally:
+        conn.close()
+
 
 
 def get_item(order_id: int | str) -> str:
@@ -468,7 +483,7 @@ def add_prices(project: str, server: str, buy_price: str | int, sell_price: str 
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("""SELECT id FROM prices WHERE """, (project, server))
+    cursor.execute("""SELECT id FROM prices WHERE project = ? AND server = ?""", (project, server))
     result = cursor.fetchone()
 
     if result:

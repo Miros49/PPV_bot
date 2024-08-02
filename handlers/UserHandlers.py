@@ -125,12 +125,13 @@ async def co_amount(callback: CallbackQuery, state: FSMContext):
     game_text = utils.get_game_text(utils.determine_game(project))
 
     if amount == 'custom':
-        await callback.message.edit_text(
+        mes = await callback.message.edit_text(
             orders_lexicon['special_1'].format('📗', 'Покупка', 'Вирты', game_text, project, server,
                                                orders_lexicon['virt_1'],
                                                orders_lexicon['virt_custom']))
         await state.set_state(UserStates.input_amount)
-        return await state.update_data({'project': project, 'server': server, 'action_type': 'buy'})
+        return await state.update_data(
+            {'project': project, 'server': server, 'action_type': 'buy', 'mes_original': mes})
 
     price_ = utils.calculate_virt_price(amount, get_price_db(project, server, 'buy'))
 
@@ -253,14 +254,18 @@ async def back_to_handler(callback: CallbackQuery):
 @router.callback_query(F.data.startswith('server_'), ~F.data.endswith('show'), StateFilter(default_state))
 async def handle_server_callback(callback: CallbackQuery, state: FSMContext):
     _, item, project, server, action_type = callback.data.split('_')
+    emoji = '📘' if action_type == 'sell' else '📗'
+    action_text = 'Продажа' if action_type == 'sell' else 'Покупка'
 
-    text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(item),
+    text = orders_lexicon['special_1'].format(emoji, action_text, utils.get_item_text(item),
                                               utils.get_game_text(utils.determine_game(project)),
                                               project, server, '{}', '{}')
 
     if item == 'virt':
+        kb = User_kb.amount_kb(project, server, action_type) if action_type == 'sell' \
+            else User_kb.co_amount_kb(project, server)
         return await callback.message.edit_text(text.format(orders_lexicon['virt_1'], orders_lexicon['virt_2']),
-                                                reply_markup=User_kb.amount_kb(project, server, action_type))
+                                                reply_markup=kb)
     elif item == 'business':
         mes = await callback.message.edit_text(text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
                                                reply_markup=User_kb.order_back_to_servers(item, project, action_type))
@@ -322,12 +327,15 @@ async def input_amount(message: Message, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
     amount = message.text
+
     await bot.delete_message(message.chat.id, message.message_id)
+
     if amount.isnumeric():
         if int(amount) < 500000:
             additional = orders_lexicon['virt_custom'] + orders_lexicon['virt_amount_below']
         elif int(amount) > 100000000000000:
             additional = orders_lexicon['virt_custom'] + orders_lexicon['virt_amount_above']
+
         else:
             price_ = utils.calculate_virt_price(amount,
                                                 get_price_db(data['project'], data['server'], data['action_type']))
@@ -666,8 +674,8 @@ async def handle_chat_action_callback(callback: CallbackQuery):
             del active_chats[buyer_id]
             del active_chats[seller_id]
 
-            buyer_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=buyer_id, user_id=buyer_id))
-            seller_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=seller_id, user_id=seller_id))
+            buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
+            seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
 
             await buyer_state.clear()
             await seller_state.clear()
@@ -759,7 +767,7 @@ async def handle_chat_message(message: Message):
     bot_user_id = get_bot_user_id(user_id)
     save_chat_message(chat_id, user_id, recipient_id, message.text)
 
-    await bot.send_message(recipient_id, f"Сообщение от ID {bot_user_id}: {message.text}")
+    await bot.send_message(recipient_id, f"<b>Сообщение от ID</b> {bot_user_id}: {message.text}")
 
 
 @router.message(Command('account'))
@@ -769,7 +777,13 @@ async def account_info(message: Message):
 
 @router.callback_query(F.data == 'my_orders', StateFilter(default_state))
 async def process_my_orders(callback: CallbackQuery):
-    await utils.send_my_orders(callback)
+    await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
+
+
+@router.callback_query(F.data.startswith('my_orders'), StateFilter(default_state))
+async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
+    await utils.send_my_orders(callback, state, callback.data.split('_')[2], len(callback.data.split('_')) > 3,
+                               callback.data.split('_')[-1])
 
 
 @router.callback_query(F.data == 'complaints_button')
@@ -935,7 +949,7 @@ async def cancel_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.message(Command('myorders'), StateFilter(default_state))
 async def my_orders_command(message: Message):
-    await utils.send_my_orders(message)
+    await message.answer(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
 
 
 @router.callback_query(F.data == 'support_button', StateFilter(default_state))
@@ -992,7 +1006,20 @@ async def confirmation_of_buying(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('cancel_order_'))
 async def cancel_order_handler(callback: CallbackQuery):
-    await callback.message.edit_text('пока что не кликабельно :(')
+    order = get_order(int(callback.data.split('_')[-1]))
+    await utils.send_information_about_order(callback, order, False, edit=True, confirm='\n\nПодтвердите удаление')
+
+
+@router.callback_query(F.data.startswith('confirmation_of_deleting_'))
+async def confirmation_of_deleting(callback: CallbackQuery):
+    delete_order(callback.data.split('_')[-1])
+
+    await callback.message.edit_text('всё кайф, удалилось')
+
+
+@router.callback_query(F.data.startswith('cancel_deleting_order'))
+async def cancel_deleting_order(callback: CallbackQuery):
+    await callback.message.answer('скажи, что тут должно быть')
 
 
 @router.callback_query(F.data == 'back_to_filling')
@@ -1073,13 +1100,13 @@ def todo() -> None:
 
     pass
 
-
-@router.message(StateFilter(default_state))
-async def deleting_unexpected_messages(message: Message):
-    await bot.delete_message(message.from_user.id, message.message_id)
-
-
-@router.callback_query()
-async def kalosbornik(callback: CallbackQuery, state: FSMContext):
-    print(callback.data)
-    print(await state.get_state(), await state.get_data(), sep='\n\n')
+#
+# @router.message(StateFilter(default_state))
+# async def deleting_unexpected_messages(message: Message):
+#     await bot.delete_message(message.from_user.id, message.message_id)
+#
+#
+# @router.callback_query()
+# async def kalosbornik(callback: CallbackQuery, state: FSMContext):
+#     print(callback.data)
+#     print(await state.get_state(), await state.get_data(), sep='\n\n')

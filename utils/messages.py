@@ -23,29 +23,40 @@ async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int 
                           order_id: int | str):
     order = get_order(order_id=order_id)
 
+    item = utils.get_item_text(order[4])
     project = order[5]
     server = order[6]
-    amount = int(order[7])
 
-    buyer_message = "‼️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом.\n\n"
-    seller_message = "‼️ Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем.\n\n"
+    buyer_message = "‼️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом."
+    seller_message = "‼️ Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем."
 
-    item_message = f'Кол-во виртов: <code>{amount}</code>'
-    if order[4] == 'business':
+    if order[4] == 'virt':
+        item_message = f'Кол-во виртов: <code>{"{:,}".format(order[7])}</code>'
+    elif order[4] == 'business':
         item_message = f'Название бизнеса: <i>{order[8]}</i>'
-    elif order[4] == 'account':
+    else:
         item_message = f'Описание аккаунта: <i>{order[8]}</i>'
 
-    cost = str(utils.get_price(order_id, 'buy'))
-    buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, str(matched_orders_id), 'Покупка', project,
-                                                        server, item_message, cost)
+    cost = utils.get_price(order_id, 'buy')
+    buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, '📗', matched_orders_id, 'Покупка',
+                                                        item, project, server, item_message,
+                                                        '{:,}'.format(cost).replace(',', ' '))
 
-    await bot.send_photo(buyer_id, FSInputFile('img/to_buyer.png'), caption=buyer_order_ifo)
+    message_buyer = await bot.send_photo(buyer_id, FSInputFile('img/to_buyer.png'), caption=buyer_order_ifo,
+                                         reply_markup=User_kb.confirmation_of_deal_buyer_kb(seller_id,
+                                                                                            matched_orders_id))
 
-    cost = str(utils.get_price(order_id, 'sell'))
-    seller_order_ifo = LEXICON['order_info_text'].format(seller_message, str(matched_orders_id), 'Продажа', project,
-                                                         server, item_message, cost)
-    await bot.send_photo(seller_id, FSInputFile('img/to_seller.png'), caption=seller_order_ifo)
+    cost = utils.get_price(order_id, 'sell')
+    seller_order_ifo = LEXICON['order_info_text'].format(seller_message, '📘', matched_orders_id, 'Продажа',
+                                                         item, project, server, item_message,
+                                                         '{:,}'.format(cost).replace(',', ' '))
+    message_seller = await bot.send_photo(seller_id, FSInputFile('img/to_seller.png'), caption=seller_order_ifo,
+                                          reply_markup=User_kb.confirmation_of_deal_seller_kb(buyer_id,
+                                                                                              matched_orders_id))
+
+    chat_id = f"{buyer_id}_{seller_id}"
+    cancel_requests[chat_id]['buyer_message_id'] = message_buyer.message_id
+    cancel_requests[chat_id]['seller_message_id'] = message_seller.message_id
 
 
 async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
@@ -63,21 +74,6 @@ async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id:
     await seller_state.set_state(UserStates.in_chat)
 
     await send_order_info(bot, matched_orders_id, buyer_id, seller_id, order_id)
-
-    message_buyer = await bot.send_message(
-        chat_id=buyer_id,
-        text=action_message,
-        reply_markup=User_kb.confirmation_of_deal_buyer_kb(seller_id, matched_orders_id)
-    )
-
-    message_seller = await bot.send_message(
-        chat_id=seller_id,
-        text=action_message,
-        reply_markup=User_kb.confirmation_of_deal_seller_kb(buyer_id, matched_orders_id)
-    )
-
-    cancel_requests[chat_id]['buyer_message_id'] = message_buyer.message_id
-    cancel_requests[chat_id]['seller_message_id'] = message_seller.message_id
 
 
 async def show_projects(callback: CallbackQuery, item: str, game: str, action_type: str):
@@ -190,35 +186,67 @@ async def send_account_info(update: CallbackQuery | Message):
         await update.message.edit_text(message_text, reply_markup=reply_markup)
 
 
-async def send_my_orders(update: CallbackQuery | Message):
-    orders = get_orders_by_user_id(update.from_user.id)
+async def send_information_about_order(callback: CallbackQuery, order: list, key: bool, edit: bool = False,
+                                       confirm: str = None):
+    order_id, _, _, action, item, project, server, amount, description, price, status, created_at = order
+    emoji = '📘' if action == 'sell' else '📗'
+    action_text = 'Продажа' if action == 'sell' else 'Покупка'
+    item_text = 'Вирты' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
+    status_text = 'Создано 🌀' if status == 'pending' else 'Выполнен ✅'
+    aditional = (my_orders_lexicon[f'aditional_{item}'].format(description) if item != 'virt' else
+                 my_orders_lexicon['aditional_virt'].format('{0:,}'.format(int(amount))))
 
-    async def send_order_message(update_method, order):
-        order_id, _, _, action, item, project, server, amount, description, price, status, created_at = order
-        action_text = 'Продажа' if action == 'sell' else 'Покупка'
-        item_text = 'Вирты' if item == 'virt' else 'Бизнес' if item == 'business' else 'Аккаунт'
-        status_text = 'Создано 🌀' if status == 'pending' else ''
-        kb = User_kb.cancel_order_kb(order_id) if status == 'pending' else User_kb.hide_order_kb()
-        aditional = (LEXICON[f'aditional_{item}'].format(description) if item != 'virt' else
-                     LEXICON['aditional_virt'].format('{0:,}'.format(int(amount))))
-        message_text = LEXICON['my_orders_message'].format(order_id, created_at, status_text, action_text, item_text,
-                                                           project, server, '{0:,}'.format(int(price)), aditional)
-        await update_method(message_text, reply_markup=kb)
+    if confirm:
+        kb = User_kb.confirmation_of_deleting_kb(order_id)
+    else:
+        kb = User_kb.cancel_order_kb(order_id, callback.data.split('_')[2], key) if status == 'pending' else None
+
+    message_text = my_orders_lexicon['my_orders_message'].format(emoji, order_id, created_at, status_text,
+                                                                 action_text, item_text, project, server,
+                                                                 aditional,
+                                                                 '{0:,}'.format(int(price)).replace(',', ' '))
+    if edit:
+        return await callback.message.edit_text(message_text + confirm, reply_markup=kb)
+    await callback.message.answer(message_text, reply_markup=kb)
+
+
+async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str, watch_more: bool = False,
+                         order_id: int | str = None):
+    orders = get_orders_by_user_id(callback.from_user.id, target)
 
     if orders:
-        if isinstance(update, CallbackQuery):
-            await update.message.delete()
-            update_method = update.message.answer
-        else:
-            update_method = update.answer
+        if watch_more:
+            order = get_order(int(order_id))
+            await send_information_about_order(callback, order, False, edit=True)
 
-        for order in orders:
-            await send_order_message(update_method, order)
-    else:
-        if isinstance(update, CallbackQuery):
-            await update.message.edit_text("❕ Вы не создавали заказов.")
+            data = await state.get_data()
+            if 'watched_orders' not in data:
+                return await callback.answer('Эта кнопка уже устарела, попробуйте ещё раз', show_alert=True)
+
+            watched_orders = data['watched_orders']
+
         else:
-            await update.answer("❕ Вы не создавали заказов.")
+            await callback.message.delete()
+            watched_orders = []
+
+        orders_count = 0
+        for order in orders:
+            if order[0] in watched_orders:
+                continue
+
+            await send_information_about_order(callback, order, orders_count == 4)
+
+            watched_orders.append(order[0])
+
+            if orders_count == 4:
+                break
+
+            orders_count += 1
+
+            await state.update_data({'watched_orders': watched_orders})
+
+    else:
+        await callback.message.edit_text("❕ Вы не создавали заказов.")
 
 
 #
