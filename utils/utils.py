@@ -23,7 +23,7 @@ def parse_message_order(message: str):
     amount_pattern = re.compile(r'Кол-во валюты: ([\d,]+)')
     business_name_pattern = re.compile(r'Наименование: (.+)')
     description_pattern = re.compile(r'Описание: (.+)')
-    final_price_pattern = re.compile(r'Стоимость: ([\d,]+)\s*руб')
+    final_price_pattern = re.compile(r'Стоимость: ([\d\s,\.]+)\s*руб')
 
     type_match = type_pattern.search(message)
     category_match = category_pattern.search(message)
@@ -39,7 +39,7 @@ def parse_message_order(message: str):
         server_full = server_match.group(1).strip().split(',')
         project = server_full[0].strip()
         server = server_full[1].strip()
-        final_price = final_price_match.group(1).strip().replace(',', '')
+        final_price = final_price_match.group(1).strip().replace(',', '').replace(' ', '').replace('.', '')
 
         result = {
             'type': action_type,
@@ -66,6 +66,27 @@ def parse_message_order(message: str):
         return None
 
 
+def parse_complaint(complaint_text: str):
+    deal_id_pattern = re.compile(r'├ ID сделки: (\d+)')
+    description_pattern = re.compile(r'└ Описание: (.+)')
+
+    deal_id_match = deal_id_pattern.search(complaint_text)
+    description_match = description_pattern.search(complaint_text)
+
+    if deal_id_match and description_match:
+        deal_id = deal_id_match.group(1).strip()
+        description = description_match.group(1).strip()
+
+        result = {
+            'deal_id': deal_id,
+            'description': description
+        }
+
+        return result
+    else:
+        return None
+
+
 def calculate_virt_price(amount: str | int, price_per_million: int) -> int:
     return math.ceil(
         (int(amount) // 1000000) * price_per_million + (int(amount) % 1000000) * (price_per_million / 1000000))
@@ -76,7 +97,7 @@ def get_item_text(item: str) -> str:
 
 
 def get_game_text(game: str) -> str:
-    return 'GTA 5' if game == 'gta5' else 'SAMP, MOBILE, CRMP'
+    return 'GTA 5' if game == 'gta5' else 'SAMP, CRMP'
 
 
 def get_price(order_id: int | str, action_type: str) -> int:
@@ -96,7 +117,8 @@ def get_order_seved_text(data: dict) -> str:
     emoji = '📘' if action_text == 'Продажа' else '📗'
 
     item_text = item_lexicon.get(item)
+    additional = '{:,}'.format(additional) if item == 'Вирты' else additional
 
     return orders_lexicon['saved'] + orders_lexicon['show_order'].format(
-        emoji, action_text, item, project, server, item_text, additional, '{:,}'.format(price_), ''
+        emoji, action_text, item, project, server, item_text, additional, '{:,}'.format(price_).replace(',', ' '), ''
     )

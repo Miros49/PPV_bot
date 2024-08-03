@@ -40,9 +40,21 @@ def create_ordeer_kb(key: bool, project: str, server: str):
 
     kb.add(InlineKeyboardButton(text='Создать заказ на покупку ',
                                 callback_data=f'co_server_{project}_{server}')) if key else None
-    kb.add(InlineKeyboardButton(text='🛒 Магазин', callback_data=f'shop_button')).adjust(1)
+    kb.add(InlineKeyboardButton(text='🛒 Магазин', callback_data='shop_button')).adjust(1)
 
     return kb.as_markup()
+
+
+def to_shop_kb():
+    kb = InlineKeyboardBuilder()
+
+    return kb.row(InlineKeyboardButton(text='Вернуться в магазин', callback_data='shop_button')).as_markup()
+
+
+def to_account_kb():
+    kb = InlineKeyboardBuilder()
+
+    return kb.row(InlineKeyboardButton(text='← Назад', callback_data='my_orders')).as_markup()
 
 
 def action_kb(action_type: str):
@@ -127,7 +139,7 @@ def confirmation_of_creation_kb(item: str, project: str, server: str, action_typ
 
     kb.row(
         InlineKeyboardButton(text='Подтвердить', callback_data=f'confirmation_of_creation_{item}_confirm'),
-        InlineKeyboardButton(text="Отменить", callback_data='confirmation_of_creation_cancel'),
+        # InlineKeyboardButton(text="Отменить", callback_data='confirmation_of_creation_cancel'),
         InlineKeyboardButton(text='← Назад',
                              callback_data=f'{"server" if item == "virt" else "btls"}_{item}_{project}_'
                                            f'{server}_{action_type}')
@@ -235,13 +247,21 @@ def report_kb():
     return kb.as_markup()
 
 
-def send_report_kb():
+def send_complaint_kb():
     kb = InlineKeyboardBuilder()
 
     kb.row(
-        InlineKeyboardButton(text="Оставить жалобу", callback_data="send_ticket"),
-        InlineKeyboardButton(text="Отменить", callback_data="cancel_ticket")
+        InlineKeyboardButton(text="Оставить жалобу", callback_data="send_complaint"),
+        InlineKeyboardButton(text="Отменить", callback_data="cancel_complaint")
     )
+
+    return kb.as_markup()
+
+
+def complaints_to_main_menu():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='В главное меню', callback_data='complaints_to_main_menu'))
 
     return kb.as_markup()
 
@@ -311,6 +331,12 @@ def co_server_kb(project: str):
     return kb.as_markup()
 
 
+def co_back_to_amount(project: str, server: str):
+    kb = InlineKeyboardBuilder()
+
+    return kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_server_{project}_{server}')).as_markup()
+
+
 def co_amount_kb(project: str, server: str):
     kb = InlineKeyboardBuilder()
 
@@ -341,10 +367,7 @@ def cancel_order_kb(order_id: int | str, target: str, show_more: bool = False):
 def confirmation_of_deleting_kb(order_id: str | int):
     kb = InlineKeyboardBuilder()
 
-    kb.row(
-        InlineKeyboardButton(text='Подтвердить', callback_data=f'confirmation_of_deleting_{str(order_id)}'),
-        InlineKeyboardButton(text='Отменить', callback_data='cancel_deleting_order')
-    )
+    kb.row(InlineKeyboardButton(text='Подтвердить', callback_data=f'confirmation_of_deleting_{str(order_id)}'))
 
     return kb.as_markup()
 

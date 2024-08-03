@@ -37,19 +37,19 @@ async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int 
     else:
         item_message = f'Описание аккаунта: <i>{order[8]}</i>'
 
-    cost = utils.get_price(order_id, 'buy')
+    price = utils.get_price(order_id, 'buy')
     buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, '📗', matched_orders_id, 'Покупка',
                                                         item, project, server, item_message,
-                                                        '{:,}'.format(cost).replace(',', ' '))
+                                                        '{:,}'.format(price).replace(',', ' '))
 
     message_buyer = await bot.send_photo(buyer_id, FSInputFile('img/to_buyer.png'), caption=buyer_order_ifo,
                                          reply_markup=User_kb.confirmation_of_deal_buyer_kb(seller_id,
                                                                                             matched_orders_id))
 
-    cost = utils.get_price(order_id, 'sell')
+    price = utils.get_price(order_id, 'sell')
     seller_order_ifo = LEXICON['order_info_text'].format(seller_message, '📘', matched_orders_id, 'Продажа',
                                                          item, project, server, item_message,
-                                                         '{:,}'.format(cost).replace(',', ' '))
+                                                         '{:,}'.format(price).replace(',', ' '))
     message_seller = await bot.send_photo(seller_id, FSInputFile('img/to_seller.png'), caption=seller_order_ifo,
                                           reply_markup=User_kb.confirmation_of_deal_seller_kb(buyer_id,
                                                                                               matched_orders_id))
@@ -246,7 +246,10 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
             await state.update_data({'watched_orders': watched_orders})
 
     else:
-        await callback.message.edit_text("❕ Вы не создавали заказов.")
+        if target == 'pending':
+            await callback.message.edit_text("❕ Вы не создавали заказов.", reply_markup=User_kb.to_account_kb())
+        else:
+            await callback.message.edit_text('❕ У вас нет завершенных заказов.', reply_markup=User_kb.to_account_kb())
 
 
 #

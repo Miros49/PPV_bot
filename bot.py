@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from core import Config, load_config, storage
 from database import init_db
-from handlers import UserHandlers, AdminHandlers, PaymentHandlers
+from handlers import UserHandlers, AdminHandlers, PaymentHandlers, DebugHandlers
 
 logging.basicConfig(level=logging.INFO)
 config: Config = load_config('.env')
@@ -18,6 +18,7 @@ dp: Dispatcher = Dispatcher(storage=storage)
 dp.include_router(AdminHandlers.router)
 dp.include_router(UserHandlers.router)
 dp.include_router(PaymentHandlers.router)
+dp.include_router(DebugHandlers.router)
 
 
 async def main():
