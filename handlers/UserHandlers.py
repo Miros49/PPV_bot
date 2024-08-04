@@ -20,6 +20,10 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 
 router: Router = Router()
 
+@router.callback_query()
+async def ergjwhekrg(callback: CallbackQuery):
+    await callback.answer('😡 гомикам нельзя сюда', show_alert=True)
+
 
 @router.message(Command('menu', 'start'), ~StateFilter(UserStates.in_chat))
 async def start_handler(message: Message, state: FSMContext):
@@ -620,13 +624,15 @@ async def handle_confirm_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('report_'), StateFilter(UserStates.in_chat))
 async def report_callback(callback: CallbackQuery, state: FSMContext):
+    print(callback.message.caption)
     await callback.answer()
     _, offender_id, order_id = callback.data.split('_')
 
     mes = await callback.message.answer(complaint_lexicon['description'].format(order_id, ''),
                                         reply_markup=User_kb.cancel_complaint_kb())
     await state.set_state(UserStates.in_chat_waiting_complaint)
-    await state.update_data({'offender_id': offender_id, 'order_id': order_id, 'mes_original': mes})
+    await state.update_data({'offender_id': offender_id, 'order_id': order_id, 'mes_original': mes,
+                             'in_chat_message_id': callback.message.message_id})
 
 
 @router.message(StateFilter(UserStates.in_chat_waiting_complaint))
@@ -645,8 +651,9 @@ async def complaint_in_chat_callback(message: Message, state: FSMContext):
 
         return state.update_data(data)
 
+    data['complaint_text'] = message.text
     data['mes_original'] = await mes.edit_text(complaint_lexicon['info'].format(data['order_id'], message.text),
-                                               reply_markup=User_kb.complaint_management())
+                                               reply_markup=User_kb.send_complaint_kb())
     await state.set_state(UserStates.in_chat)
     await state.update_data(data)
 
@@ -774,7 +781,7 @@ async def handle_chat_message(message: Message, state: FSMContext):
     bot_user_id = get_bot_user_id(user_id)
     save_chat_message(chat_id, user_id, recipient_id, message.text)
 
-    await bot.send_message(recipient_id, f"<b>Сообщение от ID</b> {bot_user_id}: {message.text}")
+    await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b> {message.text}")
 
 
 @router.message(Command('account'))
@@ -933,10 +940,20 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
         offender_id = complaint[1] if complaint[1] != complainer_id else complaint[3]
         create_report(data['order_id'], complainer_id, offender_id, data['complaint_text'])
 
-        await mes.edit_text(
-            complaint_lexicon['saved'] + complaint_lexicon['info'].format(data['order_id'], data['complaint_text']),
-            reply_markup=User_kb.complaints_to_main_menu()
-        )
+        text = complaint_lexicon['saved'] + complaint_lexicon['info'].format(data['order_id'], data['complaint_text'])
+
+        if 'in_chat_message_id' in data:
+            kb = utils.get_deal_kb_without_report(data['order_id'], callback.from_user.id)
+            await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=data['in_chat_message_id'],
+                                                reply_markup=kb)
+            await mes.edit_text(text)
+
+        else:
+            await mes.edit_text(
+                text=text,
+                reply_markup=User_kb.complaints_to_main_menu()
+            )
+
         await state.clear()
 
         for admin_id in config.tg_bot.admin_ids:

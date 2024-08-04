@@ -216,9 +216,6 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 
     if orders:
         if watch_more:
-            order = get_order(int(order_id))
-            await send_information_about_order(callback, order, False, edit=True)
-
             data = await state.get_data()
             if 'watched_orders' not in data:
                 return await callback.answer('Эта кнопка уже устарела, попробуйте ещё раз', show_alert=True)
@@ -244,6 +241,8 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
             orders_count += 1
 
             await state.update_data({'watched_orders': watched_orders})
+
+        await callback.message.answer('скрол', reply_markup=User_kb.complaints_management_kb())
 
     else:
         if target == 'pending':

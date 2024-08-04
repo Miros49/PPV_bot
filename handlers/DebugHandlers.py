@@ -21,6 +21,12 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 router: Router = Router()
 
 
+@router.message(Command('test_my_gender'))
+async def my_gender(message: Message, state: FSMContext):
+    await message.answer('Фу! Вы 100%. Пользование ботом для вас теперь ограничено')
+    await state.set_state('gay')
+
+
 @router.message(StateFilter(default_state))
 async def deleting_unexpected_messages(message: Message):
     await bot.delete_message(message.from_user.id, message.message_id)

@@ -421,11 +421,11 @@ def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, sel
         return None
 
 
-def get_matched_order(order_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
+def get_matched_order(deal_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(order_id),))
+    cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(deal_id),))
 
     order = cursor.fetchone()
     conn.close()

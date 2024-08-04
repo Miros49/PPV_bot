@@ -3,7 +3,10 @@ import re
 
 from datetime import datetime
 
-from database import get_order, get_price_db
+from aiogram.types import InlineKeyboardMarkup
+
+from database import get_order, get_price_db, get_matched_order
+from keyboards import UserKeyboards as User_kb
 from lexicon import *
 
 
@@ -122,3 +125,11 @@ def get_order_seved_text(data: dict) -> str:
     return orders_lexicon['saved'] + orders_lexicon['show_order'].format(
         emoji, action_text, item, project, server, item_text, additional, '{:,}'.format(price_).replace(',', ' '), ''
     )
+
+
+def get_deal_kb_without_report(deal_id: str, tg_id: str | int) -> InlineKeyboardMarkup:
+    deal = get_matched_order(deal_id)
+
+    if tg_id == deal[1]:
+        return User_kb.confirmation_of_deal_buyer_kb(deal[3], deal_id, show_report=False)
+    return User_kb.confirmation_of_deal_seller_kb(deal[1], deal_id, show_report=False)

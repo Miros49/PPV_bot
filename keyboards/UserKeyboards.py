@@ -148,12 +148,15 @@ def confirmation_of_creation_kb(item: str, project: str, server: str, action_typ
     return kb.as_markup()
 
 
-def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_orders_id: str | int):
+def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_orders_id: str | int, show_report: bool = True,
+                                  show_cancel: bool = True):
     kb = InlineKeyboardBuilder()
 
     kb.row(
-        InlineKeyboardButton(text="📢 Сообщить о нарушении",
-                             callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}'))
+        InlineKeyboardButton(
+            text="📢 Сообщить о нарушении",
+            callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}')
+    ) if show_report else None
     kb.row(
         InlineKeyboardButton(text="✅ Подтвердить сделку",
                              callback_data=f'confirmation_of_deal_confirm_{str(matched_orders_id)}'),
@@ -164,16 +167,16 @@ def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_orders_id: str |
     return kb.as_markup()
 
 
-def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_orders_id: str | int):
+def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_orders_id: str | int, show_report: bool = True):
     kb = InlineKeyboardBuilder()
 
     kb.add(
         InlineKeyboardButton(text="📢 Сообщить о нарушении",
-                             callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}'),
+                             callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}')) if show_report else None
+    kb.add(
         InlineKeyboardButton(text="❌ Отменить сделку",
                              callback_data=f'confirmation_of_deal_cancel_{str(matched_orders_id)}')
-    )
-    kb.adjust(1)
+    ).adjust(1)
 
     return kb.as_markup()
 
@@ -308,7 +311,7 @@ def co_game_kb():
 
 
 def co_project_kb(game: str):
-    sizes = [1, 3] if game == 'gta5' else [3]
+    sizes = [2, 3] if game == 'gta5' else [3]
     kb = InlineKeyboardBuilder()
 
     kb.add(*[InlineKeyboardButton(text=project, callback_data=f'co_project_{project}') for project in
@@ -423,9 +426,12 @@ def back_to_filling():
     return kb.as_markup()
 
 
-def complaint_management():
+def complaints_management_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='', callback_data=''))
+    kb.add(
+        InlineKeyboardButton(text='назад', callback_data='complaints_management_back'),
+        InlineKeyboardButton(text='скрол', callback_data='complaints_management_scroll')
+    ).adjust(1)
 
-    pass
+    return kb.as_markup()
