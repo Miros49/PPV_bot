@@ -86,3 +86,32 @@ def confirm_editing(project: str, server: str, buy: str, sell: str):
     )
 
     return kb.as_markup()
+
+
+def answer_to_complaint_kb(complaint_id: int, show_interfere_button: bool = False):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='Ответить', callback_data=f'answer_to_complaint_{str(complaint_id)}'))
+    kb.add(InlineKeyboardButton(text='Вмешаться в чат', callback_data='interfere_in_chat')) if show_interfere_button \
+        else None
+
+    return kb.as_markup()
+
+
+def cancel_answering_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='Отменить', callback_data='cancel_answer'))
+
+    return kb.as_markup()
+
+
+def confirm_answer_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Подтвердить', callback_data='confirm_answer'),
+        InlineKeyboardButton(text='Отменить', callback_data='cancel_answer')
+    )
+
+    return kb.as_markup()

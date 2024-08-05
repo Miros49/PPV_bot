@@ -69,6 +69,7 @@ def create_tables():
                             offender_id INTEGER,
                             complaint TEXT,
                             status TEXT DEFAULT 'open',
+                            answer TEXT DEFAULT NONE,
                             created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS prices (
@@ -271,7 +272,6 @@ def delete_order(order_id: int | str) -> bool:
         conn.close()
 
 
-
 def get_item(order_id: int | str) -> str:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -383,13 +383,46 @@ def get_open_complaints() -> List[Tuple[int, int, int, int, str, str]]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute(
-        '''SELECT id, order_id, complainer_id, offender_id, complaint, created_at FROM reports WHERE status = 'open' ''')
+    cursor.execute('''
+        SELECT id, order_id, complainer_id, offender_id, complaint, answer, created_at
+        FROM reports
+        WHERE status = 'open' 
+    ''')
 
     open_reports = cursor.fetchall()
     conn.close()
 
     return open_reports
+
+
+def get_complaint(complaint_id: int | str) -> Tuple[int, int, int, int, str, str]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM reports 
+        WHERE id = ?
+    """, (int(complaint_id),))
+
+    complaint = cursor.fetchone()
+    conn.close()
+
+    return complaint
+
+
+def set_complaint_answer(complaint_id: int | str, answer: str, status: str):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE reports
+        SET answer = ?, status = ?
+        WHERE id = ?
+    """, (answer, status, int(complaint_id)))
+
+    conn.commit()
+    conn.close()
 
 
 def get_complaints(user_id) -> List[Tuple[int, int, str]]:
@@ -528,3 +561,19 @@ def get_price_db(project: str, server: str, action_type: str) -> int | float:
     conn.close()
 
     return result[0] if result else 100
+
+
+def user_has_complaint_on_order(user_id: int, order_id: int) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 1 
+        FROM reports 
+        WHERE complainer_id = ? AND order_id = ?
+    """, (user_id, order_id))
+
+    complaint_exists = cursor.fetchone() is not None
+    conn.close()
+
+    return complaint_exists

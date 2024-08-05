@@ -20,10 +20,6 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 
 router: Router = Router()
 
-@router.callback_query()
-async def ergjwhekrg(callback: CallbackQuery):
-    await callback.answer('😡 гомикам нельзя сюда', show_alert=True)
-
 
 @router.message(Command('menu', 'start'), ~StateFilter(UserStates.in_chat))
 async def start_handler(message: Message, state: FSMContext):
@@ -803,7 +799,7 @@ async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == 'complaints_button')
-async def handle_complaints_button(callback: CallbackQuery, state: FSMContext):
+async def complaints_button_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
     await state.clear()
 
@@ -815,23 +811,64 @@ async def report_command(message: Message, state: FSMContext):
 
 
 @router.callback_query(F.data == 'my_complaints')
-async def process_my_tickets_callback(callback: CallbackQuery):
-    reports = get_complaints(callback.from_user.id)
+async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watched_complains: list = []):
+    complaints = get_complaints(callback.from_user.id)
 
-    if not reports:
+    if not complaints:
         return await callback.message.edit_text(
             '❕  У вас нет жалоб',
             reply_markup=User_kb.back_to_complaint_kb()
         )
 
     await callback.message.delete()
+    data = await state.get_data()
 
-    for report in reports:
+    complaints_counter, data = 0, data if 'watched_complaints' in data else {'watched_complaints': {}}
+    for complaint in complaints:
+        if complaint[0] in watched_complains:
+            continue
+
+        status_text = 'На рассмотрении 🌀' if complaint[5] == 'open' else 'Рассмотрено ✅'
+        answer = '' if complaint[5] == 'open' else complaint_lexicon['answer'].format(complaint[6])
+
         text = complaint_lexicon['show_complaint'].format(
-            report[0], report[6], 'На рассмотрении 🌀', report[1], report[4]
+            complaint[0], complaint[7], status_text, complaint[1], complaint[4], answer
         )
 
-        await callback.message.answer(text)
+        mes = await callback.message.answer(text)
+        data['watched_complaints'][mes.message_id] = complaint[0]
+
+        if complaints_counter == 4:
+            await callback.message.answer('выберите действие:', reply_markup=User_kb.complaints_management_kb())
+            await state.update_data(data)
+            break
+
+        complaints_counter += 1
+
+    if complaints_counter == 0:
+        await callback.answer('У вас больше нет жалоб', show_alert=True)
+    elif complaints_counter != 4:
+        await callback.message.answer('назад', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
+        await state.update_data(data)
+
+
+@router.callback_query(F.data.startswith('complaints_management'))
+async def process_complaints_back(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if 'watched_complaints' not in data:
+        await callback.message.delete()
+        return await callback.message.answer(LEXICON['report_message'], reply_markup=User_kb.report_kb())
+
+    watched_complaints = data['watched_complaints']
+
+    if callback.data.split('_')[-1] == 'back':
+        for message_id in watched_complaints.keys():
+            await bot.delete_message(callback.from_user.id, message_id)
+
+        await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
+        return await state.clear()
+
+    await my_complaints_habdler(callback, state, watched_complaints.values())
 
 
 @router.callback_query(F.data == 'write_complaint')
@@ -881,6 +918,13 @@ async def process_order_id(message: Message, state: FSMContext):
     if not check_matched_order(order_id, message.from_user.id):
         data['mes_original'] = await mes.edit_text(complaint_lexicon['order_id'].format(complaint_lexicon['no_order']),
                                                    reply_markup=User_kb.back_to_complaint_kb())
+        return await state.update_data(data)
+
+    if user_has_complaint_on_order(message.from_user.id, order_id):
+        data['mes_original'] = await mes.edit_text(
+            complaint_lexicon['order_id'].format(complaint_lexicon['already_exists']),
+            reply_markup=User_kb.back_to_complaint_kb()
+        )
         return await state.update_data(data)
 
     data['order_id'] = order_id
@@ -1108,6 +1152,18 @@ async def back_to_last_step_handler(callback: CallbackQuery, state: FSMContext):
         await state.set_state(UserStates.input_account_price)
 
     await state.update_data(data)
+
+
+@router.callback_query(F.data.startswith('view_answer'))
+async def view_answer_handler(callback: CallbackQuery):
+    complaint = get_complaint(callback.data.split('_')[-1])
+
+    text = complaint_lexicon['show_complaint'].format(
+        complaint[0], complaint[7], 'Рассмотрено ✅', complaint[1], complaint[4],
+        complaint_lexicon['answer'].format(complaint[6])
+    )
+
+    await callback.message.edit_text(text)
 
 
 def todo() -> None:

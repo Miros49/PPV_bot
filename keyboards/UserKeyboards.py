@@ -211,7 +211,7 @@ def my_orders_kb():
     kb.add(
         InlineKeyboardButton(text='Активные', callback_data='my_orders_pending'),
         InlineKeyboardButton(text='Завершёные', callback_data='my_orders_confirmed'),
-        InlineKeyboardButton(text='← Назад', callback_data=f'my_orders')
+        InlineKeyboardButton(text='← Назад', callback_data=f'account_button')
     ).adjust(2)
 
     return kb.as_markup()
@@ -426,12 +426,19 @@ def back_to_filling():
     return kb.as_markup()
 
 
-def complaints_management_kb():
+def complaints_management_kb(show_scroll: bool = True):
     kb = InlineKeyboardBuilder()
 
-    kb.add(
-        InlineKeyboardButton(text='назад', callback_data='complaints_management_back'),
-        InlineKeyboardButton(text='скрол', callback_data='complaints_management_scroll')
-    ).adjust(1)
+    kb.add(InlineKeyboardButton(text='назад', callback_data='complaints_management_back'))
+    kb.add(InlineKeyboardButton(text='скрол', callback_data='complaints_management_scroll')).adjust(1) if show_scroll \
+        else None
+
+    return kb.as_markup()
+
+
+def view_answer(complaint_id: str):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='Посмотреть', callback_data=f'view_answer_{complaint_id}'))
 
     return kb.as_markup()

@@ -11,7 +11,7 @@ import utils
 from core import *
 from database import *
 from filters import *
-from keyboards import AdminKeyboards as Admin_kb
+from keyboards import AdminKeyboards as Admin_kb, UserKeyboards as User_kb
 from lexicon import *
 from states import AdminStates
 
@@ -49,7 +49,7 @@ async def admin_reports(callback: CallbackQuery):
     await callback.message.delete()
 
     for complaint in open_complaints:
-        complaint_id, order_id, complainer_id, offender_id, complaint_text, created_at = complaint
+        complaint_id, order_id, complainer_id, offender_id, complaint_text, answer, created_at = complaint
 
         complainer = get_user(complainer_id)
         offender = get_user(offender_id)
@@ -60,8 +60,68 @@ async def admin_reports(callback: CallbackQuery):
         await callback.message.answer(
             LEXICON['admin_report'].format(str(order_id), str(complaint_id), complainer_username, complainer_id,
                                            offender_username,
-                                           offender_id, complaint_text, created_at))
-        # TODO: добавить кнопку для того, чтобы отреагировать на репорт
+                                           offender_id, complaint_text, created_at),
+            reply_markup=Admin_kb.answer_to_complaint_kb(complaint_id))
+
+
+@router.callback_query(F.data.startswith('answer_to_complaint'), StateFilter(default_state))
+async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext):
+    data = {
+        'complaint_id': callback.data.split('_')[-1],
+        'mes_original': await bot.send_message(callback.from_user.id, LEXICON['admin_input_answer'],
+                                               reply_markup=Admin_kb.cancel_answering_kb(),
+                                               reply_to_message_id=callback.message.message_id)
+    }
+    await bot.edit_message_reply_markup(None, callback.from_user.id, callback.message.message_id, reply_markup=None)
+    await state.set_state(AdminStates.input_answer)
+    await state.update_data(data)
+
+
+@router.callback_query(F.data == 'cancel_answer')
+async def cancel_answering(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.answer('Вы отменили ответ на жалобу')
+    await state.clear()
+
+
+@router.message(StateFilter(AdminStates.input_answer))
+async def confirm_answer_handler(message: Message, state: FSMContext):
+    data = await state.get_data()
+    mes: Message = data['mes_original']
+    print(mes)
+
+    await bot.delete_message(message.chat.id, message.message_id)
+
+    if not message.text:
+        data['mes_original'] = await mes.edit_text(LEXICON['admin_input_answer'] + LEXICON['text_needed'])
+        return state.update_data(data)
+
+    data['answer_text'] = message.text
+    data['mes_original'] = await mes.edit_text(
+        LEXICON['admin_confirm_answer'].format(data['complaint_id'], message.text),
+        reply_markup=Admin_kb.confirm_answer_kb())
+
+    await state.clear()
+    await state.update_data(data)
+
+
+@router.callback_query(F.data == 'confirm_answer')
+async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    if 'complaint_id' not in data or 'answer_text' not in data:
+        await callback.message.delete()
+        return callback.answer('Эта кнопка устарела, попробуйте ещё раз')
+
+    set_complaint_answer(data['complaint_id'], data['answer_text'], 'closed')
+
+    complaint = get_complaint(data['complaint_id'])
+    await bot.send_message(complaint[2], LEXICON['admin_answered'].format(data['complaint_id']),
+                           reply_markup=User_kb.view_answer(data['complaint_id']))
+
+    mes: Message = data['mes_original']
+    await mes.edit_text(LEXICON['admin_confirm_answer'].format(data['complaint_id'], data['answer_text'])
+                        + LEXICON['admin_answer_saved'])
 
 
 @router.callback_query(F.data == 'admin_information')
