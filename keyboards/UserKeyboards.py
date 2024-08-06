@@ -185,7 +185,7 @@ def support_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/hatepizza'),
+        InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/ddvirtshelp'),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     ).adjust(1)
 
@@ -213,6 +213,24 @@ def my_orders_kb():
         InlineKeyboardButton(text='Завершёные', callback_data='my_orders_confirmed'),
         InlineKeyboardButton(text='← Назад', callback_data=f'account_button')
     ).adjust(2)
+
+    return kb.as_markup()
+
+
+def cancel_order_kb(order_id: int | str):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Отменить заказ', callback_data=f'cancel_order_{str(order_id)}'))
+
+    return kb.as_markup()
+
+
+def my_orders_management(target: str, show_more: bool = True):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Назад', callback_data='my_orders_management_back'))
+    kb.row(InlineKeyboardButton(text='Показать ещё',
+                                callback_data=f'my_orders_management_{target}')) if show_more else None
 
     return kb.as_markup()
 
@@ -277,12 +295,20 @@ def cancel_complaint_kb():
     return kb.as_markup()
 
 
-def show_kb(order_id: int | str, item: str, project: str, server: str, key: bool = False):
+def show_kb(order_id: int | str, item: str, project: str, server: str):
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text="✅ Купить!", callback_data=f'buy_order_{str(order_id)}'))
-    kb.row(InlineKeyboardButton(text='⏬ Посмотреть ещё',
-                                callback_data=f'watch-other_{item}_{project}_{server}_{order_id}')) if key else None
+
+    return kb.as_markup()
+
+
+def show_orders_management(show_more: bool = True):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Назад', callback_data='show_orders_management_back'))
+    kb.row(
+        InlineKeyboardButton(text='⏬ Посмотреть ещё', callback_data=f'show_orders_management')) if show_more else None
 
     return kb.as_markup()
 
@@ -353,16 +379,6 @@ def co_amount_kb(project: str, server: str):
         InlineKeyboardButton(text="Другое количество", callback_data=f'co_amount_{project}_{server}_custom')
     ).adjust(2)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_project_{project}'))
-
-    return kb.as_markup()
-
-
-def cancel_order_kb(order_id: int | str, target: str, show_more: bool = False):
-    kb = InlineKeyboardBuilder()
-
-    kb.row(InlineKeyboardButton(text='Отменить заказ', callback_data=f'cancel_order_{str(order_id)}'))
-    kb.row(InlineKeyboardButton(text='Показать ещё',
-                                callback_data=f'my_orders_{target}_w-o_{order_id}')) if show_more else None
 
     return kb.as_markup()
 

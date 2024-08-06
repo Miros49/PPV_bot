@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import Bot, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction
@@ -289,11 +291,21 @@ async def handle_server_show_callback(callback: CallbackQuery, state: FSMContext
     await utils.show_orders(callback, state, item, project, server)
 
 
-@router.callback_query(F.data.startswith('watch-other'))
-async def watch_other_handler(callback: CallbackQuery, state: FSMContext):
-    _, item, project, server, _ = callback.data.split('_')
+@router.callback_query(F.data.startswith('show_orders_management'))
+async def show_orders_management(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
 
-    await utils.show_orders(callback, state, item, project, server, True, callback.data.split('_')[-1])
+    if 'watched_orders' not in data:
+        await callback.message.delete()
+        return await callback.answer('Эта кнопка устарела. Попробуйте ещё раз', show_alert=True)
+
+    if callback.data.split('_')[-1] == 'back':
+        print(data['watched_orders'])
+        for message_id in data['watched_orders'].keys():
+            await bot.delete_message(callback.from_user.id, message_id)
+        return await utils.show_servers(callback, data['item'], data['project'], 'show')
+
+    await utils.show_orders(callback, state, data['item'], data['project'], data['server'], True)
 
 
 @router.callback_query(F.data.startswith('amount_'), StateFilter(default_state))
@@ -620,7 +632,6 @@ async def handle_confirm_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('report_'), StateFilter(UserStates.in_chat))
 async def report_callback(callback: CallbackQuery, state: FSMContext):
-    print(callback.message.caption)
     await callback.answer()
     _, offender_id, order_id = callback.data.split('_')
 
@@ -753,6 +764,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
                 update_order_status(seller_order_id, 'confirmed')
                 if buyer_order_id != 0:
                     update_order_status(buyer_order_id, 'confirmed')
+                    update_order_status(buyer_order_id, 'confirmed')
             except sqlite3.Error as e:
                 print(f"Error updating order status to 'confirmed': {e}")
 
@@ -774,10 +786,23 @@ async def handle_chat_message(message: Message, state: FSMContext):
     buyer_id, seller_id = map(int, chat_id.split('_'))
     recipient_id = buyer_id if user_id == seller_id else seller_id
 
-    bot_user_id = get_bot_user_id(user_id)
-    save_chat_message(chat_id, user_id, recipient_id, message.text)
+    if message.text:
+        item = message.text
+    elif message.photo:
+        item = message.photo[0].file_id
+        caption = message.caption if message.caption else ''
+    else:
+        await bot.delete_message(message.from_user.id, message.message_id)
+        mes = await message.answer('Извините, на данный момент данный тип сообщений не поддерживается')
+        await asyncio.sleep(2)
+        return await mes.delete()
 
-    await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b> {message.text}")
+    bot_user_id = get_bot_user_id(user_id)
+    save_chat_message(chat_id, user_id, recipient_id, item)
+
+    if message.text:
+        return await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b> {item}")
+    await bot.send_photo(recipient_id, item, caption=f'<b>Сообщение от ID {bot_user_id}:</b> ' + caption)
 
 
 @router.message(Command('account'))
@@ -790,12 +815,27 @@ async def process_my_orders(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
 
 
+@router.callback_query(F.data.startswith('my_orders_management'))
+async def my_orders_management_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    if 'my_watched_orders' not in data:
+        await callback.message.delete()
+        return await callback.answer('Эта кнопка устарела. Попробуйте ещё раз', show_alert=True)
+
+    if callback.data.split('_')[-1] == 'back':
+        for message_id in data['my_watched_orders'].keys():
+            await bot.delete_message(callback.from_user.id, message_id)
+        await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
+        return await state.clear()
+
+    await callback.message.delete()
+    await utils.send_my_orders(callback, state, callback.data.split('_')[-1], True)
+
+
 @router.callback_query(F.data.startswith('my_orders'))
 async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
-    await utils.send_my_orders(callback, state, callback.data.split('_')[2], len(callback.data.split('_')) > 3,
-                               callback.data.split('_')[-1])
-    if await state.get_state() not in [UserStates.in_chat, UserStates.in_chat_waiting_complaint]:
-        await state.clear()
+    await utils.send_my_orders(callback, state, callback.data.split('_')[2], False)
 
 
 @router.callback_query(F.data == 'complaints_button')
@@ -998,7 +1038,8 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
                 reply_markup=User_kb.complaints_to_main_menu()
             )
 
-        await state.clear()
+        if state.get_state() != UserStates.in_chat:
+            await state.clear()
 
         for admin_id in config.tg_bot.admin_ids:
             try:
@@ -1007,7 +1048,11 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
                 print(f'Ошибка при попытке оповещения админа о новой жалобе: {str(e)}')
 
     elif callback.data == 'cancel_complaint':
-        await callback.message.edit_text("Вы отменили создание жалобы.", reply_markup=User_kb.back_to_menu_kb())
+        if await state.get_state() != UserStates.in_chat:
+            return await callback.message.edit_text("Вы отменили создание жалобы.",
+                                                    reply_markup=User_kb.back_to_complaint_kb())
+        await callback.message.delete()
+        await callback.answer('Создание жалобы отменено')
 
 
 @router.callback_query(F.data.startswith('complaints_to_main_menu'))
@@ -1088,7 +1133,7 @@ async def confirmation_of_buying(callback: CallbackQuery):
 @router.callback_query(F.data.startswith('cancel_order_'))
 async def cancel_order_handler(callback: CallbackQuery):
     order = get_order(int(callback.data.split('_')[-1]))
-    await utils.send_information_about_order(callback, order, False, edit=True, confirm='\n\nПодтвердите удаление')
+    await utils.send_information_about_order(callback, order, True, confirm='\n\nПодтвердите удаление')
 
 
 @router.callback_query(F.data.startswith('confirmation_of_deleting_'))

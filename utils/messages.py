@@ -98,17 +98,17 @@ async def show_servers(callback: CallbackQuery, item: str, project: str, action_
     await callback.message.edit_text(text, reply_markup=User_kb.servers_kb(item, game, project, action_type))
 
 
-async def show_orders(callback: CallbackQuery, state: FSMContext, item, project, server, watch_other: bool = False,
-                      order_id=''):
+async def show_orders(callback: CallbackQuery, state: FSMContext, item, project, server, watch_other: bool = False):
     orders = get_pending_sell_orders(callback.from_user.id, item, project, server)
+    data = await state.get_data()
+
     if watch_other:
-        data = await state.get_data()
-        await callback.message.edit_text(callback.message.text,
-                                         reply_markup=User_kb.show_kb(order_id, item, project, server))
+        await callback.message.delete()
+
         try:
             watched_orders = data['watched_orders']
         except KeyError:
-            return await callback.message.answer('Что-то пошло не так, попробуйте ещё раз')
+            return await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
     else:
         if not orders:
             text = show_lexicon['no_orders'].format(
@@ -128,14 +128,14 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
 
             return await state.update_data(data)
 
-        watched_orders = []
+        data = {'watched_orders': {}}
         await callback.message.delete()
 
     orders_num = 0
     for order in orders:
         order_id, _, _, _, item, project, server, amount, description, price_, status, created_at = order
 
-        if order_id in watched_orders:
+        if order_id in data['watched_orders'].values():
             continue
 
         if item == 'virt':
@@ -157,15 +157,24 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
             price=price_
         )
 
-        watched_orders.append(order_id)
+        mes = await callback.message.answer(orders_text, reply_markup=User_kb.show_kb(order_id, item, project, server))
 
-        if orders_num == 4 and len(orders) > 5:
-            await callback.message.answer(orders_text,
-                                          reply_markup=User_kb.show_kb(order_id, item, project, server, True))
-            return await state.update_data({'watched_orders': watched_orders})
+        data['watched_orders'][mes.message_id] = order_id
 
-        await callback.message.answer(orders_text, reply_markup=User_kb.show_kb(order_id, item, project, server))
+        if orders_num == 4:
+            await callback.message.answer('какой-то текст',
+                                          reply_markup=User_kb.show_orders_management(len(orders) > 5))
+            break
         orders_num += 1
+
+    if orders_num == 0:
+        await callback.message.delete()
+        await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
+    elif orders_num != 4:
+        await callback.message.answer('Какой-то текст', reply_markup=User_kb.show_orders_management(False))
+
+    data['item'], data['project'], data['server'] = item, project, server
+    return await state.update_data(data)
 
 
 async def send_account_info(update: CallbackQuery | Message):
@@ -186,7 +195,7 @@ async def send_account_info(update: CallbackQuery | Message):
         await update.message.edit_text(message_text, reply_markup=reply_markup)
 
 
-async def send_information_about_order(callback: CallbackQuery, order: list, key: bool, edit: bool = False,
+async def send_information_about_order(callback: CallbackQuery, order: list, edit: bool = False,
                                        confirm: str = None):
     order_id, _, _, action, item, project, server, amount, description, price, status, created_at = order
     emoji = '📘' if action == 'sell' else '📗'
@@ -199,52 +208,52 @@ async def send_information_about_order(callback: CallbackQuery, order: list, key
     if confirm:
         kb = User_kb.confirmation_of_deleting_kb(order_id)
     else:
-        kb = User_kb.cancel_order_kb(order_id, callback.data.split('_')[2], key) if status == 'pending' else None
+        kb = User_kb.cancel_order_kb(order_id) if status == 'pending' else None
 
     message_text = my_orders_lexicon['my_orders_message'].format(emoji, order_id, created_at, status_text,
                                                                  action_text, item_text, project, server,
                                                                  aditional,
                                                                  '{0:,}'.format(int(price)).replace(',', ' '))
     if edit:
-        print(message_text, confirm)
-        return await callback.message.edit_text(message_text, reply_markup=kb)
-    await callback.message.answer(message_text, reply_markup=kb)
+        mes = await callback.message.edit_text(message_text, reply_markup=kb)
+        return mes.message_id
+    mes = await callback.message.answer(message_text, reply_markup=kb)
+    return mes.message_id
 
 
-async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str, watch_more: bool = False,
-                         order_id: int | str = None):
+async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str, watch_more: bool = False):
     orders = get_orders_by_user_id(callback.from_user.id, target)
 
     if orders:
         if watch_more:
-            order = get_order(int(order_id))
-            await send_information_about_order(callback, order, False, edit=True)
-
             data = await state.get_data()
-            if 'watched_orders' not in data:
-                return await callback.answer('Эта кнопка уже устарела, попробуйте ещё раз', show_alert=True)
 
-            watched_orders = data['watched_orders']
+            if 'my_watched_orders' not in data:
+                return await callback.answer('Эта кнопка уже устарела, попробуйте ещё раз', show_alert=True)
 
         else:
             await callback.message.delete()
-            watched_orders = []
+            data = {'my_watched_orders': {}}
 
         orders_count = 0
         for order in orders:
-            if order[0] in watched_orders:
+            if order[0] in data['my_watched_orders'].values():
                 continue
 
-            await send_information_about_order(callback, order, orders_count == 4)
-
-            watched_orders.append(order[0])
+            data['my_watched_orders'][await send_information_about_order(callback, order)] = order[0]
 
             if orders_count == 4:
+                await callback.message.answer('какой-то текст', reply_markup=User_kb.my_orders_management(target))
                 break
 
             orders_count += 1
+        if orders_count == 0:
+            await callback.message.delete()
+            await callback.answer('У вас больше нет заказов')
+        elif orders_count != 4:
+            await callback.message.answer('какой-то текст', reply_markup=User_kb.my_orders_management(target, False))
 
-            await state.update_data({'watched_orders': watched_orders})
+        await state.update_data(data)
 
     else:
         if target == 'pending':
@@ -263,6 +272,7 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 #
 #
 #
+
 
 async def handle_cancel_action(callback: CallbackQuery, user_id: int, buyer_id: int, seller_id: int, other_user_id: int,
                                chat_id: str, seller_order_id: int, buyer_order_id: int):
@@ -301,24 +311,6 @@ async def request_buyer_cancellation(bot: Bot, user_id: int, other_user_id: int,
 
     if cancel_requests[chat_id][other_user_id]:
         await cancel_deal_for_seller(buyer_id, seller_id, chat_id, seller_order_id, buyer_order_id)
-
-
-async def handle_confirm_action(bot: Bot, callback: CallbackQuery, user_id: int, buyer_id: int, seller_id: int,
-                                chat_id: str, seller_order_id: int, buyer_order_id: int):
-    if user_id == buyer_id:
-        edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'))
-        cancel_requests[chat_id][user_id] = True
-
-        await bot.delete_message(buyer_id, callback.message.message_id)
-        await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
-
-        await bot.send_message(buyer_id, "✅ Сделка подтверждена вами.")
-        await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Сделка завершена.")
-
-        update_order_status_safe(seller_order_id, buyer_order_id, 'confirmed')
-        clear_active_chats(buyer_id, seller_id)
-        del cancel_requests[chat_id]
-        await clear_states(buyer_id, seller_id)
 
 
 def clear_active_chats(buyer_id: int, seller_id: int):
