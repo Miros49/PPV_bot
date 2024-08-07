@@ -139,22 +139,26 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
             continue
 
         if item == 'virt':
-            item_text = f"Кол-во валюты: {math.ceil(amount)}"
+            item_name = 'Вирты'
+            item_text = f"Кол-во валюты: <code>{'{:,}'.format(math.ceil(amount))}</code>"
 
         elif item == 'business':
-            item_text = f"Название бизнеса: {description}"
+            item_name = 'Бизнес'
+            item_text = f"Название бизнеса: <i>{description}</i>"
             price_ *= 1.3
+
         else:
-            item_text = f"Описание аккаунта: {description}"
+            item_name = 'Аккаунт'
+            item_text = f"Описание аккаунта: <i>{description}</i>"
             price_ *= 1.3
 
         orders_text = LEXICON['orders_message'].format(
             id=order_id,
+            item_name=item_name,
             project=project,
             server=server,
             item_text=item_text,
-            created_at=created_at,
-            price=price_
+            price='{:,}'.format(price_).replace(',', ' ')
         )
 
         mes = await callback.message.answer(orders_text, reply_markup=User_kb.show_kb(order_id, item, project, server))
@@ -162,7 +166,7 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
         data['watched_orders'][mes.message_id] = order_id
 
         if orders_num == 4:
-            await callback.message.answer('какой-то текст',
+            await callback.message.answer('ㅤ',
                                           reply_markup=User_kb.show_orders_management(len(orders) > 5))
             break
         orders_num += 1
@@ -171,7 +175,8 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
         await callback.message.delete()
         await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
     elif orders_num != 4:
-        await callback.message.answer('Какой-то текст', reply_markup=User_kb.show_orders_management(False))
+        print('aaaaaaaaaaaaaaaaaaaaaaaa')
+        await callback.message.answer('ㅤ', reply_markup=User_kb.show_orders_management(False))
 
     data['item'], data['project'], data['server'] = item, project, server
     return await state.update_data(data)
@@ -243,7 +248,7 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
             data['my_watched_orders'][await send_information_about_order(callback, order)] = order[0]
 
             if orders_count == 4:
-                await callback.message.answer('какой-то текст', reply_markup=User_kb.my_orders_management(target))
+                await callback.message.answer('ㅤ', reply_markup=User_kb.my_orders_management(target))
                 break
 
             orders_count += 1
@@ -251,7 +256,7 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
             await callback.message.delete()
             await callback.answer('У вас больше нет заказов')
         elif orders_count != 4:
-            await callback.message.answer('какой-то текст', reply_markup=User_kb.my_orders_management(target, False))
+            await callback.message.answer('ㅤ', reply_markup=User_kb.my_orders_management(target, False))
 
         await state.update_data(data)
 
@@ -290,14 +295,14 @@ async def cancel_deal_for_seller(bot: Bot, buyer_id: int, seller_id: int, chat_i
                                  buyer_order_id: int):
     clear_active_chats(buyer_id, seller_id)
     await clear_states(buyer_id, seller_id)
-    edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'))
+    edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled')
 
     await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
     await bot.send_message(seller_id, "🚫 Сделка отменена.")
 
     try:
         await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
-    except Exception:
+    except TelegramBadRequest:
         pass
     del cancel_requests[chat_id]
 

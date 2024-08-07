@@ -198,9 +198,10 @@ def account_kb():
     kb.add(
         InlineKeyboardButton(text="💳 Пополнить", callback_data="top_up_balance"),
         InlineKeyboardButton(text='💸 Вывести', callback_data='cashout_request'),
+        InlineKeyboardButton(text='📃 Операции', callback_data='transactions_button'),
         InlineKeyboardButton(text="🗂 Мои ордера", callback_data="my_orders"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
-    ).adjust(2, 1)
+    ).adjust(2)
 
     return kb.as_markup()
 
@@ -228,8 +229,8 @@ def cancel_order_kb(order_id: int | str):
 def my_orders_management(target: str, show_more: bool = True):
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='Назад', callback_data='my_orders_management_back'))
-    kb.row(InlineKeyboardButton(text='Показать ещё',
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='my_orders_management_back'))
+    kb.row(InlineKeyboardButton(text='↓ Показать ещё',
                                 callback_data=f'my_orders_management_{target}')) if show_more else None
 
     return kb.as_markup()
@@ -298,7 +299,7 @@ def cancel_complaint_kb():
 def show_kb(order_id: int | str, item: str, project: str, server: str):
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text="✅ Купить!", callback_data=f'buy_order_{str(order_id)}'))
+    kb.row(InlineKeyboardButton(text="✅ Купить", callback_data=f'buy_order_{str(order_id)}'))
 
     return kb.as_markup()
 
@@ -306,9 +307,9 @@ def show_kb(order_id: int | str, item: str, project: str, server: str):
 def show_orders_management(show_more: bool = True):
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='Назад', callback_data='show_orders_management_back'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='show_orders_management_back'))
     kb.row(
-        InlineKeyboardButton(text='⏬ Посмотреть ещё', callback_data=f'show_orders_management')) if show_more else None
+        InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data=f'show_orders_management')) if show_more else None
 
     return kb.as_markup()
 
@@ -445,8 +446,8 @@ def back_to_filling():
 def complaints_management_kb(show_scroll: bool = True):
     kb = InlineKeyboardBuilder()
 
-    kb.add(InlineKeyboardButton(text='назад', callback_data='complaints_management_back'))
-    kb.add(InlineKeyboardButton(text='скрол', callback_data='complaints_management_scroll')).adjust(1) if show_scroll \
+    kb.add(InlineKeyboardButton(text='← Назад', callback_data='complaints_management_back'))
+    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='complaints_management_scroll')).adjust(1) if show_scroll \
         else None
 
     return kb.as_markup()
@@ -456,5 +457,13 @@ def view_answer(complaint_id: str):
     kb = InlineKeyboardBuilder()
 
     kb.add(InlineKeyboardButton(text='Посмотреть', callback_data=f'view_answer_{complaint_id}'))
+
+    return kb.as_markup()
+
+
+def payment_back_to_account():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='← Назад', callback_data='account_button'))
 
     return kb.as_markup()

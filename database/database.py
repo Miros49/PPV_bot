@@ -56,10 +56,11 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER,
+                            tg_id INTEGER,
+                            deal_id INTEGER DEFAULT 0,
                             amount REAL,
-                            sender_id INTEGER,
-                            receiver_id INTEGER,
-                            order_id INTEGER,
+                            action TEXT,
                             timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS reports (
@@ -222,13 +223,24 @@ def get_balance(user_id: int | str):
     return result[0]
 
 
-def edit_balance(user_id: int, amount: float | int):
+def edit_balance(tg: int, amount: float, action: str, deal_id: Optional[int] = 0):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT balance FROM users WHERE user_id = ?', (tg,))
+
     result = cursor.fetchone()
-    cursor.execute('UPDATE users SET balance = ? WHERE user_id = ?', (result[0] + amount, user_id))
+    new_balance = result[0] + amount
+
+    cursor.execute('UPDATE users SET balance = ? WHERE user_id = ?', (new_balance, tg))
+
+    user_id = get_bot_user_id(tg)
+
+    current_time = get_current_time_formatted()
+    cursor.execute("""
+        INSERT INTO transactions (user_id, tg_id, amount, action, deal_id, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (user_id, tg, amount, action, deal_id, current_time))
 
     conn.commit()
     conn.close()
@@ -577,3 +589,52 @@ def user_has_complaint_on_order(user_id: int, order_id: int) -> bool:
     conn.close()
 
     return complaint_exists
+
+
+def add_transaction(tg_id: int, amount: float, action: str, deal_id: int = 0):
+    user_id = get_bot_user_id(tg_id)
+
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    current_time = get_current_time_formatted()
+
+    cursor.execute("""
+        INSERT INTO transactions (user_id, tg_id, deal_id, amount, action, timestamp)
+        VALUES (?, ?, ?, ?, 0, ?)
+    """, (user_id, tg_id, deal_id, amount, action, current_time))
+
+    conn.commit()
+    conn.close()
+
+
+def get_transaction(transaction_id: int) -> Optional[Tuple]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, tg_id, amount, action, deal_id, timestamp
+        FROM transactions
+        WHERE id = ?
+    """, (transaction_id,))
+
+    transaction = cursor.fetchone()
+    conn.close()
+
+    return transaction
+
+
+def get_transactions(tg_id: int) -> List[Tuple]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, tg_id, amount, action, deal_id, timestamp
+        FROM transactions
+        WHERE tg_id = ?
+    """, (tg_id,))
+
+    transactions = cursor.fetchall()
+    conn.close()
+
+    return transactions

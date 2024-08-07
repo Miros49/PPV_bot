@@ -72,9 +72,10 @@ async def shop_button(callback: CallbackQuery):
                                      reply_markup=User_kb.shop_kb())
 
 
-@router.callback_query(F.data == 'account_button', StateFilter(default_state))
-async def account_button(callback: CallbackQuery):
+@router.callback_query(F.data == 'account_button')
+async def account_button(callback: CallbackQuery, state: FSMContext):
     await utils.send_account_info(callback)
+    await state.clear()
 
 
 @router.callback_query(F.data == 'shop_buy_button', StateFilter(default_state))
@@ -562,7 +563,7 @@ async def handle_confirm_callback(callback: CallbackQuery):
             if action_type == 'buy' and get_balance(user_id) < price_:
                 return await callback.message.edit_text('Недостаточно средств')
             else:
-                edit_balance(user_id, -price_)
+                edit_balance(user_id, -price_, 'buy')
 
             opposite_action_type = 'buy' if action_text == 'Продажа' else 'sell'
             opposite_price = utils.calculate_virt_price(amount, get_price_db(project, server, opposite_action_type))
@@ -701,7 +702,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
             await buyer_state.clear()
             await seller_state.clear()
 
-            edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'))
+            edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled')
 
             await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
             await bot.send_message(seller_id, "🚫 Вы отменили сделку.")
@@ -724,7 +725,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
             await bot.send_message(other_user_id, "‼️ Покупатель предлагает вам отменить сделку.")
 
             if cancel_requests[chat_id][other_user_id]:
-                edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'))
+                edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'sell')
 
                 del active_chats[buyer_id]
                 del active_chats[seller_id]
@@ -750,7 +751,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
 
     else:
         if user_id == buyer_id:
-            edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'))
+            edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell')
 
             cancel_requests[chat_id][user_id] = True
 
@@ -838,6 +839,24 @@ async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
     await utils.send_my_orders(callback, state, callback.data.split('_')[2], False)
 
 
+@router.callback_query(F.data == 'transactions_button')
+async def transactions_button_handler(callback: CallbackQuery):
+    transactions = get_transactions(callback.from_user.id)
+
+    if not transactions:
+        return await callback.message.edit_text('У вас ещё нет транзакций',
+                                                reply_markup=User_kb.payment_back_to_account())
+
+    await callback.message.delete()
+
+    for transaction in transactions:
+        transaction_id, user_id, _, deal_id, amount, action, created_at = transaction
+        await callback.answer(
+            LEXICON['transaction_text'].format(transaction_id, user_id, deal_id,
+                                               amount if int(amount) > 0 else amount * (-1), action, created_at))
+        print(LEXICON['transaction_text'].format(transaction_id, user_id, deal_id, amount, action, created_at))
+
+
 @router.callback_query(F.data == 'complaints_button')
 async def complaints_button_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
@@ -879,7 +898,7 @@ async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watc
         data['watched_complaints'][mes.message_id] = complaint[0]
 
         if complaints_counter == 4:
-            await callback.message.answer('выберите действие:', reply_markup=User_kb.complaints_management_kb())
+            await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb())
             await state.update_data(data)
             break
 
@@ -888,7 +907,7 @@ async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watc
     if complaints_counter == 0:
         await callback.answer('У вас больше нет жалоб', show_alert=True)
     elif complaints_counter != 4:
-        await callback.message.answer('назад', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
+        await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
         await state.update_data(data)
 
 
@@ -1038,7 +1057,7 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
                 reply_markup=User_kb.complaints_to_main_menu()
             )
 
-        if state.get_state() != UserStates.in_chat:
+        if await state.get_state() != UserStates.in_chat:
             await state.clear()
 
         for admin_id in config.tg_bot.admin_ids:
@@ -1121,7 +1140,7 @@ async def confirmation_of_buying(callback: CallbackQuery):
         return await callback.message.answer('❕ Недостаточно средств')
 
     buyer_id = callback.from_user.id
-    edit_balance(buyer_id, -utils.get_price(order_id, 'buy'))
+    edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy')
 
     seller_id = get_user_id_by_order(order_id)
     matched_orders_id = create_matched_order(buyer_id, 0, seller_id, int(order_id))
