@@ -119,10 +119,10 @@ LEXICON: dict[str, str] = {
     'text_needed': '\n\nНа вход ожидается текстовое сообщение',
     'transaction_text': '<b>Транзакция №{}\n'
                         'ID пользователя: <code>{}</code>\n'
-                        'Номер сделки: <code>{}</code>\n'
-                        'Сумма: <code>{}</code>\n'
+                        '{}'
+                        'Сумма: <code>{}</code> руб\n'
                         'Тип: <code>{}</code>\n\n'
-                        'Время: <i>{}</i>',
+                        'Время: <i>{}</i></b>',
 
 }
 

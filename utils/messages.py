@@ -165,18 +165,21 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
 
         data['watched_orders'][mes.message_id] = order_id
 
-        if orders_num == 4:
-            await callback.message.answer('ㅤ',
-                                          reply_markup=User_kb.show_orders_management(len(orders) > 5))
-            break
         orders_num += 1
+        if orders_num == 4:
+            mes_service = await callback.message.answer(
+                text='ㅤ',
+                reply_markup=User_kb.show_orders_management(len(orders) > 5)
+            )
+            data['service'] = mes_service.message_id
+            break
 
     if orders_num == 0:
         await callback.message.delete()
         await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
     elif orders_num != 4:
-        print('aaaaaaaaaaaaaaaaaaaaaaaa')
-        await callback.message.answer('ㅤ', reply_markup=User_kb.show_orders_management(False))
+        mes_service = await callback.message.answer('ㅤ', reply_markup=User_kb.show_orders_management(False))
+        data['service'] = mes_service.message_id
 
     data['item'], data['project'], data['server'] = item, project, server
     return await state.update_data(data)
@@ -188,7 +191,8 @@ async def send_account_info(update: CallbackQuery | Message):
 
     if user_db_data:
         user_id, tg_id, username, phone_number, balance, created_at = user_db_data
-        message_text = LEXICON['account_message'].format(user_id, created_at.split()[0], '{0:,}'.format(round(balance)))
+        message_text = LEXICON['account_message'].format(user_id, created_at.split()[0],
+                                                         '{0:,}'.format(round(balance)).replace(',', ' '))
         reply_markup = User_kb.account_kb()
     else:
         message_text = "❔ Я не могу найти ваши данные"

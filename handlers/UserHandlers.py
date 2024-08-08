@@ -78,6 +78,13 @@ async def account_button(callback: CallbackQuery, state: FSMContext):
     await state.clear()
 
 
+@router.callback_query(F.data == 'from_top_up_to_account')
+async def from_top_up_to_account(callback: CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await utils.send_account_info(callback.message)
+    await state.clear()
+
+
 @router.callback_query(F.data == 'shop_buy_button', StateFilter(default_state))
 async def start_buy_button(callback: CallbackQuery):
     await callback.message.edit_text(show_lexicon['item'], reply_markup=User_kb.action_kb('show'))
@@ -839,22 +846,66 @@ async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
     await utils.send_my_orders(callback, state, callback.data.split('_')[2], False)
 
 
-@router.callback_query(F.data == 'transactions_button')
-async def transactions_button_handler(callback: CallbackQuery):
+@router.callback_query(F.data.startswith('transactions_button'))
+async def transactions_button_handler(callback: CallbackQuery, state: FSMContext):
     transactions = get_transactions(callback.from_user.id)
+    data = await state.get_data()
 
     if not transactions:
         return await callback.message.edit_text('У вас ещё нет транзакций',
                                                 reply_markup=User_kb.payment_back_to_account())
 
+    if callback.data.split('_')[-1] not in ['more', 'back']:
+        data = {'watched_transactions': {}}
+
+    elif callback.data.split('_')[-1] == 'back':
+        if 'watched_transactions' not in data:
+            await utils.send_account_info(callback.message)
+        else:
+            for message_id in data['watched_transactions'].keys():
+                await bot.delete_message(callback.from_user.id, message_id)
+                print(1)
+            await utils.send_account_info(callback)
+        return state.clear()
+
     await callback.message.delete()
 
+    transactions_num = 0
     for transaction in transactions:
         transaction_id, user_id, _, deal_id, amount, action, created_at = transaction
-        await callback.answer(
-            LEXICON['transaction_text'].format(transaction_id, user_id, deal_id,
-                                               amount if int(amount) > 0 else amount * (-1), action, created_at))
-        print(LEXICON['transaction_text'].format(transaction_id, user_id, deal_id, amount, action, created_at))
+
+        if transaction_id in data['watched_transactions'].values():
+            continue
+
+        action_text = 'Пополнение' if action == 'top_up' else 'Вывод средств' if action == 'cashout' \
+            else 'Покупка' if action == 'sell' else 'Продажа'
+
+        deal_text = f'Предмет списания: Сделка №{deal_id}\n' if deal_id != 0 and action not in ['top_up', 'cashout'] \
+            else 'Предмет списания: Создание заказа\n' if action not in ['top_up', 'cashout'] else ''
+
+        amount = amount if int(amount) > 0 else amount * (-1)
+        amount = amount if str(amount).split('.')[-1] != '0' else str(amount).split('.')[0]
+
+        mes = await callback.message.answer(
+            LEXICON['transaction_text'].format(transaction_id, user_id, deal_text,
+                                               amount, action_text, created_at))
+
+        data['watched_transactions'][mes.message_id] = transaction_id
+
+        transactions_num += 1
+        if transactions_num == 4:
+            await callback.message.answer('ㅤ', reply_markup=User_kb.transactions_management(
+                len(data['watched_transactions']) > len(transactions)))
+            break
+
+    print(transactions_num)
+    if transactions_num == 0:
+        await callback.message.delete()
+        await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
+    elif transactions_num != 4:
+        await callback.message.answer('ㅤ', reply_markup=User_kb.transactions_management(False))
+
+    return await state.update_data(data)
 
 
 @router.callback_query(F.data == 'complaints_button')
@@ -1132,8 +1183,16 @@ async def buy_order(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith('confirmation_of_buying_'), StateFilter(default_state))
-async def confirmation_of_buying(callback: CallbackQuery):
+async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
     order_id = callback.data.split('_')[-1]
+    data = await state.get_data()
+
+    if 'watched_orders' in data:
+        for message_id in data['watched_orders'].keys():
+            if message_id == callback.message.message_id:
+                continue
+            await bot.delete_message(callback.from_user.id, message_id)
+        await bot.delete_message(callback.from_user.id, data['service'])
 
     if utils.get_price(order_id, 'buy') > get_balance(callback.from_user.id):
         await callback.answer()

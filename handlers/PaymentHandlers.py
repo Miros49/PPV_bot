@@ -11,6 +11,7 @@ from database import *
 from keyboards import UserKeyboards as User_kb
 from lexicon import LEXICON, payment_lexicon
 from states import UserStates
+import utils
 
 config: Config = load_config('.env')
 router: Router = Router()
@@ -70,7 +71,8 @@ async def order(message: Message, state: FSMContext):
         prices=[LabeledPrice(label='Сумма пополнения:', amount=amount)],
         max_tip_amount=2000,
         suggested_tip_amounts=[500, 1000, 1500],
-        request_timeout=15
+        request_timeout=15,
+        reply_markup=User_kb.payment_top_up_back()
     )
 
     await state.clear()
@@ -91,9 +93,9 @@ async def succesful_payment_handler(message: Message, state: FSMContext):
 
     if 'mes_original' in data:
         await data['mes_original'].delete()
-        await state.clear()
 
-    await message.answer(f'<b>Вы успешно пополнили счёт на <code>{amount}</code></b>')
+    await utils.send_account_info(message)
+    await state.clear()
 
 
 @router.callback_query(F.data == 'cashout_request')
@@ -130,7 +132,7 @@ async def input_card_number(message: Message, state: FSMContext):
 
         return await state.update_data(data)
 
-    if len(message.text) != 16:
+    if len(message.text) not in [16, 19]:
         try:
             data['mes_original'] = await mes.edit_text(
                 payment_lexicon['input_card_number'] + payment_lexicon['wrong_number'],

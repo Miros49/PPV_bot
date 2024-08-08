@@ -629,9 +629,10 @@ def get_transactions(tg_id: int) -> List[Tuple]:
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, user_id, tg_id, amount, action, deal_id, timestamp
+        SELECT *
         FROM transactions
         WHERE tg_id = ?
+        ORDER BY id DESC
     """, (tg_id,))
 
     transactions = cursor.fetchall()

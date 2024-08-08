@@ -240,8 +240,9 @@ def top_up_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="top_up_balance")
-    )
+        InlineKeyboardButton(text="💳 Пополнить баланс", callback_data="top_up_balance"),
+        InlineKeyboardButton(text='← Назад', callback_data='account_button')
+    ).adjust(1)
 
     return kb.as_markup()
 
@@ -447,7 +448,8 @@ def complaints_management_kb(show_scroll: bool = True):
     kb = InlineKeyboardBuilder()
 
     kb.add(InlineKeyboardButton(text='← Назад', callback_data='complaints_management_back'))
-    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='complaints_management_scroll')).adjust(1) if show_scroll \
+    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='complaints_management_scroll')).adjust(
+        1) if show_scroll \
         else None
 
     return kb.as_markup()
@@ -465,5 +467,26 @@ def payment_back_to_account():
     kb = InlineKeyboardBuilder()
 
     kb.add(InlineKeyboardButton(text='← Назад', callback_data='account_button'))
+
+    return kb.as_markup()
+
+
+def payment_top_up_back():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Оплатить', pay=True),
+        InlineKeyboardButton(text='← Назад', callback_data='from_top_up_to_account')
+    ).adjust(1)
+
+    return kb.as_markup()
+
+
+def transactions_management(show_more: bool = True):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='← Назад', callback_data='transactions_button_back'))
+    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='transactions_button_more')).adjust(1) \
+        if show_more else None
 
     return kb.as_markup()
