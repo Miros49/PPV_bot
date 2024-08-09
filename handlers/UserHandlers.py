@@ -310,7 +310,10 @@ async def show_orders_management(callback: CallbackQuery, state: FSMContext):
     if callback.data.split('_')[-1] == 'back':
         print(data['watched_orders'])
         for message_id in data['watched_orders'].keys():
-            await bot.delete_message(callback.from_user.id, message_id)
+            try:
+                await bot.delete_message(callback.from_user.id, message_id)
+            except TelegramBadRequest:
+                pass
         return await utils.show_servers(callback, data['item'], data['project'], 'show')
 
     await utils.show_orders(callback, state, data['item'], data['project'], data['server'], True)
@@ -567,10 +570,12 @@ async def handle_confirm_callback(callback: CallbackQuery):
             action_type = 'sell' if action_text == 'Продажа' else 'buy'
             emoji = '📘' if action_type == 'sell' else '📗'
 
-            if action_type == 'buy' and get_balance(user_id) < price_:
-                return await callback.message.edit_text('Недостаточно средств')
-            else:
-                edit_balance(user_id, -price_, 'buy')
+            if action_type == 'buy':
+                if get_balance(user_id) < price_:
+                    return await callback.message.edit_text('❕ Недостаточно средств',
+                                                            reply_markup=User_kb.not_enough_money_kb())
+                else:
+                    edit_balance(user_id, -price_, 'buy')
 
             opposite_action_type = 'buy' if action_text == 'Продажа' else 'sell'
             opposite_price = utils.calculate_virt_price(amount, get_price_db(project, server, opposite_action_type))
@@ -644,7 +649,7 @@ async def report_callback(callback: CallbackQuery, state: FSMContext):
     _, offender_id, order_id = callback.data.split('_')
 
     mes = await callback.message.answer(complaint_lexicon['description'].format(order_id, ''),
-                                        reply_markup=User_kb.cancel_complaint_kb())
+                                        reply_markup=User_kb.cancel_complaint_creation_kb())
     await state.set_state(UserStates.in_chat_waiting_complaint)
     await state.update_data({'offender_id': offender_id, 'order_id': order_id, 'mes_original': mes,
                              'in_chat_message_id': callback.message.message_id})
@@ -660,11 +665,23 @@ async def complaint_in_chat_callback(message: Message, state: FSMContext):
     if not message.text:
         try:
             data['mes_original'] = await mes.edit_text(complaint_lexicon['description'].format(data['order_id']),
-                                                       reply_markup=User_kb.cancel_complaint_kb())
+                                                       reply_markup=User_kb.cancel_complaint_creation_kb())
         except TelegramBadRequest:
             pass
 
         return state.update_data(data)
+
+    if len(message.text.strip()) > 350:
+        try:
+            data['mes_original'] = await mes.edit_text(
+                complaint_lexicon['description'].format(data['order_id'],
+                                                        complaint_lexicon['limit_above'].format(message.text[:3800])),
+                reply_markup=User_kb.back_to_complaint_kb()
+            )
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
 
     data['complaint_text'] = message.text
     data['mes_original'] = await mes.edit_text(complaint_lexicon['info'].format(data['order_id'], message.text),
@@ -679,14 +696,14 @@ async def back_to_complaint_description_callback(callback: CallbackQuery, state:
     mes: Message = data['mes_original']
 
     data['mes_original'] = await mes.edit_text(complaint_lexicon['description'].format(data['order_id']),
-                                               reply_markup=User_kb.cancel_complaint_kb())
+                                               reply_markup=User_kb.cancel_complaint_creation_kb())
 
     await state.set_state(UserStates.in_chat_waiting_complaint)
     await state.update_data(data)
 
 
 @router.callback_query(F.data.startswith('confirmation_of_deal'))
-async def handle_chat_action_callback(callback: CallbackQuery):
+async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     action = callback.data.split('_')[-2]
     chat_id = active_chats[user_id]
@@ -694,6 +711,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
     other_user_id = buyer_id if user_id == seller_id else seller_id
     seller_order_id = get_matched_order(int(callback.data.split('_')[-1]))[4]
     buyer_order_id = get_matched_order(int(callback.data.split('_')[-1]))[2]
+    deal_id = callback.data.split('_')[-1]
 
     if action == 'cancel':
         cancel_requests[chat_id][user_id] = True
@@ -716,7 +734,7 @@ async def handle_chat_action_callback(callback: CallbackQuery):
 
             try:
                 await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
-            except Exception:
+            except TelegramBadRequest:
                 pass
             del cancel_requests[chat_id]
 
@@ -730,6 +748,14 @@ async def handle_chat_action_callback(callback: CallbackQuery):
         else:
             await bot.send_message(user_id, "‼️ Вы предложили продавцу отменить сделку.")
             await bot.send_message(other_user_id, "‼️ Покупатель предлагает вам отменить сделку.")
+
+            data = await state.get_data()
+
+            kb = utils.get_deal_kb(deal_id, user_id, data.get('show_complaint', True), False)
+            await bot.edit_message_reply_markup(chat_id=user_id, message_id=callback.message.message_id,
+                                                reply_markup=kb)
+            data['show_cancel'] = False
+            await state.update_data(data)
 
             if cancel_requests[chat_id][other_user_id]:
                 edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'sell')
@@ -833,7 +859,10 @@ async def my_orders_management_handler(callback: CallbackQuery, state: FSMContex
 
     if callback.data.split('_')[-1] == 'back':
         for message_id in data['my_watched_orders'].keys():
-            await bot.delete_message(callback.from_user.id, message_id)
+            try:
+                await bot.delete_message(callback.from_user.id, message_id)
+            except TelegramBadRequest:
+                pass
         await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
         return await state.clear()
 
@@ -846,7 +875,7 @@ async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
     await utils.send_my_orders(callback, state, callback.data.split('_')[2], False)
 
 
-@router.callback_query(F.data.startswith('transactions_button'))
+@router.callback_query(F.data.startswith('transactions_management'))
 async def transactions_button_handler(callback: CallbackQuery, state: FSMContext):
     transactions = get_transactions(callback.from_user.id)
     data = await state.get_data()
@@ -863,8 +892,10 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
             await utils.send_account_info(callback.message)
         else:
             for message_id in data['watched_transactions'].keys():
-                await bot.delete_message(callback.from_user.id, message_id)
-                print(1)
+                try:
+                    await bot.delete_message(callback.from_user.id, message_id)
+                except TelegramBadRequest:
+                    pass
             await utils.send_account_info(callback)
         return state.clear()
 
@@ -944,22 +975,48 @@ async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watc
         text = complaint_lexicon['show_complaint'].format(
             complaint[0], complaint[7], status_text, complaint[1], complaint[4], answer
         )
+        kb = User_kb.cancel_complaint_kb(complaint[0]) if complaint[5] == 'open' else None
 
-        mes = await callback.message.answer(text)
+        mes = await callback.message.answer(text, reply_markup=kb)
         data['watched_complaints'][mes.message_id] = complaint[0]
 
+        complaints_counter += 1
         if complaints_counter == 4:
             await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb())
             await state.update_data(data)
             break
-
-        complaints_counter += 1
 
     if complaints_counter == 0:
         await callback.answer('У вас больше нет жалоб', show_alert=True)
     elif complaints_counter != 4:
         await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
         await state.update_data(data)
+
+
+@router.callback_query(F.data.startswith('delete_complaint'))
+async def delete_complaint_handler(callback: CallbackQuery, state: FSMContext):
+    complaint_id = callback.data.split('_')[-1]
+
+    if callback.data.split('_')[2] == 'ask':
+        return await bot.edit_message_reply_markup(chat_id=callback.from_user.id,
+                                                   message_id=callback.message.message_id,
+                                                   reply_markup=User_kb.cancel_complaint_kb(complaint_id, True))
+
+    if not get_complaint(complaint_id):
+        await callback.message.delete()
+        return await callback.answer('✅ Эта жалоба уже удалена')
+
+    try:
+        delete_complaint(complaint_id)
+        await callback.answer('✅ Жалоба успешно удалена', show_alert=True)
+        await callback.message.delete()
+    except TelegramBadRequest:
+        await callback.answer('🤕 Что-то пошло не так, попробуйте ещё раз', show_alert=True)
+        try:
+            await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=callback.message.message_id,
+                                                reply_markup=None)
+        except TelegramBadRequest:
+            pass
 
 
 @router.callback_query(F.data.startswith('complaints_management'))
@@ -973,7 +1030,10 @@ async def process_complaints_back(callback: CallbackQuery, state: FSMContext):
 
     if callback.data.split('_')[-1] == 'back':
         for message_id in watched_complaints.keys():
-            await bot.delete_message(callback.from_user.id, message_id)
+            try:
+                await bot.delete_message(callback.from_user.id, message_id)
+            except TelegramBadRequest:
+                pass
 
         await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
         return await state.clear()
@@ -1071,6 +1131,18 @@ async def process_problem_description(message: Message, state: FSMContext):
 
         return await state.update_data(data)
 
+    if len(message.text.strip()) > 350:
+        try:
+            data['mes_original'] = await mes.edit_text(
+                complaint_lexicon['description'].format(data['order_id'],
+                                                        complaint_lexicon['limit_above'].format(message.text[:3800])),
+                reply_markup=User_kb.back_to_complaint_kb()
+            )
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
     data['mes_original'] = await mes.edit_text(
         complaint_lexicon['info'].format(data['order_id'], message.text) + complaint_lexicon['confirm'],
         reply_markup=User_kb.send_complaint_kb()
@@ -1097,9 +1169,12 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
         text = complaint_lexicon['saved'] + complaint_lexicon['info'].format(data['order_id'], data['complaint_text'])
 
         if 'in_chat_message_id' in data:
-            kb = utils.get_deal_kb_without_report(data['order_id'], callback.from_user.id)
+            kb = utils.get_deal_kb(data['order_id'], callback.from_user.id, False, data.get('show_cancel', True))
             await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=data['in_chat_message_id'],
                                                 reply_markup=kb)
+            data['show_complaint']: bool = False
+            await state.update_data(data)
+
             await mes.edit_text(text)
 
         else:
@@ -1174,7 +1249,7 @@ async def buy_order(callback: CallbackQuery):
 
     if utils.get_price(order_id, 'buy') > get_balance(callback.from_user.id):
         await callback.answer()
-        return await callback.message.answer(f'Недостаточно средств')
+        return await callback.message.answer(f'❕ Недостаточно средств', reply_markup=User_kb.not_enough_money_kb(False))
 
     await callback.message.edit_text(
         text=callback.message.text + '\n\n🤔 Вы уверены?',
@@ -1196,7 +1271,7 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
 
     if utils.get_price(order_id, 'buy') > get_balance(callback.from_user.id):
         await callback.answer()
-        return await callback.message.answer('❕ Недостаточно средств')
+        return await callback.message.answer('❕ Недостаточно средств', reply_markup=User_kb.not_enough_money_kb())
 
     buyer_id = callback.from_user.id
     edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy')

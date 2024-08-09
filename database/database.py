@@ -449,6 +449,36 @@ def get_complaints(user_id) -> List[Tuple[int, int, str]]:
     return report_info
 
 
+def user_has_complaint_on_order(user_id: int, order_id: int) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 1 
+        FROM reports 
+        WHERE complainer_id = ? AND order_id = ?
+    """, (user_id, order_id))
+
+    complaint_exists = cursor.fetchone() is not None
+    conn.close()
+
+    return complaint_exists
+
+
+def delete_complaint(complaint_id: int | str) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM reports WHERE id = ?", (int(complaint_id),))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error deleting complaint: {e}", datetime.datetime.now().time(), sep='\n')
+        return False
+    finally:
+        conn.close()
+
+
 def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -573,22 +603,6 @@ def get_price_db(project: str, server: str, action_type: str) -> int | float:
     conn.close()
 
     return result[0] if result else 100
-
-
-def user_has_complaint_on_order(user_id: int, order_id: int) -> bool:
-    conn = sqlite3.connect(database_file)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT 1 
-        FROM reports 
-        WHERE complainer_id = ? AND order_id = ?
-    """, (user_id, order_id))
-
-    complaint_exists = cursor.fetchone() is not None
-    conn.close()
-
-    return complaint_exists
 
 
 def add_transaction(tg_id: int, amount: float, action: str, deal_id: int = 0):

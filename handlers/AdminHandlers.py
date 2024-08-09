@@ -66,6 +66,10 @@ async def admin_reports(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('answer_to_complaint'), StateFilter(default_state))
 async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext):
+    if not get_complaint(callback.data.split('_')[-1]):
+        await callback.message.delete()
+        return await callback.answer('🗑 Пользователь удалил данную жалобу', show_alert=True)
+
     data = {
         'complaint_id': callback.data.split('_')[-1],
         'mes_original': await bot.send_message(callback.from_user.id, LEXICON['admin_input_answer'],

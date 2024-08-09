@@ -251,11 +251,11 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 
             data['my_watched_orders'][await send_information_about_order(callback, order)] = order[0]
 
+            orders_count += 1
             if orders_count == 4:
                 await callback.message.answer('ㅤ', reply_markup=User_kb.my_orders_management(target))
                 break
 
-            orders_count += 1
         if orders_count == 0:
             await callback.message.delete()
             await callback.answer('У вас больше нет заказов')

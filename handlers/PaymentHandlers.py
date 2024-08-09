@@ -22,7 +22,7 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 
 @router.callback_query(F.data == 'top_up_balance')
 async def start_top_up(callback: CallbackQuery, state: FSMContext):
-    data = {'mes_original': await callback.message.edit_text(payment_lexicon['input_amount'],
+    data = {'mes_original': await callback.message.edit_text(payment_lexicon['input_amount_top_up'],
                                                              reply_markup=User_kb.payment_back_to_account())}
     await state.set_state(UserStates.top_up)
     await state.update_data(data)
@@ -43,20 +43,21 @@ async def order(message: Message, state: FSMContext):
 
     if not message.text:
         try:
-            data['mes_original'] = mes.edit_text(payment_lexicon['input_amount'] + LEXICON['text_needed'],
+            data['mes_original'] = mes.edit_text(payment_lexicon['input_amount_top_up'] + LEXICON['text_needed'],
                                                  reply_markup=User_kb.payment_back_to_account())
         except TelegramBadRequest:
             pass
 
         return state.update_data(data)
 
-    amount_text = message.text
+    amount_text = message.text.replace(' ', '')
 
     if amount_text.isdigit() and int(amount_text) >= 60:
         amount = int(amount_text) * 100
     else:
-        data['mes_original'] = await mes.edit_text(payment_lexicon['input_amount'] + payment_lexicon['wrong_amount'],
-                                                   reply_markup=User_kb.payment_back_to_account())
+        data['mes_original'] = await mes.edit_text(
+            payment_lexicon['input_amount_top_up'] + payment_lexicon['wrong_amount'],
+            reply_markup=User_kb.payment_back_to_account())
         return await state.update_data(data)
 
     await mes.delete()
@@ -105,8 +106,62 @@ async def cashout_request(callback: CallbackQuery, state: FSMContext):
     if balance == 0:
         return await callback.message.edit_text(LEXICON['no_money_to_cashout'], reply_markup=User_kb.top_up_kb())
 
-    data = {'mes_original': await callback.message.edit_text(payment_lexicon['input_card_number'],
+    balance = '{:,}'.format(round(balance)).replace(',', ' ')
+
+    data = {'mes_original': await callback.message.edit_text(payment_lexicon['input_amount_cashout'].format(balance),
                                                              reply_markup=User_kb.payment_back_to_account())}
+
+    await state.set_state(UserStates.cashout_amount)
+    await state.update_data(data)
+
+
+@router.message(StateFilter(UserStates.cashout_amount))
+async def cashout_amount_handler(message: Message, state: FSMContext):
+    data = await state.get_data()
+    balance = get_balance(message.from_user.id)
+
+    await bot.delete_message(message.from_user.id, message.message_id)
+
+    if 'mes_original' not in data:
+        await message.answer('Что-то пошло не так. Попробуйте ещё раз.')
+        return state.clear()
+
+    mes: Message = data['mes_original']
+
+    if not message.text:
+        try:
+            data['mes_original'] = await mes.edit_text(payment_lexicon['input_amount_cashout'] + LEXICON['text_needed'],
+                                                       reply_markup=User_kb.payment_back_to_account())
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
+    try:
+        amount = float(message.text.replace(' ', ''))
+    except ValueError:
+        try:
+            data['mes_original'] = await mes.edit_text(
+                payment_lexicon['input_amount_cashout'] + payment_lexicon['wrong_amount'],
+                reply_markup=User_kb.payment_back_to_account())
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
+    if amount < 0 or amount > balance:
+        try:
+            data['mes_original'] = await mes.edit_text(
+                payment_lexicon['input_amount_cashout'] + payment_lexicon['limit'],
+                reply_markup=User_kb.payment_back_to_account())
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
+    data['amount'] = amount
+    data['mes_original'] = await mes.edit_text(payment_lexicon['input_card_number'],
+                                               reply_markup=User_kb.back_to_cashout_amount())
     await state.set_state(UserStates.input_card_number)
     await state.update_data(data)
 
@@ -132,7 +187,7 @@ async def input_card_number(message: Message, state: FSMContext):
 
         return await state.update_data(data)
 
-    if len(message.text) not in [16, 19]:
+    if len(message.text) not in [16, 19] or not message.text.replace(' ', '').isdecimal():
         try:
             data['mes_original'] = await mes.edit_text(
                 payment_lexicon['input_card_number'] + payment_lexicon['wrong_number'],
@@ -142,11 +197,20 @@ async def input_card_number(message: Message, state: FSMContext):
 
         return await state.update_data(data)
 
+    if data['amount'] < 0 or data['amount'] > get_balance(message.from_user.id):
+        try:
+            data['mes_original'] = await mes.edit_text(
+                payment_lexicon['input_amount_cashout'] + payment_lexicon['limit'],
+                reply_markup=User_kb.payment_back_to_account())
+        except TelegramBadRequest:
+            pass
+
+        return await state.update_data(data)
+
     data['mes_original'] = await mes.edit_text(
-        payment_lexicon['confirm_cashout'].format(get_balance(message.from_user.id), message.text),
+        payment_lexicon['confirm_cashout'].format(data['amount'], message.text),
         reply_markup=User_kb.confirm_cashout_kb()
     )
-    data['amount'] = get_balance(message.from_user.id)
     data['card_number'] = message.text
 
     await state.clear()
@@ -158,8 +222,7 @@ async def cashout_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
     if callback.data.split('_')[-1] == 'cancel':
-        await callback.message.delete()
-        return callback.answer('✅ Вывод средств отменён.')
+        return await utils.send_account_info(callback)
 
     if not all(key in data for key in ('mes_original', 'amount', 'card_number')):
         await callback.message.delete()
@@ -169,14 +232,28 @@ async def cashout_handler(callback: CallbackQuery, state: FSMContext):
     try:
         edit_balance(callback.from_user.id, -data['amount'], 'cashout')
 
-        await bot.send_message(
-            chat_id=config.tg_bot.admin_ids[1],
-            text=payment_lexicon['cashout_request'].format(
-                get_bot_user_id(callback.from_user.id), data['card_number'], data['amount']),
-        )
+        for admin_id in config.tg_bot.admin_ids:
+            try:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text=payment_lexicon['cashout_request'].format(
+                        get_bot_user_id(callback.from_user.id), data['card_number'], data['amount']),
+                )
+            except TelegramBadRequest:
+                pass
 
-        await callback.message.edit_text(payment_lexicon['cashout_request_saved'].format(data['amount'], data['card_number']))
+        await callback.message.edit_text(
+            payment_lexicon['cashout_request_saved'].format(data['amount'], data['card_number']),
+            reply_markup=User_kb.from_cashout_to_main_menu()
+        )
 
     except Exception as e:
         print(f'Ошибка при попытке вывода средств: {str(e)}')
         await callback.message.edit_text(payment_lexicon['cashout_error'])
+
+
+@router.callback_query(F.data == 'from_cashout_to_main_menu')
+async def cashout_to_main_menu_handler(callback: CallbackQuery, state: FSMContext):
+    await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=callback.message.message_id,
+                                        reply_markup=None)
+    await callback.message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())

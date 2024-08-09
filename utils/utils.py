@@ -127,9 +127,11 @@ def get_order_seved_text(data: dict) -> str:
     )
 
 
-def get_deal_kb_without_report(deal_id: str, tg_id: str | int) -> InlineKeyboardMarkup:
+def get_deal_kb(deal_id: str, tg_id: str | int, show_complaint: bool = True,
+                show_cancel: bool = True) -> InlineKeyboardMarkup:
     deal = get_matched_order(deal_id)
 
     if tg_id == deal[1]:
-        return User_kb.confirmation_of_deal_buyer_kb(deal[3], deal_id, show_report=False)
-    return User_kb.confirmation_of_deal_seller_kb(deal[1], deal_id, show_report=False)
+        return User_kb.confirmation_of_deal_buyer_kb(deal[3], deal_id, show_report=show_complaint,
+                                                     show_cancel=show_cancel)
+    return User_kb.confirmation_of_deal_seller_kb(deal[1], deal_id, show_report=show_complaint)

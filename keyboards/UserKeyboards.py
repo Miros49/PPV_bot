@@ -148,34 +148,35 @@ def confirmation_of_creation_kb(item: str, project: str, server: str, action_typ
     return kb.as_markup()
 
 
-def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_orders_id: str | int, show_report: bool = True,
+def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_order_id: str | int, show_report: bool = True,
                                   show_cancel: bool = True):
     kb = InlineKeyboardBuilder()
+    print(show_cancel)
 
     kb.row(
         InlineKeyboardButton(
             text="📢 Сообщить о нарушении",
-            callback_data=f'report_{str(seller_id)}_{str(matched_orders_id)}')
+            callback_data=f'report_{str(seller_id)}_{str(matched_order_id)}')
     ) if show_report else None
-    kb.row(
-        InlineKeyboardButton(text="✅ Подтвердить сделку",
-                             callback_data=f'confirmation_of_deal_confirm_{str(matched_orders_id)}'),
-        InlineKeyboardButton(text="❌ Отменить сделку",
-                             callback_data=f'confirmation_of_deal_cancel_{str(matched_orders_id)}')
-    )
+    kb.row(InlineKeyboardButton(text="✅ Подтвердить сделку",
+                                callback_data=f'confirmation_of_deal_confirm_{str(matched_order_id)}'))
+    kb.add(InlineKeyboardButton(
+        text="❌ Отменить сделку",
+        callback_data=f'confirmation_of_deal_cancel_{str(matched_order_id)}')
+    ) if show_cancel else None
 
     return kb.as_markup()
 
 
-def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_orders_id: str | int, show_report: bool = True):
+def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_order_id: str | int, show_report: bool = True):
     kb = InlineKeyboardBuilder()
 
     kb.add(
         InlineKeyboardButton(text="📢 Сообщить о нарушении",
-                             callback_data=f'report_{str(buyer_id)}_{str(matched_orders_id)}')) if show_report else None
+                             callback_data=f'report_{str(buyer_id)}_{str(matched_order_id)}')) if show_report else None
     kb.add(
         InlineKeyboardButton(text="❌ Отменить сделку",
-                             callback_data=f'confirmation_of_deal_cancel_{str(matched_orders_id)}')
+                             callback_data=f'confirmation_of_deal_cancel_{str(matched_order_id)}')
     ).adjust(1)
 
     return kb.as_markup()
@@ -198,7 +199,7 @@ def account_kb():
     kb.add(
         InlineKeyboardButton(text="💳 Пополнить", callback_data="top_up_balance"),
         InlineKeyboardButton(text='💸 Вывести', callback_data='cashout_request'),
-        InlineKeyboardButton(text='📃 Операции', callback_data='transactions_button'),
+        InlineKeyboardButton(text='📃 Операции', callback_data='transactions_management'),
         InlineKeyboardButton(text="🗂 Мои ордера", callback_data="my_orders"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     ).adjust(2)
@@ -289,7 +290,7 @@ def complaints_to_main_menu():
     return kb.as_markup()
 
 
-def cancel_complaint_kb():
+def cancel_complaint_creation_kb():
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='❌ Отменить', callback_data='cancel_complaint_button'))
@@ -301,6 +302,19 @@ def show_kb(order_id: int | str, item: str, project: str, server: str):
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text="✅ Купить", callback_data=f'buy_order_{str(order_id)}'))
+
+    return kb.as_markup()
+
+
+def not_enough_money_kb(buy: bool = True):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text="💳 Пополнить", callback_data="top_up_balance"))
+
+    additional = InlineKeyboardButton(text='🛒 Магазин', callback_data='shop_button') if buy \
+        else InlineKeyboardButton(text='🗑 Скрыть', callback_data='hide_button')
+
+    kb.row(additional)
 
     return kb.as_markup()
 
@@ -455,6 +469,15 @@ def complaints_management_kb(show_scroll: bool = True):
     return kb.as_markup()
 
 
+def cancel_complaint_kb(complaint_id: str | int, confirm: bool = False):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='🗑✅ Подтвердить удаление' if confirm else '🗑 Удалить жалобу',
+                                callback_data=f'delete_complaint_{"confirm" if confirm else "ask"}_{str(complaint_id)}'))
+
+    return kb.as_markup()
+
+
 def view_answer(complaint_id: str):
     kb = InlineKeyboardBuilder()
 
@@ -467,6 +490,14 @@ def payment_back_to_account():
     kb = InlineKeyboardBuilder()
 
     kb.add(InlineKeyboardButton(text='← Назад', callback_data='account_button'))
+
+    return kb.as_markup()
+
+
+def back_to_cashout_amount():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='cashout_request'))
 
     return kb.as_markup()
 
@@ -485,8 +516,16 @@ def payment_top_up_back():
 def transactions_management(show_more: bool = True):
     kb = InlineKeyboardBuilder()
 
-    kb.add(InlineKeyboardButton(text='← Назад', callback_data='transactions_button_back'))
-    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='transactions_button_more')).adjust(1) \
+    kb.add(InlineKeyboardButton(text='← Назад', callback_data='transactions_management_back'))
+    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='transactions_management_more')).adjust(1) \
         if show_more else None
+
+    return kb.as_markup()
+
+
+def from_cashout_to_main_menu():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(InlineKeyboardButton(text='Вернуться в главное меню', callback_data='from_cashout_to_main_menu'))
 
     return kb.as_markup()

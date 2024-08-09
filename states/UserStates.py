@@ -12,4 +12,5 @@ class UserStates(StatesGroup):
     input_account_description: State = State()
     input_account_price: State = State()
     top_up: State = State()
+    cashout_amount: State = State()
     input_card_number: State = State()
