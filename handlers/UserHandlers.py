@@ -732,11 +732,11 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
             await bot.send_message(seller_id, "🚫 Вы отменили сделку.")
 
-            try:
-                await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
-            except TelegramBadRequest:
-                pass
-            del cancel_requests[chat_id]
+            # try:
+            #     await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
+            # except TelegramBadRequest:
+            #     pass
+            # del cancel_requests[chat_id]
 
             try:
                 update_order_status(seller_order_id, 'pending')
@@ -763,8 +763,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                 del active_chats[buyer_id]
                 del active_chats[seller_id]
 
-                await bot.send_message(buyer_id, "🚫 Сделка отменена.")
-                await bot.send_message(seller_id, "🚫 Сделка отменена.")
+                await bot.send_message(buyer_id, "🚫 Сделка отменена.", reply_markup=User_kb.to_main_menu())
+                await bot.send_message(seller_id, "🚫 Сделка отменена.", reply_markup=User_kb.to_main_menu())
 
                 buyer_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=buyer_id, user_id=buyer_id))
                 seller_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=seller_id, user_id=seller_id))
@@ -772,7 +772,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                 await buyer_state.clear()
                 await seller_state.clear()
 
-                await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
+                # await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
                 del cancel_requests[chat_id]
 
                 try:
@@ -788,11 +788,11 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
             cancel_requests[chat_id][user_id] = True
 
-            await bot.delete_message(buyer_id, callback.message.message_id)
-            await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
+            # await bot.delete_message(buyer_id, callback.message.message_id)
+            # await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
 
-            await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.")
-            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены в ваш кошёлек.")
+            await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.", reply_markup=User_kb.to_main_menu())
+            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены в ваш кошёлек.", reply_markup=User_kb.to_main_menu())
 
             try:
                 update_order_status(seller_order_id, 'confirmed')
@@ -1264,8 +1264,8 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
 
     if 'watched_orders' in data:
         for message_id in data['watched_orders'].keys():
-            if message_id == callback.message.message_id:
-                continue
+            # if message_id == callback.message.message_id:
+            #     continue
             await bot.delete_message(callback.from_user.id, message_id)
         await bot.delete_message(callback.from_user.id, data['service'])
 
@@ -1279,7 +1279,7 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
     seller_id = get_user_id_by_order(order_id)
     matched_orders_id = create_matched_order(buyer_id, 0, seller_id, int(order_id))
 
-    await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
+    # await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
     await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id)
 
 
