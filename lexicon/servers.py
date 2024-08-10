@@ -26,20 +26,20 @@ RMRP_GTA5_SERVERS = ['Рублёвка', 'Арбат']
 
 # ------------------------ CRMP, SAMP, MTA
 # Black Russia
-BLACK_RUSSIA_SERVERS = ["1. RED ", "2. GREEN ", "3. BLUE ", "4. ELLOW ", "5. ORANGE", "6. PURPLE", '7. LIME', '8. PINK',
-                        '9. CHERRY', '10. BLACK', '11. INDIGO', '12. WHITE', '13. MAGENTA ',
-                        '14. CRIMSON ', '15. GOLD ', '16. AZURE ', '17. PLATINUM ', '18. AQUA ', '19. GRAY ',
-                        '20. ICE ', '21. CHILLI ', '22. CHOCO ', '23. MOSCOW ', '24. SPB ', '25. UFA ',
-                        '26. SOCHI ', '27. KAZAN ', '28. SAMARA ', '29. ROSTOV ', '30. ANAPA ', '31. EKATERINBURG ',
-                        '32. KRASNODAR ', '33. ARZAMAS ', '34. NOVOSIBIRSK ', '35. GROZNY ',
-                        '36. SARATOV ', '37. OMSK ', '38. IRKUTSK ', '39. VOLGOGRAD ', '40. VORONEZH ', '41. BELGOROD ',
-                        '42. MAKHACHKALA ', '43. VLADIKAVKAZ ', '44. VLADIVOSTOK ', '45. KALININGRAD ',
-                        '46. CHELYABINSK ', '47. KRASNOYARSK ', '48. CHEBOKSARY ', '49. KHABAROVSK ', '50. PERM ',
-                        '51. TULA ', '52. RYAZAN', '53. MURMANSK ', '54. PENZA ', '55. KURSK ', '56. ARKHANGELSK',
-                        "57. ORENBURG ", "58. KIROV ", "59. KEMEROVO ", "60. TYUMEN ", "61. TOLYATTI ", "62. IVANOVO ",
-                        "63. STAVROPOL ", "64. SMOLENSK", "65. PSKOV ", "66. BRYANSK", "67. OREL ", "68. YAROSLAVL ",
-                        "69. BARNAUL ", "70. LIPETSK ", "71. ULYANOVSK ", "72. YAKUTSK ", "73. TAMBOV ", "74. BRATSK ",
-                        "75. ASTRAKHAN ", ' 76. Chita', '77. Kostroma']
+BLACK_RUSSIA_SERVERS = ["1. RED", "2. GREEN", "3. BLUE", "4. ELLOW", "5. ORANGE", "6. PURPLE", '7. LIME', '8. PINK',
+                        '9. CHERRY', '10. BLACK', '11. INDIGO', '12. WHITE', '13. MAGENTA',
+                        '14. CRIMSON', '15. GOLD', '16. AZURE', '17. PLATINUM', '18. AQUA', '19. GRAY',
+                        '20. ICE', '21. CHILLI', '22. CHOCO', '23. MOSCOW', '24. SPB', '25. UFA',
+                        '26. SOCHI', '27. KAZAN', '28. SAMARA', '29. ROSTOV', '30. ANAPA', '31. EKATERINBURG',
+                        '32. KRASNODAR', '33. ARZAMAS', '34. NOVOSIBIRSK', '35. GROZNY',
+                        '36. SARATOV', '37. OMSK', '38. IRKUTSK', '39. VOLGOGRAD', '40. VORONEZH', '41. BELGOROD',
+                        '42. MAKHACHKALA', '43. VLADIKAVKAZ', '44. VLADIVOSTOK', '45. KALININGRAD',
+                        '46. CHELYABINSK', '47. KRASNOYARSK', '48. CHEBOKSARY', '49. KHABAROVSK', '50. PERM',
+                        '51. TULA', '52. RYAZAN', '53. MURMANSK', '54. PENZA', '55. KURSK', '56. ARKHANGELSK',
+                        "57. ORENBURG", "58. KIROV", "59. KEMEROVO", "60. TYUMEN", "61. TOLYATTI", "62. IVANOVO",
+                        "63. STAVROPOL", "64. SMOLENSK", "65. PSKOV", "66. BRYANSK", "67. OREL", "68. YAROSLAVL",
+                        "69. BARNAUL", "70. LIPETSK", "71. ULYANOVSK", "72. YAKUTSK", "73. TAMBOV", "74. BRATSK",
+                        "75. ASTRAKHAN", ' 76. Chita', '77. Kostroma']
 
 # Arizona RP
 ARIZONA_RP_SERVERS = ['1.Phoenix', '2. Tucson', '3. Scottdale', '4. Chandler', '5. Brainburg', '6. Saint Rose',

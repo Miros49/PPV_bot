@@ -359,6 +359,8 @@ def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) 
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
+    print(project, server, item)
+
     if project in ["HASSLE Online", "Radmir RP"]:
         projects_to_check = ["HASSLE Online", "Radmir RP"]
         query = """
@@ -437,11 +439,16 @@ def set_complaint_answer(complaint_id: int | str, answer: str, status: str):
     conn.close()
 
 
-def get_complaints(user_id) -> List[Tuple[int, int, str]]:
+def get_complaints(user_id) -> List[Tuple]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('''SELECT * FROM reports WHERE complainer_id = ? ''', (user_id,))
+    cursor.execute('''SELECT * FROM reports WHERE complainer_id = ? 
+                      ORDER BY CASE 
+                                  WHEN status = 'open' THEN 1
+                                  WHEN status = 'closed' THEN 2
+                                  ELSE 3
+                               END''', (user_id,))
 
     report_info = cursor.fetchall()
     conn.close()

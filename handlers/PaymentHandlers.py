@@ -22,8 +22,11 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 
 @router.callback_query(F.data == 'top_up_balance')
 async def start_top_up(callback: CallbackQuery, state: FSMContext):
-    data = {'mes_original': await callback.message.edit_text(payment_lexicon['input_amount_top_up'],
-                                                             reply_markup=User_kb.payment_back_to_account())}
+    balance = '{:,}'.format(round(get_balance(callback.from_user.id))).replace(',', ' ')
+
+    data = await state.get_data()
+    data['mes_original'] = await callback.message.edit_text(payment_lexicon['input_amount_top_up'].format(balance),
+                                                            reply_markup=User_kb.payment_back_to_account())
     await state.set_state(UserStates.top_up)
     await state.update_data(data)
 
@@ -31,6 +34,8 @@ async def start_top_up(callback: CallbackQuery, state: FSMContext):
 @router.message(StateFilter(UserStates.top_up))
 async def order(message: Message, state: FSMContext):
     await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
+    balance = '{:,}'.format(round(get_balance(message.from_user.id))).replace(',', ' ')
+
     data = await state.get_data()
 
     await bot.delete_message(message.chat.id, message.message_id)
@@ -43,7 +48,7 @@ async def order(message: Message, state: FSMContext):
 
     if not message.text:
         try:
-            data['mes_original'] = mes.edit_text(payment_lexicon['input_amount_top_up'] + LEXICON['text_needed'],
+            data['mes_original'] = mes.edit_text(payment_lexicon['input_amount_top_up'].format(balance) + LEXICON['text_needed'],
                                                  reply_markup=User_kb.payment_back_to_account())
         except TelegramBadRequest:
             pass
@@ -56,7 +61,7 @@ async def order(message: Message, state: FSMContext):
         amount = int(amount_text) * 100
     else:
         data['mes_original'] = await mes.edit_text(
-            payment_lexicon['input_amount_top_up'] + payment_lexicon['wrong_amount'],
+            payment_lexicon['input_amount_top_up'].format(balance) + payment_lexicon['wrong_amount'],
             reply_markup=User_kb.payment_back_to_account())
         return await state.update_data(data)
 
@@ -97,6 +102,7 @@ async def succesful_payment_handler(message: Message, state: FSMContext):
 
     await utils.send_account_info(message)
     await state.clear()
+    await state.update_data(data)
 
 
 @router.callback_query(F.data == 'cashout_request')

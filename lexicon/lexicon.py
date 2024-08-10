@@ -293,7 +293,8 @@ my_orders_lexicon: dict[str, str] = {
 }
 
 payment_lexicon: dict[str, str] = {
-    'input_amount_top_up': '<b>‼️ Введите сумму для пополнения (мин. 60 руб):</b>',
+    'input_amount_top_up': '<b>У вас на счету <code>{}</code> руб.\n\n'
+                           '‼️ Введите сумму для пополнения (мин. 60 руб):</b>',
     'input_amount_cashout': '<b>У вас на счету <code>{}</code> руб.\n\nСколько желаете вывести денег?</b>',
     'limit': '<b>Мы не можем перевести Вам эту сумму. Попробуйте ещё раз:</b>',
     'wrong_amount': '<b>\n\n❕Введите корректное число</b>',

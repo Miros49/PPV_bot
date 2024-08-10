@@ -111,9 +111,19 @@ async def co_game(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith('co_project'), StateFilter(default_state))
-async def co_project(callback: CallbackQuery):
+async def co_project(callback: CallbackQuery, state: FSMContext):
     project = callback.data.split('_')[-1]
     game_text = utils.get_game_text(utils.determine_game(project))
+
+    if project in ['Quant RP', 'SMOTRArage']:
+        game_text = utils.get_game_text(utils.determine_game(project))
+        await callback.message.edit_text(
+            orders_lexicon['special_1'].format('📗', 'Покупка', 'Вирты', game_text, project, '#1',
+                                               orders_lexicon['virt_1'],
+                                               orders_lexicon['virt_2']),
+            reply_markup=User_kb.co_amount_kb(project, '#1', True))
+        return await state.clear()
+
     await callback.message.edit_text(orders_lexicon['server'].format('📗', 'Покупка', 'Вирты', game_text, project),
                                      reply_markup=User_kb.co_server_kb(project))
 
@@ -226,12 +236,12 @@ async def back_to_games_callback(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith('project_'), StateFilter(default_state))
-async def handle_project_callback(callback: CallbackQuery):
+async def handle_project_callback(callback: CallbackQuery, state: FSMContext):
     item = callback.data.split('_')[1]
     project_name = callback.data.split('_')[2]
     action_type = callback.data.split('_')[-1]
 
-    await utils.show_servers(callback, item, project_name, action_type)
+    await utils.show_servers(callback, state, item, project_name, action_type)
 
 
 @router.callback_query(F.data.startswith('back_to_projects_'), StateFilter(default_state))
@@ -247,7 +257,7 @@ async def back_to_servers_handler(callback: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    await utils.show_servers(callback, item, project, action_type)
+    await utils.show_servers(callback, state, item, project, action_type)
     await state.clear()
     await state.update_data(data)
 
@@ -314,7 +324,9 @@ async def show_orders_management(callback: CallbackQuery, state: FSMContext):
                 await bot.delete_message(callback.from_user.id, message_id)
             except TelegramBadRequest:
                 pass
-        return await utils.show_servers(callback, data['item'], data['project'], 'show')
+        if data['project'] not in ['Quant RP', 'SMOTRArage']:
+            return await utils.show_servers(callback, state, data['item'], data['project'], 'show')
+        return await utils.show_projects(callback, data['item'], utils.determine_game(data['project']), 'show')
 
     await utils.show_orders(callback, state, data['item'], data['project'], data['server'], True)
 
@@ -738,6 +750,13 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             #     pass
             # del cancel_requests[chat_id]
 
+            await bot.edit_message_reply_markup(chat_id=buyer_id,
+                                                message_id=cancel_requests[chat_id]['buyer_message_id'],
+                                                reply_markup=None)
+            await bot.edit_message_reply_markup(chat_id=seller_id,
+                                                message_id=cancel_requests[chat_id]['seller_message_id'],
+                                                reply_markup=None)
+
             try:
                 update_order_status(seller_order_id, 'pending')
                 if buyer_order_id != 0:
@@ -791,8 +810,16 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             # await bot.delete_message(buyer_id, callback.message.message_id)
             # await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
 
-            await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.", reply_markup=User_kb.to_main_menu())
-            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены в ваш кошёлек.", reply_markup=User_kb.to_main_menu())
+            await bot.edit_message_reply_markup(chat_id=buyer_id, message_id=callback.message.message_id,
+                                                reply_markup=None)
+            await bot.edit_message_reply_markup(chat_id=seller_id,
+                                                message_id=cancel_requests[chat_id]['seller_message_id'],
+                                                reply_markup=None)
+
+            await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.",
+                                   reply_markup=User_kb.to_main_menu())
+            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены в ваш кошёлек.",
+                                   reply_markup=User_kb.to_main_menu())
 
             try:
                 update_order_status(seller_order_id, 'confirmed')
@@ -811,6 +838,12 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
             await buyer_state.clear()
             await seller_state.clear()
+
+
+@router.message(Command('report'))
+async def report_command(message: Message, state: FSMContext):
+    await message.answer(LEXICON['report_message'], reply_markup=User_kb.report_kb())
+    await state.clear()
 
 
 @router.message(StateFilter(UserStates.in_chat))
@@ -897,7 +930,7 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
                 except TelegramBadRequest:
                     pass
             await utils.send_account_info(callback)
-        return state.clear()
+        return await state.clear()
 
     await callback.message.delete()
 
@@ -945,12 +978,6 @@ async def complaints_button_handler(callback: CallbackQuery, state: FSMContext):
     await state.clear()
 
 
-@router.message(Command('report'))
-async def report_command(message: Message, state: FSMContext):
-    await message.answer(LEXICON['report_message'], reply_markup=User_kb.report_kb())
-    await state.clear()
-
-
 @router.callback_query(F.data == 'my_complaints')
 async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watched_complains: list = []):
     complaints = get_complaints(callback.from_user.id)
@@ -982,12 +1009,15 @@ async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watc
 
         complaints_counter += 1
         if complaints_counter == 4:
-            await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb())
+            await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(
+                len(complaints) > len(data['watched_complaints'])))
             await state.update_data(data)
             break
 
     if complaints_counter == 0:
         await callback.answer('У вас больше нет жалоб', show_alert=True)
+        await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
+        await state.update_data(data)
     elif complaints_counter != 4:
         await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
         await state.update_data(data)

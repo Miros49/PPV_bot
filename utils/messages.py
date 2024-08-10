@@ -86,12 +86,39 @@ async def show_projects(callback: CallbackQuery, item: str, game: str, action_ty
     await callback.message.edit_text(text, reply_markup=User_kb.projects_kb(item, game, action_type))
 
 
-async def show_servers(callback: CallbackQuery, item: str, project: str, action_type: str):
+async def show_servers(callback: CallbackQuery, state: FSMContext, item: str, project: str, action_type: str):
     game = determine_game(project)
     if action_type == 'sell':
+        if project in ['Quant RP', 'SMOTRArage']:
+
+            text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(item),
+                                                      utils.get_game_text(utils.determine_game(project)),
+                                                      project, '#1', '{}', '{}')
+
+            if item == 'virt':
+                kb = User_kb.amount_kb(project, '#1', 'sell', single_server=True)
+                return await callback.message.edit_text(text.format(
+                    orders_lexicon['virt_1'], orders_lexicon['virt_2']), reply_markup=kb)
+            elif item == 'business':
+                mes = await callback.message.edit_text(
+                    text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
+                    reply_markup=User_kb.order_back_to_projects(item, project, action_type))
+                await state.set_state(UserStates.input_business_name)
+            else:
+                mes = await callback.message.edit_text(
+                    text.format(orders_lexicon['account_1'], orders_lexicon['account_2']),
+                    reply_markup=User_kb.order_back_to_projects(item, project, action_type))
+                await state.set_state(UserStates.input_account_description)
+
+            return await state.update_data(
+                {'item': item, 'project': project, 'server': '#1', 'action_type': action_type,
+                 'mes_original': mes, 'mes_original_text': text, 'attempt': True})
+
         text = orders_lexicon['server'].format('📘', 'Продажа', utils.get_item_text(item), utils.get_game_text(game),
                                                project)
     else:
+        if project in ['Quant RP', 'SMOTRArage']:
+            return await show_orders(callback, state, item, project, '#1')
         text = show_lexicon['server'].format(utils.get_item_text(item),
                                              utils.get_game_text(game), project)
 
@@ -161,7 +188,7 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
             price='{:,}'.format(price_).replace(',', ' ')
         )
 
-        mes = await callback.message.answer(orders_text, reply_markup=User_kb.show_kb(order_id, item, project, server))
+        mes = await callback.message.answer(orders_text, reply_markup=User_kb.show_kb(order_id))
 
         data['watched_orders'][mes.message_id] = order_id
 
