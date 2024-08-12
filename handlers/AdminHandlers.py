@@ -32,7 +32,7 @@ async def admin(message: Message):
     await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=Admin_kb.menu_kb())
 
 
-@router.callback_query(F.data == 'back_to_admin_menu')
+@router.callback_query(F.data == 'back_to_admin_menu', StateFilter(default_state))
 async def back_to_menu(callback: CallbackQuery):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
@@ -81,7 +81,7 @@ async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext
     await state.update_data(data)
 
 
-@router.callback_query(F.data == 'cancel_answer')
+@router.callback_query(F.data == 'cancel_answer', StateFilter(default_state))
 async def cancel_answering(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await callback.answer('Вы отменили ответ на жалобу')
@@ -109,7 +109,7 @@ async def confirm_answer_handler(message: Message, state: FSMContext):
     await state.update_data(data)
 
 
-@router.callback_query(F.data == 'confirm_answer')
+@router.callback_query(F.data == 'confirm_answer', StateFilter(default_state))
 async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
@@ -128,7 +128,7 @@ async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
                         + LEXICON['admin_answer_saved'])
 
 
-@router.callback_query(F.data == 'admin_information')
+@router.callback_query(F.data == 'admin_information', StateFilter(default_state))
 async def admin_information(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
@@ -136,7 +136,7 @@ async def admin_information(callback: CallbackQuery, state: FSMContext):
     await state.clear()
 
 
-@router.callback_query(F.data.startswith('admin_information'))
+@router.callback_query(F.data.startswith('admin_information'), StateFilter(default_state))
 async def admin_information_by(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
     argument = target_map.get(callback.data.split('_')[-1])
@@ -147,7 +147,7 @@ async def admin_information_by(callback: CallbackQuery, state: FSMContext):
     await state.update_data({'target': callback.data.split('_')[-1]})
 
 
-@router.message(StateFilter(AdminStates.input_id))
+@router.message(StateFilter(AdminStates.input_id), StateFilter(default_state))
 async def send_information(message: Message, state: FSMContext):
     try:
         target_id = int(message.text)
@@ -169,7 +169,7 @@ async def send_information(message: Message, state: FSMContext):
         await state.clear()
 
 
-@router.callback_query(F.data.in_(['admin_edit_price', 'back_to_games']))
+@router.callback_query(F.data.in_(['admin_edit_price', 'back_to_games']), StateFilter(default_state))
 async def admin_edit_price(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['edit_price_1'], reply_markup=Admin_kb.game_kb())
 
@@ -183,7 +183,7 @@ async def admin_game(callback: CallbackQuery):
                                      reply_markup=Admin_kb.projects_kb(game, projects_list))
 
 
-@router.callback_query(F.data.startswith('admin_project'))
+@router.callback_query(F.data.startswith('admin_project'), StateFilter(default_state))
 async def admin_project(callback: CallbackQuery):
     game = callback.data.split('_')[-2]
     project = callback.data.split('_')[-1]
@@ -192,7 +192,7 @@ async def admin_project(callback: CallbackQuery):
                                      reply_markup=Admin_kb.servers_kb(project))
 
 
-@router.callback_query(F.data.startswith('change'))
+@router.callback_query(F.data.startswith('change'), StateFilter(default_state))
 async def admin_change(callback: CallbackQuery, state: FSMContext):
     _, project, server = callback.data.split('_')
     game = utils.determine_game(project)
@@ -249,7 +249,7 @@ async def edit_price_sell(message: Message, state: FSMContext):
     await state.clear()
 
 
-@router.callback_query(F.data.startswith('c-e'))
+@router.callback_query(F.data.startswith('c-e'), StateFilter(default_state))
 async def insert_new_price(callback: CallbackQuery):
     if callback.data[3] == 'N':
         return callback.message.edit_text('🗑 Изменения отменены')

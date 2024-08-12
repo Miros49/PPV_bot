@@ -153,8 +153,8 @@ def confirmation_of_creation_kb(item: str, project: str, server: str, action_typ
 def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_order_id: str | int, show_report: bool = True,
                                   show_cancel: bool = True):
     kb = InlineKeyboardBuilder()
-    print(show_cancel)
 
+    kb.row(InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/ddvirtshelp'))
     kb.row(
         InlineKeyboardButton(
             text="📢 Сообщить о нарушении",
@@ -173,6 +173,7 @@ def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_order_id: str | 
 def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_order_id: str | int, show_report: bool = True):
     kb = InlineKeyboardBuilder()
 
+    kb.row(InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/ddvirtshelp'))
     kb.add(
         InlineKeyboardButton(text="📢 Сообщить о нарушении",
                              callback_data=f'report_{str(buyer_id)}_{str(matched_order_id)}')) if show_report else None
@@ -254,8 +255,8 @@ def confirm_cashout_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Вывести деньги', callback_data='cashout_confirm'),
-        InlineKeyboardButton(text='Отменить', callback_data='cashout_cancel')
+        InlineKeyboardButton(text='💸 Вывести деньги', callback_data='cashout_confirm'),
+        InlineKeyboardButton(text='❌ Отменить', callback_data='cashout_cancel')
     )
 
     return kb.as_markup()
@@ -378,10 +379,12 @@ def co_server_kb(project: str):
     return kb.as_markup()
 
 
-def co_back_to_amount(project: str, server: str):
+def co_back_to_amount(project: str, server: str, single_server: bool = False):
+    callback_text = f'co_game_{utils.determine_game(project)}' if single_server else f'co_server_{project}_{server}'
+
     kb = InlineKeyboardBuilder()
 
-    return kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'co_server_{project}_{server}')).as_markup()
+    return kb.row(InlineKeyboardButton(text='← Назад', callback_data=callback_text)).as_markup()
 
 
 def co_amount_kb(project: str, server: str, single_server: bool = False):
@@ -444,11 +447,14 @@ def to_main_menu(from_orders: bool = False):
     return kb.as_markup()
 
 
-def order_back_to_servers(item: str, project: str, action_type: str):
+def order_back_to_servers(item: str, project: str, action_type: str, single_server: bool = False):
+    callback_text = f'back_to_projects_{item}_{utils.determine_game(project)}_{action_type}' if single_server \
+        else f'back_to_servers_{item}_{project}_{action_type}'
+
     kb = InlineKeyboardBuilder()
 
     kb.row(
-        InlineKeyboardButton(text='← Назад', callback_data=f'back_to_servers_{item}_{project}_{action_type}'))
+        InlineKeyboardButton(text='← Назад', callback_data=callback_text))
 
     return kb.as_markup()
 

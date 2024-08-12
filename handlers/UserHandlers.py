@@ -23,7 +23,7 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 router: Router = Router()
 
 
-@router.message(Command('menu', 'start'), ~StateFilter(UserStates.in_chat))
+@router.message(Command('menu', 'start'), ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def start_handler(message: Message, state: FSMContext):
     await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
     await message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())
@@ -50,7 +50,8 @@ async def back_to_start(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['start_message'], reply_markup=User_kb.start_kb())
 
 
-@router.callback_query(F.data.startswith('send_main_menu'))
+@router.callback_query(F.data.startswith('send_main_menu'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def send_main_menu_handler(callback: CallbackQuery):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
     key = callback.data.split('_')[-1]
@@ -66,26 +67,29 @@ async def send_main_menu_handler(callback: CallbackQuery):
         await callback.message.edit_text(LEXICON['start_message'], reply_markup=User_kb.start_kb())
 
 
-@router.callback_query(F.data == 'shop_button', StateFilter(default_state))
+@router.callback_query(F.data == 'shop_button', ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def shop_button(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['shop_message'], disable_web_page_preview=True,
                                      reply_markup=User_kb.shop_kb())
 
 
-@router.callback_query(F.data == 'account_button')
+@router.callback_query(F.data == 'account_button',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def account_button(callback: CallbackQuery, state: FSMContext):
     await utils.send_account_info(callback)
     await state.clear()
 
 
-@router.callback_query(F.data == 'from_top_up_to_account')
+@router.callback_query(F.data == 'from_top_up_to_account',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def from_top_up_to_account(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await utils.send_account_info(callback.message)
     await state.clear()
 
 
-@router.callback_query(F.data == 'shop_buy_button', StateFilter(default_state))
+@router.callback_query(F.data == 'shop_buy_button',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def start_buy_button(callback: CallbackQuery):
     await callback.message.edit_text(show_lexicon['item'], reply_markup=User_kb.action_kb('show'))
 
@@ -102,12 +106,14 @@ async def start_create_order_button(callback: CallbackQuery):
                                      reply_markup=User_kb.co_game_kb())
 
 
-@router.callback_query(F.data.startswith('co_game'), StateFilter(default_state))
-async def co_game(callback: CallbackQuery):
+@router.callback_query(F.data.startswith('co_game'), StateFilter(default_state, UserStates.input_amount))
+async def co_game(callback: CallbackQuery, state: FSMContext):
     game = callback.data.split('_')[-1]
     game_text = utils.get_game_text(game)
     await callback.message.edit_text(orders_lexicon['project'].format('📗', 'Покупка', 'Вирты', game_text),
                                      reply_markup=User_kb.co_project_kb(game))
+
+    await state.clear() if await state.get_state() == UserStates.input_amount else None
 
 
 @router.callback_query(F.data.startswith('co_project'), StateFilter(default_state))
@@ -136,11 +142,11 @@ async def co_server(callback: CallbackQuery, state: FSMContext):
         orders_lexicon['special_1'].format('📗', 'Покупка', 'Вирты', game_text, project, server,
                                            orders_lexicon['virt_1'],
                                            orders_lexicon['virt_2']),
-        reply_markup=User_kb.co_amount_kb(project, server))
+        reply_markup=User_kb.co_amount_kb(project, server, project in ['Quant RP', 'SMOTRArage']))
     await state.clear()
 
 
-@router.callback_query(F.data.startswith('co_amount'), StateFilter(default_state))
+@router.callback_query(F.data.startswith('co_amount'))
 async def co_amount(callback: CallbackQuery, state: FSMContext):
     _, _, project, server, amount = callback.data.split('_')
     game_text = utils.get_game_text(utils.determine_game(project))
@@ -150,11 +156,11 @@ async def co_amount(callback: CallbackQuery, state: FSMContext):
             orders_lexicon['special_1'].format('📗', 'Покупка', 'Вирты', game_text, project, server,
                                                orders_lexicon['virt_1'],
                                                orders_lexicon['virt_custom']),
-            reply_markup=User_kb.co_back_to_amount(project, server)
+            reply_markup=User_kb.co_back_to_amount(project, server, project in ['Quant RP', 'SMOTRArage'])
         )
         await state.set_state(UserStates.input_amount)
         return await state.update_data(
-            {'project': project, 'server': server, 'action_type': 'buy', 'mes_original': mes})
+            {'project': project, 'server': server, 'action_type': 'buy', 'mes_original': mes, 'attempt': True})
 
     price_ = utils.calculate_virt_price(amount, get_price_db(project, server, 'buy'))
 
@@ -244,14 +250,20 @@ async def handle_project_callback(callback: CallbackQuery, state: FSMContext):
     await utils.show_servers(callback, state, item, project_name, action_type)
 
 
-@router.callback_query(F.data.startswith('back_to_projects_'), StateFilter(default_state))
-async def handle_main_menu_callback(callback: CallbackQuery):
+@router.callback_query(F.data.startswith('back_to_projects_'),
+                       StateFilter(default_state, UserStates.input_business_name, UserStates.input_account_description,
+                                   UserStates.input_amount))
+async def handle_main_menu_callback(callback: CallbackQuery, state: FSMContext):
     _, _, _, item, game, action_type = callback.data.split('_')
 
     await utils.show_projects(callback, item, game, action_type)
+    current_state = await state.get_state()
+
+    if current_state in [UserStates.input_business_name, UserStates.input_account_description, UserStates.input_amount]:
+        await state.clear()
 
 
-@router.callback_query(F.data.startswith('back_to_servers'))
+@router.callback_query(F.data.startswith('back_to_servers'), StateFilter(default_state))
 async def back_to_servers_handler(callback: CallbackQuery, state: FSMContext):
     _, _, _, item, project, action_type = callback.data.split('_')
 
@@ -286,7 +298,7 @@ async def handle_server_callback(callback: CallbackQuery, state: FSMContext):
 
     if item == 'virt':
         kb = User_kb.amount_kb(project, server, action_type) if action_type == 'sell' \
-            else User_kb.co_amount_kb(project, server)
+            else User_kb.co_amount_kb(project, server, project in ['Quant RP', 'SMOTRArage'])
         return await callback.message.edit_text(text.format(orders_lexicon['virt_1'], orders_lexicon['virt_2']),
                                                 reply_markup=kb)
     elif item == 'business':
@@ -309,7 +321,8 @@ async def handle_server_show_callback(callback: CallbackQuery, state: FSMContext
     await utils.show_orders(callback, state, item, project, server)
 
 
-@router.callback_query(F.data.startswith('show_orders_management'))
+@router.callback_query(F.data.startswith('show_orders_management'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def show_orders_management(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
@@ -318,20 +331,22 @@ async def show_orders_management(callback: CallbackQuery, state: FSMContext):
         return await callback.answer('Эта кнопка устарела. Попробуйте ещё раз', show_alert=True)
 
     if callback.data.split('_')[-1] == 'back':
-        print(data['watched_orders'])
+
+        if data['project'] not in ['Quant RP', 'SMOTRArage']:
+            await utils.show_servers(callback, state, data['item'], data['project'], 'show')
+        else:
+            await utils.show_projects(callback, data['item'], utils.determine_game(data['project']), 'show')
+
         for message_id in data['watched_orders'].keys():
             try:
                 await bot.delete_message(callback.from_user.id, message_id)
             except TelegramBadRequest:
                 pass
-        if data['project'] not in ['Quant RP', 'SMOTRArage']:
-            return await utils.show_servers(callback, state, data['item'], data['project'], 'show')
-        return await utils.show_projects(callback, data['item'], utils.determine_game(data['project']), 'show')
-
-    await utils.show_orders(callback, state, data['item'], data['project'], data['server'], True)
+    else:
+        await utils.show_orders(callback, state, data['item'], data['project'], data['server'], True)
 
 
-@router.callback_query(F.data.startswith('amount_'), StateFilter(default_state))
+@router.callback_query(F.data.startswith('amount'), StateFilter(default_state, UserStates.input_amount))
 async def handle_amount_callback(callback: CallbackQuery, state: FSMContext):
     _, amount, project, server = callback.data.split('_')
 
@@ -341,11 +356,9 @@ async def handle_amount_callback(callback: CallbackQuery, state: FSMContext):
             '📘', 'Продажа', 'Вирты', utils.get_game_text(utils.determine_game(project)),
             project, server, orders_lexicon['virt_1'], orders_lexicon['virt_custom']
         )
-        data['mes_original'] = \
-            await callback.message.edit_text(
-                text=text,
-                reply_markup=User_kb.order_back_to_servers('virt', project, 'sell')
-            )
+        kb = User_kb.order_back_to_servers('virt', project, 'sell', project in ['Quant RP', 'SMOTRArage'])
+
+        data['mes_original'] = await callback.message.edit_text(text=text, reply_markup=kb)
 
         await state.set_state(UserStates.input_amount)
         return await state.update_data(data)
@@ -371,6 +384,11 @@ async def input_amount(message: Message, state: FSMContext):
 
     await bot.delete_message(message.chat.id, message.message_id)
 
+    kb = User_kb.order_back_to_servers(
+        'virt', data['project'], data['action_type'],
+        data['project'] in ['Quant RP', 'SMOTRArage']) if data['action_type'] == 'sell' \
+        else User_kb.co_back_to_amount(data['project'], data['server'], data['project'] in ['Quant RP', 'SMOTRArage'])
+
     if amount.isnumeric():
         if int(amount) < 500000:
             additional = orders_lexicon['virt_custom'] + orders_lexicon['virt_amount_below']
@@ -391,9 +409,6 @@ async def input_amount(message: Message, state: FSMContext):
             )
             return await state.clear()
 
-        kb = User_kb.order_back_to_servers('virt', data['project'], data['action_type']) \
-            if data['action_type'] == 'sell' else User_kb.co_back_to_amount(data['project'], data['server'])
-
         await mes.edit_text(orders_lexicon['special_1'].format(
             emoji, action_text, 'Вирты', utils.get_game_text(utils.determine_game(data['project'])),
             data['project'], data['server'], orders_lexicon['virt_1'], additional),
@@ -406,9 +421,10 @@ async def input_amount(message: Message, state: FSMContext):
         data['attempt'] = not data['attempt']
 
         await mes.edit_text(orders_lexicon['special_1'].format(
-            '📘', 'Продажа', 'Вирты', utils.get_game_text(utils.determine_game(data['project'])),
+            emoji, action_text, 'Вирты', utils.get_game_text(utils.determine_game(data['project'])),
             data['project'], data['server'], orders_lexicon['virt_1'], attempt_text
-        ), reply_markup=User_kb.order_back_to_servers('virt', data['project'], 'sell'))
+        ), reply_markup=kb)
+
         await state.update_data(data)
 
 
@@ -422,12 +438,14 @@ async def business_name(message: Message, state: FSMContext):
     text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(data['item']),
                                               utils.get_game_text(utils.determine_game(data['project'])),
                                               data['project'], data['server'], orders_lexicon['business_1'], '{}')
+    kb = User_kb.order_back_to_servers('business', data['project'], 'sell',
+                                       data['project'] in ['Quant RP', 'SMOTRArage'])
 
     if not message.text:
         try:
             data['mes_original'] = await message.edit_text(
                 text.format(orders_lexicon['business_2'] + LEXICON['text_needed']),
-                reply_markup=User_kb.order_back_to_servers('business', data['project'], 'sell')
+                reply_markup=kb
             )
         except TelegramBadRequest:
             pass
@@ -440,7 +458,7 @@ async def business_name(message: Message, state: FSMContext):
                 text=text.format(
                     orders_lexicon['business_2'] + LEXICON['name_limit'].format(
                         len(message.text), message.text)),
-                reply_markup=User_kb.order_back_to_servers('business', data['project'], 'sell')
+                reply_markup=kb
             )
         except TelegramBadRequest:
             pass
@@ -448,7 +466,7 @@ async def business_name(message: Message, state: FSMContext):
 
     text = orders_lexicon['special_2'].format(
         '📘', 'Продажа', 'Бизнес', utils.get_game_text(utils.determine_game(data['project'])), data['project'],
-        data['server'], orders_lexicon['business_1'], message.text, '____', orders_lexicon['business_3'])
+        data['server'], orders_lexicon['business_1'], message.text, '   ', orders_lexicon['business_3'])
 
     data['mes_original'] = await mes.edit_text(text, reply_markup=User_kb.back_to_filling())
     data['name'] = message.text
@@ -578,6 +596,7 @@ async def handle_confirm_callback(callback: CallbackQuery):
 
             if not data:
                 return await callback.message.edit_text("Кажется, что-то пошло не так...")
+
             action_text, item, project, server, price_, amount = data.values()
             action_type = 'sell' if action_text == 'Продажа' else 'buy'
             emoji = '📘' if action_type == 'sell' else '📗'
@@ -587,7 +606,7 @@ async def handle_confirm_callback(callback: CallbackQuery):
                     return await callback.message.edit_text('❕ Недостаточно средств',
                                                             reply_markup=User_kb.not_enough_money_kb())
                 else:
-                    edit_balance(user_id, -price_, 'buy')
+                    edit_balance(user_id, -price_, 'buy', buy_order_creation=True)
 
             opposite_action_type = 'buy' if action_text == 'Продажа' else 'sell'
             opposite_price = utils.calculate_virt_price(amount, get_price_db(project, server, opposite_action_type))
@@ -595,13 +614,16 @@ async def handle_confirm_callback(callback: CallbackQuery):
             order_id = add_order(user_id, username, action_type, 'virt', project, server, amount, opposite_price,
                                  price_)
 
+            if action_type == 'buy':
+                add_transaction(user_id, amount, action_type, order_id=order_id)
+
             price_, amount_text = '{:,}'.format(price_), '{:,}'.format(int(amount))
             text += orders_lexicon['show_order'].format(emoji, action_text, item, project, server,
                                                         orders_lexicon['virt_1'], amount_text, price_, '')
 
             await callback.message.edit_text(text, reply_markup=User_kb.to_main_menu(True))
 
-            matched_order = match_orders(user_id, action_type, project, server, amount)
+            matched_order = await match_orders(user_id, action_type, project, server, amount)
             if matched_order:
                 matched_order_id, other_user_id = matched_order
 
@@ -611,7 +633,7 @@ async def handle_confirm_callback(callback: CallbackQuery):
                 seller_order_id = order_id if action_type == 'sell' else matched_order_id
                 matched_orders_id = create_matched_order(buyer_id, buyer_order_id, seller_id, seller_order_id)
 
-                await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id)
+                await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id, project)
 
                 database.update_order_status(buyer_order_id, 'matched')
                 database.update_order_status(seller_order_id, 'matched')
@@ -657,14 +679,23 @@ async def handle_confirm_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('report_'), StateFilter(UserStates.in_chat))
 async def report_callback(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
+    data = await state.get_data()
     _, offender_id, order_id = callback.data.split('_')
+
+    kb = utils.get_deal_kb(order_id, callback.from_user.id, False, data.get('show_cancel', True))
+    await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=data['in_chat_message_id'],
+                                        reply_markup=kb)
 
     mes = await callback.message.answer(complaint_lexicon['description'].format(order_id, ''),
                                         reply_markup=User_kb.cancel_complaint_creation_kb())
     await state.set_state(UserStates.in_chat_waiting_complaint)
-    await state.update_data({'offender_id': offender_id, 'order_id': order_id, 'mes_original': mes,
-                             'in_chat_message_id': callback.message.message_id})
+
+    data['show_complaint']: bool = False
+    data['offender_id'] = offender_id
+    data['order_id'] = order_id
+    data['mes_original'] = mes
+    data['in_chat_message_id'] = callback.message.message_id
+    await state.update_data(data)
 
 
 @router.message(StateFilter(UserStates.in_chat_waiting_complaint))
@@ -702,7 +733,8 @@ async def complaint_in_chat_callback(message: Message, state: FSMContext):
     await state.update_data(data)
 
 
-@router.callback_query(F.data == 'back_to_complaint_description')
+@router.callback_query(F.data == 'back_to_complaint_description',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def back_to_complaint_description_callback(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     mes: Message = data['mes_original']
@@ -714,7 +746,8 @@ async def back_to_complaint_description_callback(callback: CallbackQuery, state:
     await state.update_data(data)
 
 
-@router.callback_query(F.data.startswith('confirmation_of_deal'))
+@router.callback_query(F.data.startswith('confirmation_of_deal'),
+                       StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     action = callback.data.split('_')[-2]
@@ -739,9 +772,10 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             await buyer_state.clear()
             await seller_state.clear()
 
-            edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled')
+            edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled', deal_id=deal_id)
+            delete_transaction(user_id=user_id, deal_id=deal_id)
 
-            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.")
+            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.\nДеньши зачислены обратно на Ваш кошелёк")
             await bot.send_message(seller_id, "🚫 Вы отменили сделку.")
 
             # try:
@@ -777,7 +811,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             await state.update_data(data)
 
             if cancel_requests[chat_id][other_user_id]:
-                edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'sell')
+                edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'sell', deal_id=deal_id)
 
                 del active_chats[buyer_id]
                 del active_chats[seller_id]
@@ -803,7 +837,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
     else:
         if user_id == buyer_id:
-            edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell')
+            edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell', deal_id=deal_id)
 
             cancel_requests[chat_id][user_id] = True
 
@@ -818,7 +852,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
             await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.",
                                    reply_markup=User_kb.to_main_menu())
-            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены в ваш кошёлек.",
+            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены на Ваш кошёлек.",
                                    reply_markup=User_kb.to_main_menu())
 
             try:
@@ -840,7 +874,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             await seller_state.clear()
 
 
-@router.message(Command('report'))
+@router.message(Command('report'), ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def report_command(message: Message, state: FSMContext):
     await message.answer(LEXICON['report_message'], reply_markup=User_kb.report_kb())
     await state.clear()
@@ -855,6 +889,15 @@ async def handle_chat_message(message: Message, state: FSMContext):
 
     if message.text:
         item = message.text
+        caption = None
+
+        if message.text.startswith('/'):
+            await bot.delete_message(message.chat.id, message.message_id)
+
+            allert = await message.answer('‼️ Во время сделки вы не можете использовать другой функционал')
+            await asyncio.sleep(2)
+            return await allert.delete()
+
     elif message.photo:
         item = message.photo[0].file_id
         caption = message.caption if message.caption else ''
@@ -872,7 +915,7 @@ async def handle_chat_message(message: Message, state: FSMContext):
     await bot.send_photo(recipient_id, item, caption=f'<b>Сообщение от ID {bot_user_id}:</b> ' + caption)
 
 
-@router.message(Command('account'))
+@router.message(Command('account'), ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def account_info(message: Message):
     await utils.send_account_info(message)
 
@@ -882,7 +925,8 @@ async def process_my_orders(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
 
 
-@router.callback_query(F.data.startswith('my_orders_management'))
+@router.callback_query(F.data.startswith('my_orders_management'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def my_orders_management_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
@@ -891,24 +935,26 @@ async def my_orders_management_handler(callback: CallbackQuery, state: FSMContex
         return await callback.answer('Эта кнопка устарела. Попробуйте ещё раз', show_alert=True)
 
     if callback.data.split('_')[-1] == 'back':
+        await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
         for message_id in data['my_watched_orders'].keys():
             try:
                 await bot.delete_message(callback.from_user.id, message_id)
             except TelegramBadRequest:
                 pass
-        await callback.message.edit_text(LEXICON['my_orders_message'], reply_markup=User_kb.my_orders_kb())
         return await state.clear()
 
     await callback.message.delete()
     await utils.send_my_orders(callback, state, callback.data.split('_')[-1], True)
 
 
-@router.callback_query(F.data.startswith('my_orders'))
+@router.callback_query(F.data.startswith('my_orders'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
     await utils.send_my_orders(callback, state, callback.data.split('_')[2], False)
 
 
-@router.callback_query(F.data.startswith('transactions_management'))
+@router.callback_query(F.data.startswith('transactions_management'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def transactions_button_handler(callback: CallbackQuery, state: FSMContext):
     transactions = get_transactions(callback.from_user.id)
     data = await state.get_data()
@@ -958,27 +1004,29 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
 
         transactions_num += 1
         if transactions_num == 4:
-            await callback.message.answer('ㅤ', reply_markup=User_kb.transactions_management(
+            await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management(
                 len(data['watched_transactions']) > len(transactions)))
             break
 
-    print(transactions_num)
     if transactions_num == 0:
         await callback.message.delete()
         await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
+        await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management(False))
     elif transactions_num != 4:
-        await callback.message.answer('ㅤ', reply_markup=User_kb.transactions_management(False))
+        await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management(False))
 
     return await state.update_data(data)
 
 
-@router.callback_query(F.data == 'complaints_button')
+@router.callback_query(F.data == 'complaints_button',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def complaints_button_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
     await state.clear()
 
 
-@router.callback_query(F.data == 'my_complaints')
+@router.callback_query(F.data == 'my_complaints',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watched_complains: list = []):
     complaints = get_complaints(callback.from_user.id)
 
@@ -1009,21 +1057,24 @@ async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watc
 
         complaints_counter += 1
         if complaints_counter == 4:
-            await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(
+            await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.complaints_management_kb(
                 len(complaints) > len(data['watched_complaints'])))
             await state.update_data(data)
             break
 
     if complaints_counter == 0:
         await callback.answer('У вас больше нет жалоб', show_alert=True)
-        await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
+        await callback.message.answer('<b>Выберите действие:</b>',
+                                      reply_markup=User_kb.complaints_management_kb(show_scroll=False))
         await state.update_data(data)
     elif complaints_counter != 4:
-        await callback.message.answer('ㅤ', reply_markup=User_kb.complaints_management_kb(show_scroll=False))
+        await callback.message.answer('<b>Выберите действие:</b>',
+                                      reply_markup=User_kb.complaints_management_kb(show_scroll=False))
         await state.update_data(data)
 
 
-@router.callback_query(F.data.startswith('delete_complaint'))
+@router.callback_query(F.data.startswith('delete_complaint'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def delete_complaint_handler(callback: CallbackQuery, state: FSMContext):
     complaint_id = callback.data.split('_')[-1]
 
@@ -1049,7 +1100,8 @@ async def delete_complaint_handler(callback: CallbackQuery, state: FSMContext):
             pass
 
 
-@router.callback_query(F.data.startswith('complaints_management'))
+@router.callback_query(F.data.startswith('complaints_management'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def process_complaints_back(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     if 'watched_complaints' not in data:
@@ -1059,19 +1111,21 @@ async def process_complaints_back(callback: CallbackQuery, state: FSMContext):
     watched_complaints = data['watched_complaints']
 
     if callback.data.split('_')[-1] == 'back':
+        await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
+
         for message_id in watched_complaints.keys():
             try:
                 await bot.delete_message(callback.from_user.id, message_id)
             except TelegramBadRequest:
                 pass
 
-        await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
         return await state.clear()
 
     await my_complaints_habdler(callback, state, watched_complaints.values())
 
 
-@router.callback_query(F.data == 'write_complaint')
+@router.callback_query(F.data == 'write_complaint',
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def process_write_ticket_callback(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
@@ -1185,10 +1239,10 @@ async def process_problem_description(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.in_(['send_complaint', 'cancel_complaint']))
 async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     await callback.answer()
 
     if callback.data == 'send_complaint':
-        data = await state.get_data()
         mes: Message = data['mes_original']
 
         complaint = get_matched_order(data['order_id'])
@@ -1198,20 +1252,10 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
 
         text = complaint_lexicon['saved'] + complaint_lexicon['info'].format(data['order_id'], data['complaint_text'])
 
-        if 'in_chat_message_id' in data:
-            kb = utils.get_deal_kb(data['order_id'], callback.from_user.id, False, data.get('show_cancel', True))
-            await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=data['in_chat_message_id'],
-                                                reply_markup=kb)
-            data['show_complaint']: bool = False
-            await state.update_data(data)
-
-            await mes.edit_text(text)
-
-        else:
-            await mes.edit_text(
-                text=text,
-                reply_markup=User_kb.complaints_to_main_menu()
-            )
+        await mes.edit_text(
+            text=text,
+            reply_markup=None if 'in_chat_message_id' in data else User_kb.complaints_to_main_menu()
+        )
 
         if await state.get_state() != UserStates.in_chat:
             await state.clear()
@@ -1222,15 +1266,23 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
             except Exception as e:
                 print(f'Ошибка при попытке оповещения админа о новой жалобе: {str(e)}')
 
-    elif callback.data == 'cancel_complaint':
+    else:
         if await state.get_state() != UserStates.in_chat:
             return await callback.message.edit_text("Вы отменили создание жалобы.",
                                                     reply_markup=User_kb.back_to_complaint_kb())
+
+        kb = utils.get_deal_kb(data['order_id'], callback.from_user.id, True, data.get('show_cancel', True))
+        await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=data['in_chat_message_id'],
+                                            reply_markup=kb)
+        data['show_complaint']: bool = True
+        await state.update_data(data)
+
         await callback.message.delete()
         await callback.answer('Создание жалобы отменено')
 
 
-@router.callback_query(F.data.startswith('complaints_to_main_menu'))
+@router.callback_query(F.data.startswith('complaints_to_main_menu'),
+                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def process_complaints_to_main_menu(callback: CallbackQuery, state: FSMContext):
     data = utils.parse_complaint(callback.message.text)
 
@@ -1243,9 +1295,19 @@ async def process_complaints_to_main_menu(callback: CallbackQuery, state: FSMCon
 @router.callback_query(F.data == 'cancel_complaint_button')
 async def cancel_callback(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+    data = await state.get_data()
+
+    kb = utils.get_deal_kb(data['order_id'], callback.from_user.id, True, data.get('show_cancel', True))
+    await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=data['in_chat_message_id'],
+                                        reply_markup=kb)
+    data['show_complaint']: bool = True
+    await state.update_data(data)
+
     await callback.message.delete()
-    await state.set_state(UserStates.in_chat)
     await callback.answer('✅ Отправка жалобы отменена', show_alert=True)
+
+    await state.set_state(UserStates.in_chat)
+    await state.update_data(data)
 
 
 @router.message(Command('myorders'), StateFilter(default_state))
@@ -1258,19 +1320,9 @@ async def support_callback(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['support_message'], reply_markup=User_kb.support_kb())
 
 
-@router.message(Command('support', 'help'))
+@router.message(Command('support', 'help'), ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def support_command(message: Message):
     await message.answer(LEXICON['support_message'], reply_markup=User_kb.support_kb())
-
-
-@router.callback_query(F.data == 'contact_support', StateFilter(default_state))
-async def contact_support_handler(callback: CallbackQuery):
-    await callback.message.edit_text('текст')
-
-
-@router.message(Command('info'), StateFilter(default_state))
-async def info_command(message: Message):
-    await message.answer(LEXICON['info_message'])
 
 
 @router.callback_query(F.data.startswith('buy_order_'), StateFilter(default_state))
@@ -1291,6 +1343,12 @@ async def buy_order(callback: CallbackQuery):
 async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
     order_id = callback.data.split('_')[-1]
     data = await state.get_data()
+    seller_id = get_user_id_by_order(order_id)
+
+    seller_state = await utils.get_user_state(seller_id)
+
+    if seller_state == UserStates.in_chat or seller_state == UserStates.in_chat_waiting_complaint:
+        return await callback.answer(LEXICON['seller_busy'], show_alert=True)
 
     if 'watched_orders' in data:
         for message_id in data['watched_orders'].keys():
@@ -1304,27 +1362,34 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
         return await callback.message.answer('❕ Недостаточно средств', reply_markup=User_kb.not_enough_money_kb())
 
     buyer_id = callback.from_user.id
-    edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy')
 
-    seller_id = get_user_id_by_order(order_id)
     matched_orders_id = create_matched_order(buyer_id, 0, seller_id, int(order_id))
 
+    edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy', deal_id=matched_orders_id)
+
     # await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
-    await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id)
+    await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id, data['project'])
 
 
-@router.callback_query(F.data.startswith('cancel_order_'))
+@router.callback_query(F.data.startswith('cancel_order_'), StateFilter(default_state))
 async def cancel_order_handler(callback: CallbackQuery):
     order = get_order(int(callback.data.split('_')[-1]))
     await utils.send_information_about_order(callback, order, True, confirm='\n\nПодтвердите удаление')
 
 
-@router.callback_query(F.data.startswith('confirmation_of_deleting_'))
+@router.callback_query(F.data.startswith('confirmation_of_deleting_'), StateFilter(default_state))
 async def confirmation_of_deleting(callback: CallbackQuery):
+    order_id = callback.data.split('_')[-1]
+    order = get_order(order_id)
+
     try:
         delete_order(callback.data.split('_')[-1])
         await callback.message.delete()
-        await callback.answer('всё кайф, удалилось')
+        await callback.answer('✅ Ваш заказ удалён', show_alert=True)
+
+        if order[3] == 'buy':
+            delete_transaction(user_id=callback.from_user.id, order_id=order_id)
+
     except Exception as e:
         await callback.answer('Что-то пошло не так...')
         print(f'Ошибка при попытке удаления заказа: {str(e)}')
@@ -1339,25 +1404,40 @@ async def back_to_filling_handler(callback: CallbackQuery, state: FSMContext):
     text = orders_lexicon['special_1'].format('📘', 'Продажа', utils.get_item_text(data['item']),
                                               utils.get_game_text(utils.determine_game(data['project'])),
                                               data['project'], data['server'], '{}', '{}')
+    kb = User_kb.order_back_to_servers(data['item'], data['project'], data['action_type'],
+                                       data['project'] in ['Quant RP', 'SMOTRArage'])
 
-    if await state.get_state() == UserStates.input_business_price:
-        data['mes_original'] = await mes.edit_text(
-            text=text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
-            reply_markup=User_kb.order_back_to_servers(data['item'], data['project'], data['action_type'])
-        )
-        await state.set_state(UserStates.input_business_name)
+    if data['project'] not in ['Quant RP', 'SMOTRArage']:
+        if await state.get_state() == UserStates.input_business_price:
+            data['mes_original'] = await mes.edit_text(
+                text=text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
+                reply_markup=kb
+            )
+            await state.set_state(UserStates.input_business_name)
+
+        else:
+            data['mes_original'] = await mes.edit_text(
+                text=text.format(orders_lexicon['account_1'], orders_lexicon['account_2']),
+                reply_markup=kb
+            )
+            await state.set_state(UserStates.input_account_description)
 
     else:
-        data['mes_original'] = await mes.edit_text(
-            text=text.format(orders_lexicon['account_1'], orders_lexicon['account_2']),
-            reply_markup=User_kb.order_back_to_servers(data['item'], data['project'], data['action_type'])
-        )
-        await state.set_state(UserStates.input_account_description)
+        if data['item'] == 'business':
+            data['mes_original'] = await callback.message.edit_text(
+                text.format(orders_lexicon['business_1'], orders_lexicon['business_2']),
+                reply_markup=kb)
+            await state.set_state(UserStates.input_business_name)
+        else:
+            data['mes_original'] = await callback.message.edit_text(
+                text.format(orders_lexicon['account_1'], orders_lexicon['account_2']),
+                reply_markup=kb)
+            await state.set_state(UserStates.input_account_description)
 
     await state.update_data(data)
 
 
-@router.callback_query(F.data.startswith('btls'))
+@router.callback_query(F.data.startswith('btls'), StateFilter(default_state))
 async def back_to_last_step_handler(callback: CallbackQuery, state: FSMContext):
     _, item, project, server, action_type = callback.data.split('_')
     data = await state.get_data()
@@ -1366,7 +1446,7 @@ async def back_to_last_step_handler(callback: CallbackQuery, state: FSMContext):
     text = orders_lexicon['special_2'].format(
         '📘', 'Продажа', utils.get_item_text(data['item']),
         utils.get_game_text(utils.determine_game(data['project'])),
-        data['project'], data['server'], '{}', '{}', '____', '{}')
+        data['project'], data['server'], '{}', '{}', '    ', '{}')
 
     if item == 'business':
         data['mes_original'] = await mes.edit_text(
@@ -1382,7 +1462,7 @@ async def back_to_last_step_handler(callback: CallbackQuery, state: FSMContext):
     await state.update_data(data)
 
 
-@router.callback_query(F.data.startswith('view_answer'))
+@router.callback_query(F.data.startswith('view_answer'), StateFilter(default_state))
 async def view_answer_handler(callback: CallbackQuery):
     complaint = get_complaint(callback.data.split('_')[-1])
 
@@ -1395,8 +1475,6 @@ async def view_answer_handler(callback: CallbackQuery):
 
 
 def todo() -> None:
-    # TODO: починить репорты (админу высылается список, в котором на 1 и тот же Id могут быть 2 разные жалобы)
-
     # TODO: /admin
     #       Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки:
     #       Ответить, закрыть, забанить 1д,7д,30д, навсегда,
@@ -1404,21 +1482,8 @@ def todo() -> None:
     #       Кнопки подветрждения и отмена сделки. + Кнопки с необходимой инфой.
     #       С инфой об самом ордере, об обоих пользователях, переписка.
 
-    # TODO: Главное меню - /start /menu (ВАЖНО! ЦЕНА ДЛЯ ПОКУПКИ БУДЕТ ВЫШЕ ЦЕНЫ ДЛЯ ПРОДАЖИ НА 30%)
-    #       Выводится одно полное сообщение-приветствие с прикрепленными кнопками - Купить Продать Создать заявку
-    #       (Автопостер Discord, в разработке)
-    #       Купить - работает кнопка по аналогии (/orders /ordersbiz /ordersacc) Выбор покупки чего
-    #       Виртуальная валюта, Бизнес, Аккаунт. И далее по накатанной
-    #       Продать - создание ордера. Выбор продажи чего Виртуальная валюта, Бизнес, Аккаунт.
-    #       Бизнес - ввод платформы, проекта, описание(пользовательское), цена (пользовательская), подтверждение.
-    #       Аккаунт - ввод платформы, проекта, сервера, описание(пользовательское),
-    #       цена (пользовательская), подтверждение.
-    #       Виртуальная валюта - ввод платформы, проекта, сервера, кол-во валюты, подтверждение.
+    # TODO: при удалении заказа, нужно удалять и транзакцию, если это заказ на покупку
 
-    # TODO: Баланс, платежка
-
-    # TODO: если пользователю напишут во время другого чата
-
-    # TODO: убрать order_id == 0 у покупателя
+    # TODO: говнокод в F.data == back_to_filling
 
     pass

@@ -19,12 +19,23 @@ from utils import determine_game
 config: Config = load_config('.env')
 
 
-async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
-                          order_id: int | str):
+async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
+                               order_id: int | str, project: str):
+    action_message = "Выберите действие:"
+    chat_id = f"{buyer_id}_{seller_id}"
+    active_chats[buyer_id] = chat_id
+    active_chats[seller_id] = chat_id
+    cancel_requests[chat_id] = {buyer_id: False, seller_id: False}
+
+    buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
+    seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
+
+    await buyer_state.set_state(UserStates.in_chat)
+    await seller_state.set_state(UserStates.in_chat)
+
     order = get_order(order_id=order_id)
 
     item = utils.get_item_text(order[4])
-    project = order[5]
     server = order[6]
 
     buyer_message = "‼️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом."
@@ -48,32 +59,18 @@ async def send_order_info(bot: Bot, matched_orders_id: int | str, buyer_id: int 
 
     price = utils.get_price(order_id, 'sell')
     seller_order_ifo = LEXICON['order_info_text'].format(seller_message, '📘', matched_orders_id, 'Продажа',
-                                                         item, project, server, item_message,
+                                                         item, order[5], server, item_message,
                                                          '{:,}'.format(price).replace(',', ' '))
     message_seller = await bot.send_photo(seller_id, FSInputFile('img/to_seller.png'), caption=seller_order_ifo,
                                           reply_markup=User_kb.confirmation_of_deal_seller_kb(buyer_id,
                                                                                               matched_orders_id))
 
+    await buyer_state.update_data({'in_chat_message_id': message_buyer.message_id})
+    await seller_state.update_data({'in_chat_message_id': message_seller.message_id})
+
     chat_id = f"{buyer_id}_{seller_id}"
     cancel_requests[chat_id]['buyer_message_id'] = message_buyer.message_id
     cancel_requests[chat_id]['seller_message_id'] = message_seller.message_id
-
-
-async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
-                               order_id: int | str):
-    action_message = "Выберите действие:"
-    chat_id = f"{buyer_id}_{seller_id}"
-    active_chats[buyer_id] = chat_id
-    active_chats[seller_id] = chat_id
-    cancel_requests[chat_id] = {buyer_id: False, seller_id: False}
-
-    buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
-    seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
-
-    await buyer_state.set_state(UserStates.in_chat)
-    await seller_state.set_state(UserStates.in_chat)
-
-    await send_order_info(bot, matched_orders_id, buyer_id, seller_id, order_id)
 
 
 async def show_projects(callback: CallbackQuery, item: str, game: str, action_type: str):
@@ -155,12 +152,12 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
 
             return await state.update_data(data)
 
-        data = {'watched_orders': {}}
+        data['watched_orders'] = {}
         await callback.message.delete()
 
     orders_num = 0
     for order in orders:
-        order_id, _, _, _, item, project, server, amount, description, price_, status, created_at = order
+        order_id, _, _, _, item, _, server, amount, description, price_, status, created_at = order
 
         if order_id in data['watched_orders'].values():
             continue
@@ -195,17 +192,19 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
         orders_num += 1
         if orders_num == 4:
             mes_service = await callback.message.answer(
-                text='ㅤ',
-                reply_markup=User_kb.show_orders_management(len(orders) > 5)
+                text='<b>Выберите действие:</b>',
+                reply_markup=User_kb.show_orders_management(len(orders) > len(data['watched_orders']))
             )
             data['service'] = mes_service.message_id
             break
 
     if orders_num == 0:
+        print(callback.data)
         await callback.message.delete()
         await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
     elif orders_num != 4:
-        mes_service = await callback.message.answer('ㅤ', reply_markup=User_kb.show_orders_management(False))
+        mes_service = await callback.message.answer('<b>Выберите действие:</b>',
+                                                    reply_markup=User_kb.show_orders_management(False))
         data['service'] = mes_service.message_id
 
     data['item'], data['project'], data['server'] = item, project, server
@@ -280,14 +279,20 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 
             orders_count += 1
             if orders_count == 4:
-                await callback.message.answer('ㅤ', reply_markup=User_kb.my_orders_management(target))
+                await callback.message.answer(
+                    '<b>Выберите действие:</b>',
+                    reply_markup=User_kb.my_orders_management(target, len(orders) > len(data['my_watched_orders']))
+                )
                 break
 
         if orders_count == 0:
             await callback.message.delete()
             await callback.answer('У вас больше нет заказов')
+            await callback.message.answer('<b>Выберите действие:</b>',
+                                          reply_markup=User_kb.my_orders_management(target, False))
         elif orders_count != 4:
-            await callback.message.answer('ㅤ', reply_markup=User_kb.my_orders_management(target, False))
+            await callback.message.answer('<b>Выберите действие:</b>',
+                                          reply_markup=User_kb.my_orders_management(target, False))
 
         await state.update_data(data)
 
@@ -303,7 +308,7 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 #
 #
 #
-# ----------  Функции управления кнопками в чате между продавцом и покупателем  -----------
+# ---------- Функции управления кнопками в чате между продавцом и покупателем -----------
 #
 #
 #
@@ -369,3 +374,9 @@ def update_order_status_safe(seller_order_id: int, buyer_order_id: int, status: 
             update_order_status(buyer_order_id, status)
     except sqlite3.Error as e:
         print(f"Error updating order status to '{status}': {e}")
+
+
+async def get_user_state(user_id: str | int):
+    state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=user_id, user_id=user_id))
+
+    return await state.get_state()

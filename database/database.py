@@ -2,7 +2,12 @@ import datetime
 import math
 import sqlite3
 
-from typing import List, Tuple, Optional
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
+from typing import List, Tuple, Optional, Union
+
+from core import storage
+from states import UserStates
 
 database_file = 'database/database.db'
 
@@ -56,8 +61,9 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            bot_user_id INTEGER,
                             user_id INTEGER,
-                            tg_id INTEGER,
+                            order_id INTEGER DEFAULT 0,
                             deal_id INTEGER DEFAULT 0,
                             amount REAL,
                             action TEXT,
@@ -101,16 +107,20 @@ def add_user(user_id, username, phone_number):
 
 
 def add_order(user_id, username, action, item, project, server, amount, description, price):
+    current_time = get_current_time_formatted()
+
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    current_time = get_current_time_formatted()
+
     cursor.execute("""
         INSERT INTO orders (user_id, username, action, item, project, server, amount, description, price, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (user_id, username, action, item, project, server, amount, description, price, current_time))
+
     order_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
     return order_id
 
 
@@ -152,7 +162,9 @@ def get_user(user_id):
 def get_bot_user_id(user_id):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id,))  # TODO: нафиг отсюда
+
+    cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id,))
+
     bot_user_id = cursor.fetchone()[0]
     conn.close()
 
@@ -223,24 +235,31 @@ def get_balance(user_id: int | str):
     return result[0]
 
 
-def edit_balance(tg: int, amount: float, action: str, deal_id: Optional[int] = 0):
+def edit_balance(user_id: int, amount: float, action: str, order_id: Union[int, str] = 0, deal_id: Union[int, str] = 0,
+                 buy_order_creation: bool = False):
+    current_time = get_current_time_formatted()
+
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT balance FROM users WHERE user_id = ?', (tg,))
+    cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
 
     result = cursor.fetchone()
     new_balance = result[0] + amount
 
-    cursor.execute('UPDATE users SET balance = ? WHERE user_id = ?', (new_balance, tg))
+    if new_balance < 0:
+        print('\n\nОТРИЦАТЕЛЬНЫЙ БАЛАНС!\n')
+        print(user_id, amount, action, order_id, deal_id, buy_order_creation, '\n\n')
 
-    user_id = get_bot_user_id(tg)
+    cursor.execute('UPDATE users SET balance = ? WHERE user_id = ?', (new_balance, user_id))
 
-    current_time = get_current_time_formatted()
-    cursor.execute("""
-        INSERT INTO transactions (user_id, tg_id, amount, action, deal_id, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (user_id, tg, amount, action, deal_id, current_time))
+    if not buy_order_creation:
+        bot_user_id = get_bot_user_id(user_id)
+
+        cursor.execute("""
+            INSERT INTO transactions (bot_user_id, user_id, order_id, deal_id, amount, action, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (bot_user_id, user_id, int(order_id), int(deal_id), amount, action, current_time))
 
     conn.commit()
     conn.close()
@@ -295,35 +314,7 @@ def get_item(order_id: int | str) -> str:
     return item
 
 
-# def match_orders(user_id, action, project, server, amount):
-#     conn = sqlite3.connect(database_file)
-#     cursor = conn.cursor()
-#
-#     if action == 'buy':
-#         cursor.execute("""
-#             SELECT id, user_id
-#             FROM orders
-#             WHERE action = 'sell' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
-#             LIMIT 1
-#
-#         """, (project, server, amount, user_id))
-#     else:
-#         cursor.execute("""
-#             SELECT id, user_id
-#             FROM orders
-#             WHERE action = 'buy' AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
-#             LIMIT 1
-#         """, (project, server, amount, user_id))
-#
-#     match = cursor.fetchone()
-#     conn.close()
-#
-#     if match:
-#         return match[0], match[1]
-#     return None
-
-
-def match_orders(user_id, action, project, server, amount):
+async def match_orders(user_id, action, project, server, amount):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
@@ -333,39 +324,53 @@ def match_orders(user_id, action, project, server, amount):
             SELECT id, user_id
             FROM orders
             WHERE action = ? AND project IN (?, ?) AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
+            AND user_id NOT IN ({})
             LIMIT 1
         """
-        params = (('sell' if action == 'buy' else 'buy'), *projects_to_check, server, amount, user_id)
+        params_base = (('sell' if action == 'buy' else 'buy'), *projects_to_check, server, amount, user_id)
     else:
         query = """
             SELECT id, user_id
             FROM orders
             WHERE action = ? AND project = ? AND server = ? AND amount = ? AND status = 'pending' AND user_id != ?
+            AND user_id NOT IN ({})
             LIMIT 1
         """
-        params = (('sell' if action == 'buy' else 'buy'), project, server, amount, user_id)
+        params_base = (('sell' if action == 'buy' else 'buy'), project, server, amount, user_id)
 
-    cursor.execute(query, params)
+    excluded_user_ids = set()
 
-    match = cursor.fetchone()
-    conn.close()
+    while True:
+        formatted_query = query.format(",".join("?" * len(excluded_user_ids)))
+        params = params_base + tuple(excluded_user_ids)
 
-    if match:
-        return match[0], match[1]
-    return None
+        cursor.execute(formatted_query, params)
+        match = cursor.fetchone()
+
+        if not match:
+            conn.close()
+            return None
+
+        order_id, other_user_id = match[0], match[1]
+
+        other_user_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=user_id, user_id=user_id))
+        if await other_user_state.get_state() not in [UserStates.in_chat, UserStates.in_chat_waiting_complaint]:
+            conn.close()
+            return order_id, other_user_id
+
+        excluded_user_ids.add(other_user_id)
 
 
 def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) -> List[Tuple]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    print(project, server, item)
-
     if project in ["HASSLE Online", "Radmir RP"]:
         projects_to_check = ["HASSLE Online", "Radmir RP"]
         query = """
             SELECT * FROM orders
-            WHERE user_id != ? AND action = 'sell' AND item = ? AND project IN (?, ?) AND server = ? AND status = 'pending'
+            WHERE user_id != ? AND action = 'sell' AND item = ? AND project IN (?, ?)
+            AND server = ? AND status = 'pending'
             ORDER BY amount ASC
         """
         params = (user_id, item, *projects_to_check, server)
@@ -612,8 +617,8 @@ def get_price_db(project: str, server: str, action_type: str) -> int | float:
     return result[0] if result else 100
 
 
-def add_transaction(tg_id: int, amount: float, action: str, deal_id: int = 0):
-    user_id = get_bot_user_id(tg_id)
+def add_transaction(user_id: int, amount: float, action: str, order_id: int = 0, deal_id: int = 0):
+    bot_user_id = get_bot_user_id(user_id)
 
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -621,9 +626,9 @@ def add_transaction(tg_id: int, amount: float, action: str, deal_id: int = 0):
     current_time = get_current_time_formatted()
 
     cursor.execute("""
-        INSERT INTO transactions (user_id, tg_id, deal_id, amount, action, timestamp)
-        VALUES (?, ?, ?, ?, 0, ?)
-    """, (user_id, tg_id, deal_id, amount, action, current_time))
+        INSERT INTO transactions (bot_user_id, user_id, order_id, deal_id, amount, action, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (bot_user_id, user_id, order_id, deal_id, amount, action, current_time))
 
     conn.commit()
     conn.close()
@@ -634,7 +639,7 @@ def get_transaction(transaction_id: int) -> Optional[Tuple]:
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, user_id, tg_id, amount, action, deal_id, timestamp
+        SELECT *
         FROM transactions
         WHERE id = ?
     """, (transaction_id,))
@@ -645,18 +650,41 @@ def get_transaction(transaction_id: int) -> Optional[Tuple]:
     return transaction
 
 
-def get_transactions(tg_id: int) -> List[Tuple]:
+def get_transactions(user_id: int) -> List[Tuple]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT *
         FROM transactions
-        WHERE tg_id = ?
+        WHERE user_id = ?
         ORDER BY id DESC
-    """, (tg_id,))
+    """, (user_id,))
 
     transactions = cursor.fetchall()
     conn.close()
 
     return transactions
+
+
+def delete_transaction(user_id: Union[int, str], order_id: Union[int, str] = 0, deal_id: Union[int, str] = 0) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        if order_id:
+            cursor.execute("DELETE FROM transactions WHERE user_id = ? AND order_id = ?",
+                           (int(user_id), int(order_id),))
+        elif deal_id:
+            cursor.execute("DELETE FROM transactions WHERE user_id = ? AND deal_id = ?", (int(user_id), int(deal_id),))
+        else:
+            raise ValueError("Either order_id or deal_id must be provided")
+
+        conn.commit()
+
+    except sqlite3.Error as e:
+        tz = datetime.timezone(datetime.timedelta(hours=3))
+        print(f"Error deleting transaction: {e}", datetime.datetime.now(tz).strftime('%d.%m %H:%M'), sep='\n')
+
+    finally:
+        conn.close()

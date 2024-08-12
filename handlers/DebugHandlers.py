@@ -21,10 +21,9 @@ bot: Bot = Bot(token=config.tg_bot.token, default=default)
 router: Router = Router()
 
 
-@router.message(Command('test_my_gender'))
-async def my_gender(message: Message, state: FSMContext):
-    await message.answer('Фу! Вы 100%. Пользование ботом для вас теперь ограничено')
-    await state.set_state('gay')
+@router.callback_query(StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
+async def my_gender(callback: CallbackQuery):
+    await callback.answer('‼️ Во время сделки вы не можете использовать другой функционал', show_alert=True)
 
 
 @router.message(StateFilter(default_state))
@@ -33,6 +32,8 @@ async def deleting_unexpected_messages(message: Message):
 
 
 @router.callback_query()
-async def kalosbornik(callback: CallbackQuery, state: FSMContext):
-    print(callback.data)
-    print(await state.get_state(), await state.get_data(), sep='\n\n')
+async def callback_debug_handler(callback: CallbackQuery, state: FSMContext):
+    print('CALLBACK DDEBUG:')
+    print('callback.data:   ', callback.data)
+    print('state:   ', await state.get_state())
+    print('data:    ', await state.get_data())
