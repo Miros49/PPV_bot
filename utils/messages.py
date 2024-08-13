@@ -213,21 +213,15 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
 
 async def send_account_info(update: CallbackQuery | Message):
     user_id = update.from_user.id
-    user_db_data = get_user(user_id)
 
-    if user_db_data:
-        user_id, tg_id, username, phone_number, balance, created_at = user_db_data
-        message_text = LEXICON['account_message'].format(user_id, created_at.split()[0],
-                                                         '{0:,}'.format(round(balance)).replace(',', ' '))
-        reply_markup = User_kb.account_kb()
-    else:
-        message_text = "❔ Я не могу найти ваши данные"
-        reply_markup = None
+    user_id, tg_id, username, phone_number, balance, created_at = get_user(user_id)
+    message_text = LEXICON['account_message'].format(user_id, created_at.split()[0],
+                                                     '{0:,}'.format(round(balance)).replace(',', ' '))
 
     if isinstance(update, Message):
-        await update.answer(message_text, reply_markup=reply_markup)
+        await update.answer(message_text, reply_markup=User_kb.account_kb())
     else:
-        await update.message.edit_text(message_text, reply_markup=reply_markup)
+        await update.message.edit_text(message_text, reply_markup=User_kb.account_kb())
 
 
 async def send_information_about_order(callback: CallbackQuery, order: list, edit: bool = False,

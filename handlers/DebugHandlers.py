@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import Bot, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction

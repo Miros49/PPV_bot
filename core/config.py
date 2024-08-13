@@ -1,4 +1,4 @@
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage, Redis
 
 from dataclasses import dataclass
 from environs import Env
@@ -8,7 +8,8 @@ user_data = {}
 active_chats = {}
 cancel_requests = {}
 
-storage = MemoryStorage()
+redis = Redis(host='localhost')
+storage = RedisStorage(redis=redis)
 
 
 @dataclass

@@ -58,9 +58,8 @@ async def admin_reports(callback: CallbackQuery):
         offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
 
         await callback.message.answer(
-            LEXICON['admin_report'].format(str(order_id), str(complaint_id), complainer_username, complainer_id,
-                                           offender_username,
-                                           offender_id, complaint_text, created_at),
+            LEXICON['admin_report'].format(str(order_id), str(complaint_id), complainer_username,
+                                           complainer_id, offender_username, offender_id, complaint_text, created_at),
             reply_markup=Admin_kb.answer_to_complaint_kb(complaint_id))
 
 
@@ -70,13 +69,20 @@ async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext
         await callback.message.delete()
         return await callback.answer('🗑 Пользователь удалил данную жалобу', show_alert=True)
 
+    mes = await bot.send_message(
+        chat_id=callback.from_user.id, text=LEXICON['admin_input_answer'],
+        reply_markup=Admin_kb.cancel_answering_kb(),
+        reply_to_message_id=callback.message.message_id
+    )
+
+    await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=callback.message.message_id,
+                                        reply_markup=None)
+
     data = {
         'complaint_id': callback.data.split('_')[-1],
-        'mes_original': await bot.send_message(callback.from_user.id, LEXICON['admin_input_answer'],
-                                               reply_markup=Admin_kb.cancel_answering_kb(),
-                                               reply_to_message_id=callback.message.message_id)
+        'admin_original_message_id': mes.message_id
     }
-    await bot.edit_message_reply_markup(None, callback.from_user.id, callback.message.message_id, reply_markup=None)
+
     await state.set_state(AdminStates.input_answer)
     await state.update_data(data)
 
@@ -91,19 +97,24 @@ async def cancel_answering(callback: CallbackQuery, state: FSMContext):
 @router.message(StateFilter(AdminStates.input_answer))
 async def confirm_answer_handler(message: Message, state: FSMContext):
     data = await state.get_data()
-    mes: Message = data['mes_original']
-    print(mes)
 
     await bot.delete_message(message.chat.id, message.message_id)
 
     if not message.text:
-        data['mes_original'] = await mes.edit_text(LEXICON['admin_input_answer'] + LEXICON['text_needed'])
+        await bot.edit_message_text(
+            text=LEXICON['admin_input_answer'] + LEXICON['text_needed'],
+            reply_markup=Admin_kb.cancel_answering_kb()
+        )
+
         return state.update_data(data)
 
+    await bot.edit_message_text(
+        text=LEXICON['admin_confirm_answer'].format(data['complaint_id'], message.text),
+        chat_id=message.chat.id, message_id=data['admin_original_message_id'],
+        reply_markup=Admin_kb.confirm_answer_kb()
+    )
+
     data['answer_text'] = message.text
-    data['mes_original'] = await mes.edit_text(
-        LEXICON['admin_confirm_answer'].format(data['complaint_id'], message.text),
-        reply_markup=Admin_kb.confirm_answer_kb())
 
     await state.clear()
     await state.update_data(data)
@@ -118,14 +129,15 @@ async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
         return callback.answer('Эта кнопка устарела, попробуйте ещё раз')
 
     set_complaint_answer(data['complaint_id'], data['answer_text'], 'closed')
-
     complaint = get_complaint(data['complaint_id'])
+
     await bot.send_message(complaint[2], LEXICON['admin_answered'].format(data['complaint_id']),
                            reply_markup=User_kb.view_answer(data['complaint_id']))
 
-    mes: Message = data['mes_original']
-    await mes.edit_text(LEXICON['admin_confirm_answer'].format(data['complaint_id'], data['answer_text'])
-                        + LEXICON['admin_answer_saved'])
+    await callback.message.edit_text(
+        LEXICON['admin_confirm_answer'].format(
+            data['complaint_id'], data['answer_text']) + LEXICON['admin_answer_saved']
+    )
 
 
 @router.callback_query(F.data == 'admin_information', StateFilter(default_state))
@@ -216,17 +228,21 @@ async def edit_price_buy(message: Message, state: FSMContext):
         return await message.answer('Неверный формат ввода. Цена должна быть целым числом. Попробуйте ещё раз')
 
     data = await state.get_data()
-    game, project, server = data['game'], data['project'], data['server']
 
+    game, project, server = data['game'], data['project'], data['server']
     text = LEXICON['edit_price_4'].format(game, project, server)
+
     old_prices = get_old_prices(project, server)
+
     if old_prices:
         text += LEXICON['edit_price_old'].format(old_prices[0], old_prices[1])
     text += LEXICON['edit_price_sell'].format(str(amount))
 
     await message.answer(text)
-    await state.set_state(AdminStates.edit_price_sell)
+
     data['new_buy'] = amount
+
+    await state.set_state(AdminStates.edit_price_sell)
     await state.update_data(data)
 
 
@@ -238,14 +254,16 @@ async def edit_price_sell(message: Message, state: FSMContext):
         return await message.answer('Неверный формат ввода. Цена должна быть целым числом. Попробуйте ещё раз')
 
     data = await state.get_data()
+
     game, project, server, new_buy = data['game'], data['project'], data['server'], data['new_buy']
+    old_prices_text = LEXICON['edit_price_old'].format(old_prices[0], old_prices[1]) if old_prices else ''
 
     old_prices = get_old_prices(project, server)
-    old_prices_text = LEXICON['edit_price_old'].format(old_prices[0], old_prices[1]) if old_prices else ''
 
     text = LEXICON['edit_price_confirm'].format(game, project, server, old_prices_text, new_buy, str(amount))
 
     await message.answer(text, reply_markup=Admin_kb.confirm_editing(project, server, new_buy, str(amount)))
+
     await state.clear()
 
 
