@@ -739,7 +739,7 @@ async def report_callback(callback: CallbackQuery, state: FSMContext):
     data['show_complaint']: bool = False
     data['offender_id'] = offender_id
     data['order_id'] = order_id
-    data['mes_orioriginal_message_id'] = mes.message_id
+    data['original_message_id'] = mes.message_id
     data['in_chat_message_id'] = callback.message.message_id
     await state.update_data(data)
 
@@ -805,46 +805,38 @@ async def back_to_complaint_description_callback(callback: CallbackQuery, state:
 @router.callback_query(F.data.startswith('confirmation_of_deal'),
                        StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
     user_id = callback.from_user.id
-    action = callback.data.split('_')[-2]
-    chat_id = active_chats[user_id]
-    buyer_id, seller_id = map(int, chat_id.split('_'))
+    deal_id = callback.data.split('_')[-1]
+
+    buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' \
+        else (data['in_chat_with'], user_id)
     other_user_id = buyer_id if user_id == seller_id else seller_id
     seller_order_id = get_matched_order(int(callback.data.split('_')[-1]))[4]
     buyer_order_id = get_matched_order(int(callback.data.split('_')[-1]))[2]
-    deal_id = callback.data.split('_')[-1]
 
-    if action == 'cancel':
-        cancel_requests[chat_id][user_id] = True
+    buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
+    seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
+
+    buyer_data = await buyer_state.get_data()
+    seller_data = await seller_state.get_data()
+
+    if callback.data.split('_')[-2] == 'cancel':
         await callback.answer()
 
         if user_id == seller_id:
-            del active_chats[buyer_id]
-            del active_chats[seller_id]
-
-            buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
-            seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
-
-            await buyer_state.clear()
-            await seller_state.clear()
-
             edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled', deal_id=deal_id)
             delete_transaction(user_id=user_id, deal_id=deal_id)
 
-            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.\nДеньши зачислены обратно на Ваш кошелёк")
+            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.\nДеньги зачислены обратно на Ваш кошелёк")
             await bot.send_message(seller_id, "🚫 Вы отменили сделку.")
 
-            # try:
-            #     await bot.delete_message(buyer_id, cancel_requests[chat_id]['buyer_message_id'])
-            # except TelegramBadRequest:
-            #     pass
-            # del cancel_requests[chat_id]
-
             await bot.edit_message_reply_markup(chat_id=buyer_id,
-                                                message_id=cancel_requests[chat_id]['buyer_message_id'],
+                                                message_id=buyer_data['in_chat_message_id'],
                                                 reply_markup=None)
             await bot.edit_message_reply_markup(chat_id=seller_id,
-                                                message_id=cancel_requests[chat_id]['seller_message_id'],
+                                                message_id=seller_data['in_chat_message_id'],
                                                 reply_markup=None)
 
             try:
@@ -858,52 +850,24 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             await bot.send_message(user_id, "‼️ Вы предложили продавцу отменить сделку.")
             await bot.send_message(other_user_id, "‼️ Покупатель предлагает вам отменить сделку.")
 
-            data = await state.get_data()
+            kb = utils.get_deal_kb(deal_id, user_id, buyer_data.get('show_complaint', True), False)
 
-            kb = utils.get_deal_kb(deal_id, user_id, data.get('show_complaint', True), False)
-            await bot.edit_message_reply_markup(chat_id=user_id, message_id=callback.message.message_id,
-                                                reply_markup=kb)
-            data['show_cancel'] = False
-            await state.update_data(data)
+            try:
+                await bot.edit_message_reply_markup(chat_id=user_id, message_id=callback.message.message_id,
+                                                    reply_markup=kb)
+            except TelegramBadRequest:
+                pass
 
-            if cancel_requests[chat_id][other_user_id]:
-                edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'sell', deal_id=deal_id)
-
-                del active_chats[buyer_id]
-                del active_chats[seller_id]
-
-                await bot.send_message(buyer_id, "🚫 Сделка отменена.", reply_markup=User_kb.to_main_menu())
-                await bot.send_message(seller_id, "🚫 Сделка отменена.", reply_markup=User_kb.to_main_menu())
-
-                buyer_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=buyer_id, user_id=buyer_id))
-                seller_state = FSMContext(storage, StorageKey(bot_id=7488450312, chat_id=seller_id, user_id=seller_id))
-
-                await buyer_state.clear()
-                await seller_state.clear()
-
-                # await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
-                del cancel_requests[chat_id]
-
-                try:
-                    update_order_status(seller_order_id, 'pending')
-                    if buyer_order_id != 0:
-                        update_order_status(buyer_order_id, 'pending')
-                except sqlite3.Error as e:
-                    print(f"Error updating order status to 'deleted': {e}")
+            buyer_data['show_cancel'] = False
+            return await buyer_state.update_data(buyer_data)
 
     else:
         if user_id == buyer_id:
             edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell', deal_id=deal_id)
 
-            cancel_requests[chat_id][user_id] = True
-
-            # await bot.delete_message(buyer_id, callback.message.message_id)
-            # await bot.delete_message(seller_id, cancel_requests[chat_id]['seller_message_id'])
-
-            await bot.edit_message_reply_markup(chat_id=buyer_id, message_id=callback.message.message_id,
+            await bot.edit_message_reply_markup(chat_id=buyer_id, message_id=buyer_data['in_chat_message_id'],
                                                 reply_markup=None)
-            await bot.edit_message_reply_markup(chat_id=seller_id,
-                                                message_id=cancel_requests[chat_id]['seller_message_id'],
+            await bot.edit_message_reply_markup(chat_id=seller_id, message_id=seller_data['in_chat_message_id'],
                                                 reply_markup=None)
 
             await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.",
@@ -919,15 +883,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             except sqlite3.Error as e:
                 print(f"Error updating order status to 'confirmed': {e}")
 
-            del active_chats[buyer_id]
-            del active_chats[seller_id]
-            del cancel_requests[chat_id]
-
-            buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
-            seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
-
-            await buyer_state.clear()
-            await seller_state.clear()
+    await buyer_state.clear()
+    await seller_state.clear()
 
 
 @router.message(Command('report'), ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
@@ -938,9 +895,13 @@ async def report_command(message: Message, state: FSMContext):
 
 @router.message(StateFilter(UserStates.in_chat))
 async def handle_chat_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+
     user_id = message.from_user.id
-    chat_id = active_chats[user_id]
-    buyer_id, seller_id = map(int, chat_id.split('_'))
+
+    buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' \
+        else (data['in_chat_with'], user_id)
+
     recipient_id = buyer_id if user_id == seller_id else seller_id
 
     if message.text:
@@ -964,7 +925,7 @@ async def handle_chat_message(message: Message, state: FSMContext):
         return await mes.delete()
 
     bot_user_id = get_bot_user_id(user_id)
-    save_chat_message(chat_id, user_id, recipient_id, item)
+    save_chat_message(f'{buyer_id}_{seller_id}', user_id, recipient_id, item)
 
     if message.text:
         return await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b> {item}")
@@ -1571,5 +1532,7 @@ def todo() -> None:
     #       С инфой об самом ордере, об обоих пользователях, переписка.
 
     # TODO: говнокод в F.data == back_to_filling
+
+    # TODO: не могу пользоваться старой кнопкой, после перезаписи юзердаты
 
     pass

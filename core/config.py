@@ -4,10 +4,6 @@ from dataclasses import dataclass
 from environs import Env
 
 
-user_data = {}
-active_chats = {}
-cancel_requests = {}
-
 redis = Redis(host='localhost')
 storage = RedisStorage(redis=redis)
 
