@@ -11,9 +11,10 @@ def menu_kb():
     kb.add(
         InlineKeyboardButton(text="📢 Репорты", callback_data='admin_reports'),
         InlineKeyboardButton(text='🗂 Информация', callback_data='admin_information'),
-        InlineKeyboardButton(text='✏️ Изменить цену', callback_data='admin_edit_price')
+        InlineKeyboardButton(text='✏️ Изменить цену', callback_data='admin_edit_price'),
+        InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data='admin_ban_user')
     )
-    kb.adjust(2)
+    kb.adjust(2, 1, 1)
 
     return kb.as_markup()
 
@@ -98,10 +99,10 @@ def answer_to_complaint_kb(complaint_id: int, show_interfere_button: bool = Fals
     return kb.as_markup()
 
 
-def cancel_answering_kb():
+def cancel_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.add(InlineKeyboardButton(text='Отменить', callback_data='cancel_answer'))
+    kb.add(InlineKeyboardButton(text='Отменить', callback_data='cancel_button'))
 
     return kb.as_markup()
 
@@ -109,9 +110,20 @@ def cancel_answering_kb():
 def confirm_answer_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.add(
-        InlineKeyboardButton(text='Подтвердить', callback_data='confirm_answer'),
-        InlineKeyboardButton(text='Отменить', callback_data='cancel_answer')
+    kb.row(
+        InlineKeyboardButton(text='✅ Подтвердить', callback_data='confirm_answer'),
+        InlineKeyboardButton(text='❌ Отменить', callback_data='cancel_button')
+    )
+
+    return kb.as_markup()
+
+
+def confirm_ban_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='✅ Подтвердить', callback_data='confirm_ban'),
+        InlineKeyboardButton(text='❌ Отменить', callback_data='cancel_button')
     )
 
     return kb.as_markup()

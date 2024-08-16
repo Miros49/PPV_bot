@@ -7,6 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from core import Config, load_config, storage
 from database import init_db
 from handlers import UserHandlers, AdminHandlers, PaymentHandlers, DebugHandlers
+from middlewares import BanMiddleware
 
 logging.basicConfig(level=logging.INFO)
 config: Config = load_config('.env')
@@ -14,6 +15,9 @@ config: Config = load_config('.env')
 default = DefaultBotProperties(parse_mode='HTML')
 bot: Bot = Bot(token=config.tg_bot.token, default=default)
 dp: Dispatcher = Dispatcher(storage=storage)
+
+dp.message.middleware(BanMiddleware())
+dp.callback_query.middleware(BanMiddleware())
 
 dp.include_router(AdminHandlers.router)
 dp.include_router(UserHandlers.router)

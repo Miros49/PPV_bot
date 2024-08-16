@@ -548,3 +548,11 @@ def from_cashout_to_main_menu():
     kb.add(InlineKeyboardButton(text='Вернуться в главное меню', callback_data='from_cashout_to_main_menu'))
 
     return kb.as_markup()
+
+
+def to_main_menu_hide_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='В главное меню', callback_data='to_main_menu_hide_kb'))
+
+    return kb.as_markup()

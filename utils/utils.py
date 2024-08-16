@@ -137,3 +137,18 @@ def get_deal_kb(deal_id: str, tg_id: str | int, show_complaint: bool = True,
         return User_kb.confirmation_of_deal_buyer_kb(deal[3], deal_id, show_report=show_complaint,
                                                      show_cancel=show_cancel)
     return User_kb.confirmation_of_deal_seller_kb(deal[1], deal_id, show_report=show_complaint)
+
+
+def parse_time_to_hours(time_str: str) -> int:
+    total_hours = 0
+
+    time_parts = re.findall(r'(\d+)([dh])', time_str)
+
+    for value, unit in time_parts:
+        value = int(value)
+        if unit == 'd':
+            total_hours += value * 24
+        elif unit == 'h':
+            total_hours += value
+
+    return total_hours

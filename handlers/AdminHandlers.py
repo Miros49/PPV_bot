@@ -29,14 +29,15 @@ router.callback_query.filter(IsAdminFilter())
 async def admin(message: Message):
     await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
 
-    await message.answer(f'Здравствуйте, {message.from_user.username}! 😊', reply_markup=Admin_kb.menu_kb())
+    await message.answer(f'Здравствуйте, {message.from_user.first_name}! 😊', reply_markup=Admin_kb.menu_kb())
 
 
 @router.callback_query(F.data == 'back_to_admin_menu', StateFilter(default_state))
 async def back_to_menu(callback: CallbackQuery):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
-    await callback.message.edit_text(f'Здравствуйте, {callback.from_user.username}! 😊', reply_markup=Admin_kb.menu_kb())
+    await callback.message.edit_text(f'Здравствуйте, {callback.from_user.first_name}! 😊',
+                                     reply_markup=Admin_kb.menu_kb())
 
 
 @router.callback_query(F.data == 'admin_reports', StateFilter(default_state))
@@ -71,7 +72,7 @@ async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext
 
     mes = await bot.send_message(
         chat_id=callback.from_user.id, text=LEXICON['admin_input_answer'],
-        reply_markup=Admin_kb.cancel_answering_kb(),
+        reply_markup=Admin_kb.cancel_kb(),
         reply_to_message_id=callback.message.message_id
     )
 
@@ -87,10 +88,11 @@ async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext
     await state.update_data(data)
 
 
-@router.callback_query(F.data == 'cancel_answer', StateFilter(default_state))
+@router.callback_query(F.data == 'cancel_button', StateFilter(default_state))
 async def cancel_answering(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
-    await callback.answer('Вы отменили ответ на жалобу')
+    await callback.answer('✅ Действие отменено', show_alert=True)
+
     await state.clear()
 
 
@@ -103,7 +105,7 @@ async def confirm_answer_handler(message: Message, state: FSMContext):
     if not message.text:
         await bot.edit_message_text(
             text=LEXICON['admin_input_answer'] + LEXICON['text_needed'],
-            reply_markup=Admin_kb.cancel_answering_kb()
+            reply_markup=Admin_kb.cancel_kb()
         )
 
         return state.update_data(data)
@@ -277,3 +279,106 @@ async def insert_new_price(callback: CallbackQuery):
 
     add_prices(project, server, buy, sell)
     await callback.message.edit_text(LEXICON['price_edited'].format(buy, sell))
+
+
+@router.callback_query(F.data == 'admin_ban_user', StateFilter(default_state))
+async def admin_ban_user_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    data['ban_user_message_mes_id'] = (
+        await callback.message.edit_text(LEXICON['admin_ban_user_input_id'], reply_markup=Admin_kb.cancel_kb())
+    ).message_id
+
+    await state.set_state(AdminStates.ban_input_user_id)
+    await state.update_data(data)
+
+
+@router.message(StateFilter(AdminStates.ban_input_user_id))
+async def ban_user_id_handler(message: Message, state: FSMContext):
+    data = await state.get_data()
+
+    await bot.delete_message(message.chat.id, message.message_id)
+
+    if not message.text or not message.text.isdigit():
+        return await bot.edit_message_text(
+            LEXICON['admin_ban_user_input_id'] + LEXICON['text_needed'],
+            chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+            reply_markup=Admin_kb.cancel_kb()
+        )
+
+    if not get_user(int(message.text)):
+        return await bot.edit_message_text(
+            '🤕 Извините, но похоже, что пользователя с таким id не существует. Попробуйте ещё раз:',
+            chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+            reply_markup=Admin_kb.cancel_kb()
+        )
+
+    await bot.edit_message_text(
+        LEXICON['admin_ban_user_input_period'].format(message.text),
+        chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+        reply_markup=Admin_kb.cancel_kb()
+    )
+
+    data['user_id'] = int(message.text)
+    await state.set_state(AdminStates.ban_input_period)
+    await state.update_data(data)
+
+
+@router.message(StateFilter(AdminStates.ban_input_period))
+async def ban_user_for_yime_handler(message: Message, state: FSMContext):
+    data = await state.get_data()
+
+    await bot.delete_message(message.chat.id, message.message_id)
+
+    if not message.text:
+        return await bot.edit_message_text(
+            LEXICON['admin_ban_user_input_period'] + LEXICON['text_needed'],
+            chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+            reply_markup=Admin_kb.cancel_kb()
+        )
+
+    period = utils.parse_time_to_hours(message.text)
+
+    if not period:
+        return await bot.edit_message_text(
+            LEXICON['admin_ban_user_wrong_period_format'],
+            chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+            reply_markup=Admin_kb.cancel_kb()
+        )
+
+    await bot.edit_message_text(
+        LEXICON['admin_ban_user_confirm'].format(data['user_id'], message.text),
+        chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+        reply_markup=Admin_kb.confirm_ban_kb()
+    )
+
+    data['period'] = period
+    data['period_text'] = message.text
+
+    await state.clear()
+    await state.update_data(data)
+
+
+@router.callback_query(F.data == 'confirm_ban')
+async def confirm_ban_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    if not all(key in data for key in ('ban_user_message_mes_id', 'period', 'period_text')):
+        await callback.message.delete()
+        return await callback.answer('Что-то пошло не так... Попробуйте ещё раз', show_alert=True)
+
+    try:
+        ban_user(data['user_id'], data['period'])
+
+        await bot.edit_message_text(
+            LEXICON['admin_ban_user_confirmed'].format(data['user_id'], data['period_text']),
+            chat_id=callback.from_user.id, message_id=data['ban_user_message_mes_id']
+        )
+
+        await bot.send_message(data['user_id'], f'Вас забанили на {data["period_text"]}')
+
+    except Exception as e:
+        print(f'Ошибка при попытке бана пользователя: {str(e)}')
+
+        await callback.message.delete()
+        return await callback.answer('Что-то пошло не так... Попробуйте ещё раз', show_alert=True)

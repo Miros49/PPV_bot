@@ -30,7 +30,7 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS orders (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
+                        user_id INTEGER UNIQUE,
                         username TEXT,
                         action TEXT,
                         item TEXT,
@@ -61,8 +61,8 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            bot_user_id INTEGER,
-                            user_id INTEGER,
+                            bot_user_id INTEGER UNIQUE,
+                            user_id INTEGER UNIQUE,
                             order_id INTEGER DEFAULT 0,
                             deal_id INTEGER DEFAULT 0,
                             amount REAL,
@@ -85,6 +85,12 @@ def create_tables():
                             server TEXT,
                             buy INTEGER DEFAULT 100,
                             sell INTEGER DEFAULT 100)''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS bans (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER UNIQUE,
+                            banned_until TEXT,
+                            bans_number INTEGER)''')
 
     conn.commit()
     conn.close()
@@ -688,3 +694,75 @@ def delete_transaction(user_id: Union[int, str], order_id: Union[int, str] = 0, 
 
     finally:
         conn.close()
+
+
+# ------------------ УПРАВЛЕНИЕ БАНАМИ ------------------ #
+
+
+def ban_user(user_id: int, ban_duration_hours: int):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    tz = datetime.timezone(datetime.timedelta(hours=3))
+    now = datetime.datetime.now(tz)
+
+    if ban_duration_hours == -1:
+        banned_until = "forever"
+    else:
+        banned_until = (now + datetime.timedelta(hours=ban_duration_hours)).strftime('%d.%m.%Y %H:%M')
+
+    # Проверяем, есть ли пользователь в базе данных
+    cursor.execute("SELECT id, bans_number FROM bans WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    if result:
+        # Если пользователь уже существует, обновляем запись
+        ban_id, bans_number = result
+        bans_number += 1
+        cursor.execute("""
+            UPDATE bans
+            SET banned_until = ?, bans_number = ?
+            WHERE id = ?
+        """, (banned_until, bans_number, ban_id))
+    else:
+        # Если пользователя нет, добавляем новую запись
+        cursor.execute("""
+            INSERT INTO bans (user_id, banned_until, bans_number)
+            VALUES (?, ?, ?)
+        """, (user_id, banned_until, 1))
+
+    conn.commit()
+    conn.close()
+
+
+def get_ban_info(user_id: int) -> Optional[Tuple[int, str, int]]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM bans WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+
+    return result if result else False
+
+
+def user_is_not_banned(user_id: int) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT banned_until FROM bans WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if not result:
+        return True
+
+    banned_until = result[0]
+    if banned_until == "forever":
+        return False
+
+    tz = datetime.timezone(datetime.timedelta(hours=3))
+    now = datetime.datetime.now(tz)
+    banned_until_time = datetime.datetime.strptime(banned_until, '%d.%m.%Y %H:%M').replace(tzinfo=tz)
+
+    return now > banned_until_time

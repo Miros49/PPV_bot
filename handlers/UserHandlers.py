@@ -829,8 +829,10 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled', deal_id=deal_id)
             delete_transaction(user_id=user_id, deal_id=deal_id)
 
-            await bot.send_message(buyer_id, "🚫 Сделка отменена продавцом.\nДеньги зачислены обратно на Ваш кошелёк")
-            await bot.send_message(seller_id, "🚫 Вы отменили сделку.")
+            await bot.send_message(buyer_id, '<b>❌ Сделка отменена продавцом.\nДеньги зачислены вам на аккаунт</b>',
+                                   reply_markup=User_kb.to_main_menu_hide_kb())
+            await bot.send_message(seller_id, '<b>❌ Вы отменили сделку, чат завершен</b>',
+                                   reply_markup=User_kb.to_main_menu_hide_kb())
 
             await bot.edit_message_reply_markup(chat_id=buyer_id,
                                                 message_id=buyer_data['in_chat_message_id'],
@@ -847,8 +849,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                 print(f"Error updating order status to 'deleted': {e}")
 
         else:
-            await bot.send_message(user_id, "‼️ Вы предложили продавцу отменить сделку.")
-            await bot.send_message(other_user_id, "‼️ Покупатель предлагает вам отменить сделку.")
+            await bot.send_message(user_id, "<b>‼️ Вы предложили продавцу отменить сделку</b>")
+            await bot.send_message(other_user_id, "<b>‼️ Покупатель предлагает вам отменить сделку</b>")
 
             kb = utils.get_deal_kb(deal_id, user_id, buyer_data.get('show_complaint', True), False)
 
@@ -870,10 +872,10 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             await bot.edit_message_reply_markup(chat_id=seller_id, message_id=seller_data['in_chat_message_id'],
                                                 reply_markup=None)
 
-            await bot.send_message(buyer_id, "✅ Вы подтвердили сделку. Сделка успешно завершена.",
-                                   reply_markup=User_kb.to_main_menu())
-            await bot.send_message(seller_id, "✅ Покупатель подтвердил сделку. Средства начислены на Ваш кошёлек.",
-                                   reply_markup=User_kb.to_main_menu())
+            await bot.send_message(buyer_id, "<b>✅ Вы подтвердили сделку, приятной игры!</b>",
+                                   reply_markup=User_kb.to_main_menu_hide_kb())
+            await bot.send_message(seller_id, "<b>✅ Покупатель подтвердил сделку. Деньги зачислены вам на аккаунт</b>",
+                                   reply_markup=User_kb.to_main_menu_hide_kb())
 
             try:
                 update_order_status(seller_order_id, 'confirmed')
@@ -885,6 +887,14 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
     await buyer_state.clear()
     await seller_state.clear()
+
+
+@router.callback_query(F.data == 'to_main_menu_hide_kb')
+async def to_main_menu_hide_handler(callback: CallbackQuery):
+    await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=callback.message.message_id,
+                                        reply_markup=None)
+
+    await callback.message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())
 
 
 @router.message(Command('report'), ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
