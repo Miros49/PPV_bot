@@ -127,3 +127,17 @@ def confirm_ban_kb():
     )
 
     return kb.as_markup()
+
+
+def inspect_user_kb(user_id: int | str, is_banned: bool = False):
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Операции', callback_data=f'show_user_operations_{str(user_id)}'),
+        InlineKeyboardButton(text='Ордера', callback_data=f'show_user_orders_{str(user_id)}'),
+        InlineKeyboardButton(text='Анулировать баланс', callback_data=f'cancel_user_balance_{str(user_id)}'),
+        InlineKeyboardButton(text='Пополнить баланс', callback_data=f'top_up_user_balance_{str(user_id)}')
+    ).adjust(2)
+    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_banned else None
+
+    return kb.as_markup()

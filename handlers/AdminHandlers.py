@@ -88,7 +88,7 @@ async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext
     await state.update_data(data)
 
 
-@router.callback_query(F.data == 'cancel_button', StateFilter(default_state))
+@router.callback_query(F.data == 'cancel_button')
 async def cancel_answering(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await callback.answer('✅ Действие отменено', show_alert=True)
@@ -161,23 +161,42 @@ async def admin_information_by(callback: CallbackQuery, state: FSMContext):
     await state.update_data({'target': callback.data.split('_')[-1]})
 
 
-@router.message(StateFilter(AdminStates.input_id), StateFilter(default_state))
+@router.message(StateFilter(AdminStates.input_id))
 async def send_information(message: Message, state: FSMContext):
+    data = await state.get_data()
+
     try:
         target_id = int(message.text)
     except ValueError:
         return await message.reply_text(LEXICON['incorrect_value'])
 
-    data = await state.get_data()
     if data['target'] == 'user':
         user = get_user_by_id(target_id)
-        await message.answer(information['user'].format(*user))
+        bans_info = get_ban_info(target_id)
+        ban_text = information['ban'].format(bans_info[2], bans_info[3]) if bans_info else ''
+        user_activity = get_user_activity_summary(target_id)
+
+        await message.answer(
+            information['user'].format(
+                user[0], ban_text, user[1], f"@{user[2]}" if user[2] else '<code>Не указан</code>',
+                user[3] if user[3] else 'Не указан', '{:,}'.format(round(user[4])).replace(',', ' '),
+                user_activity['total_top_up'], 'dev', user[5], user_activity['total_orders'],
+                user_activity['total_deals'], user_activity['confirmed_deals'], user_activity['complaints_against_user']
+            ), reply_markup=Admin_kb.inspect_user_kb(target_id, bans_info is not None)
+        )
+
     elif data['target'] == 'order':
-        order = get_order(target_id)
+        # order = get_order(target_id)
+        pass
+
     elif data['target'] == 'matched-order':
-        matched_order = get_matched_order(target_id)
+        # matched_order = get_matched_order(target_id)
+        pass
+
     elif data['target'] == 'report':
-        report = get_report(target_id)
+        # report = get_report(target_id)
+        pass
+
     else:
         await message.answer('Will be soon')
         await state.clear()
@@ -258,9 +277,9 @@ async def edit_price_sell(message: Message, state: FSMContext):
     data = await state.get_data()
 
     game, project, server, new_buy = data['game'], data['project'], data['server'], data['new_buy']
-    old_prices_text = LEXICON['edit_price_old'].format(old_prices[0], old_prices[1]) if old_prices else ''
-
     old_prices = get_old_prices(project, server)
+
+    old_prices_text = LEXICON['edit_price_old'].format(old_prices[0], old_prices[1]) if old_prices else ''
 
     text = LEXICON['edit_price_confirm'].format(game, project, server, old_prices_text, new_buy, str(amount))
 
