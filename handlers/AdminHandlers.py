@@ -162,7 +162,7 @@ async def admin_information_by(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(StateFilter(AdminStates.input_id))
-async def send_information(message: Message, state: FSMContext):
+async def send_information_handler(message: Message, state: FSMContext):
     data = await state.get_data()
 
     try:
@@ -190,7 +190,14 @@ async def send_information(message: Message, state: FSMContext):
         pass
 
     elif data['target'] == 'matched-order':
-        # matched_order = get_matched_order(target_id)
+        deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = get_deal(target_id)
+
+        status_text = 'Отменена' if status == 'canceled' else 'В процессе' if status == 'open' else 'Завершена'
+
+        text = information['deal'].format(
+            deal_id, status_text, seller_order_id, buyer_order_id, seller_id, buyer_id, created_at
+        )
+
         pass
 
     elif data['target'] == 'report':
@@ -300,47 +307,43 @@ async def insert_new_price(callback: CallbackQuery):
     await callback.message.edit_text(LEXICON['price_edited'].format(buy, sell))
 
 
-@router.callback_query(F.data == 'admin_ban_user', StateFilter(default_state))
+@router.callback_query(F.data.startswith('admin_ban_user'), StateFilter(default_state))
 async def admin_ban_user_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
+    user_id = callback.data.split('_')[-1]
+
     data['ban_user_message_mes_id'] = (
-        await callback.message.edit_text(LEXICON['admin_ban_user_input_id'], reply_markup=Admin_kb.cancel_kb())
+        await callback.message.edit_text(
+            LEXICON['admin_ban_user_input_period'].format(user_id),
+            reply_markup=Admin_kb.cancel_kb()
+        )
     ).message_id
 
-    await state.set_state(AdminStates.ban_input_user_id)
-    await state.update_data(data)
-
-
-@router.message(StateFilter(AdminStates.ban_input_user_id))
-async def ban_user_id_handler(message: Message, state: FSMContext):
-    data = await state.get_data()
-
-    await bot.delete_message(message.chat.id, message.message_id)
-
-    if not message.text or not message.text.isdigit():
-        return await bot.edit_message_text(
-            LEXICON['admin_ban_user_input_id'] + LEXICON['text_needed'],
-            chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
-            reply_markup=Admin_kb.cancel_kb()
-        )
-
-    if not get_user(int(message.text)):
-        return await bot.edit_message_text(
-            '🤕 Извините, но похоже, что пользователя с таким id не существует. Попробуйте ещё раз:',
-            chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
-            reply_markup=Admin_kb.cancel_kb()
-        )
-
-    await bot.edit_message_text(
-        LEXICON['admin_ban_user_input_period'].format(message.text),
-        chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
-        reply_markup=Admin_kb.cancel_kb()
-    )
-
-    data['user_id'] = int(message.text)
+    data['user_id'] = int(user_id)
     await state.set_state(AdminStates.ban_input_period)
     await state.update_data(data)
+
+
+# @router.message(StateFilter(AdminStates.ban_input_user_id))
+# async def ban_user_id_handler(message: Message, state: FSMContext):
+#     data = await state.get_data()
+#
+#     await bot.delete_message(message.chat.id, message.message_id)
+#
+#     if not message.text or not message.text.isdigit():
+#         return await bot.edit_message_text(
+#             LEXICON['admin_ban_user_input_id'] + LEXICON['text_needed'],
+#             chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+#             reply_markup=Admin_kb.cancel_kb()
+#         )
+#
+#     if not get_user(int(message.text)):
+#         return await bot.edit_message_text(
+#             '🤕 Извините, но похоже, что пользователя с таким id не существует. Попробуйте ещё раз:',
+#             chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
+#             reply_markup=Admin_kb.cancel_kb()
+#         )
 
 
 @router.message(StateFilter(AdminStates.ban_input_period))

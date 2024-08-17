@@ -11,10 +11,8 @@ def menu_kb():
     kb.add(
         InlineKeyboardButton(text="📢 Репорты", callback_data='admin_reports'),
         InlineKeyboardButton(text='🗂 Информация', callback_data='admin_information'),
-        InlineKeyboardButton(text='✏️ Изменить цену', callback_data='admin_edit_price'),
-        InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data='admin_ban_user')
-    )
-    kb.adjust(2, 1, 1)
+        InlineKeyboardButton(text='✏️ Изменить цену', callback_data='admin_edit_price')
+    ).adjust(2)
 
     return kb.as_markup()
 
@@ -99,6 +97,18 @@ def answer_to_complaint_kb(complaint_id: int, show_interfere_button: bool = Fals
     return kb.as_markup()
 
 
+def interfere_in_chat_like_kb(deal_id: int | str):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='Официально', callback_data=f'interfere_in_chat_like_official_{str(deal_id)}'),
+        InlineKeyboardButton(text='Инкогнито', callback_data=f'interfere_in_chat_like_incognito_{str(deal_id)}'),
+        InlineKeyboardButton(text='← Назад', callback_data='admin_information')
+    ).adjust(2)
+
+    return kb.as_markup()
+
+
 def cancel_kb():
     kb = InlineKeyboardBuilder()
 
@@ -138,6 +148,16 @@ def inspect_user_kb(user_id: int | str, is_banned: bool = False):
         InlineKeyboardButton(text='Анулировать баланс', callback_data=f'cancel_user_balance_{str(user_id)}'),
         InlineKeyboardButton(text='Пополнить баланс', callback_data=f'top_up_user_balance_{str(user_id)}')
     ).adjust(2)
-    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_banned else None
+    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_banned \
+        else kb.row(InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data='admin_ban_user'))
 
     return kb.as_markup()
+
+
+def inspect_order_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='admin_information'))
+
+    return kb.as_markup()
+

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from aiogram.types import InlineKeyboardMarkup
 
-from database import get_order, get_price_db, get_matched_order
+from database import get_order, get_price_db, get_deal
 from keyboards import UserKeyboards as User_kb
 from lexicon import *
 
@@ -129,7 +129,7 @@ def get_order_seved_text(data: dict) -> str:
 
 def get_deal_kb(deal_id: str, tg_id: str | int, show_complaint: bool = True,
                 show_cancel: bool = True) -> InlineKeyboardMarkup:
-    deal = get_matched_order(deal_id)
+    deal = get_deal(deal_id)
 
     print(show_complaint)
 

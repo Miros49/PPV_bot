@@ -6,5 +6,4 @@ class AdminStates(StatesGroup):
     edit_price_buy: State = State()
     edit_price_sell: State = State()
     input_answer: State = State()
-    ban_input_user_id: State = State()
     ban_input_period: State = State()

@@ -813,8 +813,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
     buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' \
         else (data['in_chat_with'], user_id)
     other_user_id = buyer_id if user_id == seller_id else seller_id
-    seller_order_id = get_matched_order(int(callback.data.split('_')[-1]))[4]
-    buyer_order_id = get_matched_order(int(callback.data.split('_')[-1]))[2]
+    seller_order_id = get_deal(int(callback.data.split('_')[-1]))[4]
+    buyer_order_id = get_deal(int(callback.data.split('_')[-1]))[2]
 
     buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
     seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
@@ -1291,7 +1291,7 @@ async def process_ticket_action(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     if callback.data == 'send_complaint':
-        complaint = get_matched_order(data['order_id'])
+        complaint = get_deal(data['order_id'])
         complainer_id = callback.from_user.id
         offender_id = complaint[1] if complaint[1] != complainer_id else complaint[3]
         create_report(data['order_id'], complainer_id, offender_id, data['complaint_text'])
