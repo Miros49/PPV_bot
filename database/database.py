@@ -291,6 +291,7 @@ def update_order_status(order_id, status):
         SET status = ?
         WHERE id = ?
     """, (status, order_id))
+
     conn.commit()
     conn.close()
 
@@ -497,6 +498,9 @@ def delete_complaint(complaint_id: int | str) -> bool:
         conn.close()
 
 
+# ------------------ УПРАВЛЕНИЕ СДЕЛКАМИ ------------------ #
+
+
 def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -526,7 +530,7 @@ def get_deal(deal_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
     return order
 
 
-def get_user_matched_orders(user_id: int) -> List[int]:
+def get_user_deals(user_id: int) -> List[int]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
@@ -542,7 +546,7 @@ def get_user_matched_orders(user_id: int) -> List[int]:
     return matched_order_ids
 
 
-def update_matched_order_status(order_id: int, new_status: str) -> bool:
+def update_deal_status(deal_id: int | str, new_status: str) -> bool:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     try:
@@ -550,7 +554,7 @@ def update_matched_order_status(order_id: int, new_status: str) -> bool:
             UPDATE matched_orders 
             SET ststus = ? 
             WHERE id = ?''',
-                       (new_status, order_id)
+                       (new_status, int(deal_id))
                        )
         conn.commit()
         return True

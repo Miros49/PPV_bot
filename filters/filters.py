@@ -2,9 +2,8 @@ from aiogram.filters import Filter
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from core import *
+from core import config
 
-config: Config = load_config('.env')
 ADMIN_IDS: list[int] = config.tg_bot.admin_ids
 
 

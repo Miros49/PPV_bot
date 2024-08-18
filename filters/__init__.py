@@ -1,1 +1,1 @@
-from filters.Filters import *
+from filters.filters import IsAdminFilter, AdminGameFilter

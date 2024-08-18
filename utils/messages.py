@@ -16,10 +16,8 @@ from lexicon import *
 from states import UserStates
 from utils import determine_game
 
-config: Config = load_config('.env')
 
-
-async def notify_users_of_chat(bot: Bot, matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
+async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
                                order_id: int | str, project: str):
     buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
     seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
@@ -289,18 +287,6 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
             await callback.message.edit_text("❕ Вы не создавали заказов.", reply_markup=User_kb.to_account_kb())
         else:
             await callback.message.edit_text('❕ У вас нет завершенных заказов.', reply_markup=User_kb.to_account_kb())
-
-
-#
-#
-#
-#
-#
-# ---------- Функции управления кнопками в чате между продавцом и покупателем -----------
-#
-#
-#
-#
 
 
 async def get_user_state(user_id: str | int):

@@ -7,18 +7,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery
 
-from core import Config, load_config
+from core import config, bot
 from database import *
 from keyboards import UserKeyboards as User_kb
 from lexicon import LEXICON, payment_lexicon
 from states import UserStates
 import utils
 
-config: Config = load_config('.env')
 router: Router = Router()
-
-default = DefaultBotProperties(parse_mode='HTML')
-bot: Bot = Bot(token=config.tg_bot.token, default=default)
 
 
 @router.callback_query(F.data == 'top_up_balance', StateFilter(default_state))

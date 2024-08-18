@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction
 
@@ -7,22 +9,30 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 
-import utils
+import bot
 from core import *
 from database import *
 from filters import *
 from keyboards import AdminKeyboards as Admin_kb, UserKeyboards as User_kb
 from lexicon import *
 from states import AdminStates
-
-config: Config = load_config('.env')
-
-default = DefaultBotProperties(parse_mode='HTML')
-bot: Bot = Bot(token=config.tg_bot.token, default=default)
+import utils
+from utils.admin_messages import send_information
 
 router: Router = Router()
 router.message.filter(IsAdminFilter())
 router.callback_query.filter(IsAdminFilter())
+
+
+@router.message(Command('cls'))
+async def cls(message: Message, state: FSMContext):
+    await state.clear()
+
+    await bot.delete_message(message.chat.id, message.message_id)
+
+    mes = await message.answer('⚙️🔧 Ваше состояние очищено')
+    await asyncio.sleep(1)
+    await mes.delete()
 
 
 @router.message(Command('admin'), StateFilter(default_state))
@@ -142,7 +152,7 @@ async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(F.data == 'admin_information', StateFilter(default_state))
+@router.callback_query(F.data == 'admin_information')
 async def admin_information(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
@@ -153,60 +163,44 @@ async def admin_information(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith('admin_information'), StateFilter(default_state))
 async def admin_information_by(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+
     argument = target_map.get(callback.data.split('_')[-1])
 
-    await callback.message.edit_text(LEXICON['admin_information'].format(argument),
-                                     reply_markup=Admin_kb.back_to_information_kb())
+    data = {
+        'target': callback.data.split('_')[-1],
+        'admin_information_message_mes_id': (
+            await callback.message.edit_text(LEXICON['admin_information'].format(argument),
+                                             reply_markup=Admin_kb.back_to_information_kb())
+        ).message_id
+    }
+
     await state.set_state(AdminStates.input_id)
-    await state.update_data({'target': callback.data.split('_')[-1]})
+    await state.update_data(data)
 
 
 @router.message(StateFilter(AdminStates.input_id))
 async def send_information_handler(message: Message, state: FSMContext):
     data = await state.get_data()
 
+    await bot.delete_message(message.chat.id, message.message_id)
+
     try:
         target_id = int(message.text)
     except ValueError:
-        return await message.reply_text(LEXICON['incorrect_value'])
+        return await bot.edit_message_text(LEXICON['incorrect_value'], chat_id=message.chat.id,
+                                           message_id=data['admin_information_message_mes_id'])
 
-    if data['target'] == 'user':
-        user = get_user_by_id(target_id)
-        bans_info = get_ban_info(target_id)
-        ban_text = information['ban'].format(bans_info[2], bans_info[3]) if bans_info else ''
-        user_activity = get_user_activity_summary(target_id)
+    await send_information(data['target'], target_id, message.chat.id, data['admin_information_message_mes_id'])
 
-        await message.answer(
-            information['user'].format(
-                user[0], ban_text, user[1], f"@{user[2]}" if user[2] else '<code>Не указан</code>',
-                user[3] if user[3] else 'Не указан', '{:,}'.format(round(user[4])).replace(',', ' '),
-                user_activity['total_top_up'], 'dev', user[5], user_activity['total_orders'],
-                user_activity['total_deals'], user_activity['confirmed_deals'], user_activity['complaints_against_user']
-            ), reply_markup=Admin_kb.inspect_user_kb(target_id, bans_info is not None)
-        )
+    await state.clear()
+    await state.update_data(data)
 
-    elif data['target'] == 'order':
-        # order = get_order(target_id)
-        pass
 
-    elif data['target'] == 'matched-order':
-        deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = get_deal(target_id)
+@router.callback_query(F.data.startswith('send_information_about'))
+async def send_information_about_handler(callback: CallbackQuery, state: FSMContext):
+    _, _, _, target, target_id = callback.data.split('_')
 
-        status_text = 'Отменена' if status == 'canceled' else 'В процессе' if status == 'open' else 'Завершена'
-
-        text = information['deal'].format(
-            deal_id, status_text, seller_order_id, buyer_order_id, seller_id, buyer_id, created_at
-        )
-
-        pass
-
-    elif data['target'] == 'report':
-        # report = get_report(target_id)
-        pass
-
-    else:
-        await message.answer('Will be soon')
-        await state.clear()
+    await send_information(target, target_id, callback.from_user.id, callback.message.message_id)
 
 
 @router.callback_query(F.data.in_(['admin_edit_price', 'back_to_games']), StateFilter(default_state))

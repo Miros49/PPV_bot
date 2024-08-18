@@ -7,18 +7,15 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.state import default_state
 from aiogram.fsm.storage.base import StorageKey
+from aiogram.types import CallbackQuery, Message
 
-import utils
+from core import bot
 from database import *
-from filters import *
 from keyboards import UserKeyboards as User_kb
 from lexicon import *
 from states import UserStates
+import utils
 
-config: Config = load_config('.env')
-
-default = DefaultBotProperties(parse_mode='HTML')
-bot: Bot = Bot(token=config.tg_bot.token, default=default)
 
 router: Router = Router()
 
@@ -679,7 +676,7 @@ async def handle_confirm_callback(callback: CallbackQuery):
                 seller_order_id = order_id if action_type == 'sell' else matched_order_id
                 matched_orders_id = create_matched_order(buyer_id, buyer_order_id, seller_id, seller_order_id)
 
-                await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id, project)
+                await utils.notify_users_of_chat(matched_orders_id, buyer_id, seller_id, order_id, project)
 
                 database.update_order_status(buyer_order_id, 'matched')
                 database.update_order_status(seller_order_id, 'matched')
@@ -842,6 +839,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                                                 reply_markup=None)
 
             try:
+                update_deal_status(deal_id, 'canceled')
                 update_order_status(seller_order_id, 'pending')
                 if buyer_order_id != 0:
                     update_order_status(buyer_order_id, 'pending')
@@ -878,9 +876,9 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                                    reply_markup=User_kb.to_main_menu_hide_kb())
 
             try:
+                update_deal_status(deal_id, 'confirmed')
                 update_order_status(seller_order_id, 'confirmed')
                 if buyer_order_id != 0:
-                    update_order_status(buyer_order_id, 'confirmed')
                     update_order_status(buyer_order_id, 'confirmed')
             except sqlite3.Error as e:
                 print(f"Error updating order status to 'confirmed': {e}")
@@ -1156,7 +1154,7 @@ async def process_complaints_back(callback: CallbackQuery, state: FSMContext):
 async def process_write_ticket_callback(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
-    if get_user_matched_orders(callback.from_user.id):
+    if get_user_deals(callback.from_user.id):
         await callback.message.delete()
         mes = await callback.message.answer(complaint_lexicon['order_id'].format(''),
                                             reply_markup=User_kb.back_to_complaint_kb())
@@ -1401,8 +1399,6 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
 
     if 'watched_orders' in data:
         for message_id in data['watched_orders'].keys():
-            # if message_id == callback.message.message_id:
-            #     continue
             await bot.delete_message(callback.from_user.id, message_id)
         await bot.delete_message(callback.from_user.id, data['service'])
 
@@ -1416,8 +1412,7 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
 
     edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy', deal_id=matched_orders_id)
 
-    # await callback.message.edit_text(callback.message.text[:-13] + '✅ Начался чат с продавцом')
-    await utils.notify_users_of_chat(bot, matched_orders_id, buyer_id, seller_id, order_id, data['project'])
+    await utils.notify_users_of_chat(matched_orders_id, buyer_id, seller_id, order_id, data['project'])
 
 
 @router.callback_query(F.data.startswith('cancel_order_'), StateFilter(default_state))

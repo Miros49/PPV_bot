@@ -270,14 +270,14 @@ item_lexicon = {
 target_map: dict[str, str] = {
     'user': 'пользователя',
     'order': 'заказа',
-    'matched-order': 'скрещённого заказа',
+    'deal': 'сделки',
     'report': 'жалобы',
     'transaction': 'транзакции'
 }
 
 information: dict[str, str] = {
     'ban': 'Забанен до <i>{}</i> (число банов: <code>{}</code>)\n\n',
-    'user': '<b><u>Информация о пользователе (id: {})</u>\n\n'
+    'user': '<b><u>Информация о пользователе (ID: {})</u>\n\n'
             '{}'
             'TG id: <code>{}</code>\n'
             'Ник: {}\n'
@@ -290,18 +290,17 @@ information: dict[str, str] = {
             'Число сделок: <code>{}</code>\n'
             'Число успешных сделок: <code>{}</code>\n'
             'Число жалоб на пользователя: <code>{}</code>',
-    'deal': '<i>Информация по сделке <b>№{}</b>:\n\n'
+    'deal': '<i>Информация по сделке <b>№{}</b>:</i>\n\n'
             'Статус: <code>{}</code>\n\n'
             'ID заказов: <code>{}</code> / <code>{}</code>\n'
             'ID пользователей: <code>{}</code> / <code>{}</code>\n'
-            'Дата создания: <code>{}</code>\n'
-            '{}\n'
+            'Дата создания: <code>{}</code>\n\n'
             '<b>Предмнет обмена:'
             'Категория: <code>{}</code>\n'
             'Сервер: <code>{}</code>,   <code>{}</code>\n'
             '{}\n\n'
             'Покупка: <code>{}</code> руб\n'
-            'Продажа: <code>{}</code> руб\n'
+            'Продажа: <code>{}</code> руб\n</b>'
 }
 
 my_orders_lexicon: dict[str, str] = {

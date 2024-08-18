@@ -1,3 +1,5 @@
+from aiogram import Bot
+from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage, Redis
 
 from dataclasses import dataclass
@@ -36,3 +38,9 @@ def load_config(path: str | None) -> Config:
         ),
         payment=Payment(token=env('PAYMENT_TOKEN'))
     )
+
+
+config: Config = load_config('.env')
+
+default = DefaultBotProperties(parse_mode='HTML')
+bot: Bot = Bot(token=config.tg_bot.token, default=default)

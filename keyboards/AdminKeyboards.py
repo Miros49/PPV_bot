@@ -23,7 +23,7 @@ def information_kb():
     kb.add(
         InlineKeyboardButton(text='👤 Пользователи', callback_data='admin_information_user'),
         InlineKeyboardButton(text='📋 Заказы', callback_data='admin_information_order'),
-        InlineKeyboardButton(text='🔀 Сделки', callback_data='admin_information_matched-order'),
+        InlineKeyboardButton(text='🔀 Сделки', callback_data='admin_information_deal'),
         InlineKeyboardButton(text='💢 Жалобы', callback_data='admin_information_report'),
         InlineKeyboardButton(text='💸 Транзакции', callback_data='admin_information_transactions'),
     ).adjust(2)
@@ -150,6 +150,7 @@ def inspect_user_kb(user_id: int | str, is_banned: bool = False):
     ).adjust(2)
     kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_banned \
         else kb.row(InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data='admin_ban_user'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='admin_information_user'))
 
     return kb.as_markup()
 
@@ -157,7 +158,23 @@ def inspect_user_kb(user_id: int | str, is_banned: bool = False):
 def inspect_order_kb():
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='← Назад', callback_data='admin_information'))
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data='admin_information_order'))
 
     return kb.as_markup()
 
+
+def inspect_deal_kb(deal_id: int | str, buyer_id: int | str, seller_id: int | str, is_active: bool = False):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='Завершить сделку', callback_data=f'admin_cancel_deal_{str(deal_id)}'),
+        InlineKeyboardButton(text='Подтвердить сделку', callback_data=f'admin_confirm_deal_{str(deal_id)}')
+    ) if is_active else None
+    kb.row(
+        InlineKeyboardButton(text='Продавец', callback_data=f'send_information_about_user_{str(seller_id)}'),
+        InlineKeyboardButton(text='покупатель', callback_data=f'send_information_about_user_{str(buyer_id)}')
+    )
+    kb.row(InlineKeyboardButton(text='Вмешаться в чат', callback_data=f'interfere_in_chat_{str(deal_id)}')) \
+        if is_active else kb.row(InlineKeyboardButton(text='Посмотреть чат', callback_data=f'show_chat_{str(deal_id)}'))
+
+    return kb.as_markup()
