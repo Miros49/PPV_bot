@@ -10,7 +10,7 @@ def menu_kb():
 
     kb.add(
         InlineKeyboardButton(text="📢 Репорты", callback_data='admin_reports'),
-        InlineKeyboardButton(text='🗂 Информация', callback_data='admin_information'),
+        InlineKeyboardButton(text='🗂 Навигатор', callback_data='admin_information'),
         InlineKeyboardButton(text='✏️ Изменить цену', callback_data='admin_edit_price')
     ).adjust(2)
 
@@ -90,8 +90,11 @@ def confirm_editing(project: str, server: str, buy: str, sell: str):
 def answer_to_complaint_kb(complaint_id: int, show_interfere_button: bool = False):
     kb = InlineKeyboardBuilder()
 
-    kb.add(InlineKeyboardButton(text='Ответить', callback_data=f'answer_to_complaint_{str(complaint_id)}'))
-    kb.add(InlineKeyboardButton(text='Вмешаться в чат', callback_data='interfere_in_chat')) if show_interfere_button \
+    kb.row(
+        InlineKeyboardButton(text='Ответить', callback_data=f'answer_to_complaint_{str(complaint_id)}'),
+        InlineKeyboardButton(text='Отклонить', callback_data=f'reject_complaint_{str(complaint_id)}')
+    )
+    kb.row(InlineKeyboardButton(text='Вмешаться в чат', callback_data='interfere_in_chat')) if show_interfere_button \
         else None
 
     return kb.as_markup()
@@ -139,7 +142,7 @@ def confirm_ban_kb():
     return kb.as_markup()
 
 
-def inspect_user_kb(user_id: int | str, is_banned: bool = False):
+def inspect_user_kb(user_id: int | str, is_not_banned: bool = False):
     kb = InlineKeyboardBuilder()
 
     kb.add(
@@ -148,7 +151,7 @@ def inspect_user_kb(user_id: int | str, is_banned: bool = False):
         InlineKeyboardButton(text='Анулировать баланс', callback_data=f'cancel_user_balance_{str(user_id)}'),
         InlineKeyboardButton(text='Пополнить баланс', callback_data=f'top_up_user_balance_{str(user_id)}')
     ).adjust(2)
-    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_banned \
+    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_not_banned \
         else kb.row(InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data='admin_ban_user'))
     kb.row(InlineKeyboardButton(text='← Назад', callback_data='admin_information_user'))
 
@@ -176,5 +179,22 @@ def inspect_deal_kb(deal_id: int | str, buyer_id: int | str, seller_id: int | st
     )
     kb.row(InlineKeyboardButton(text='Вмешаться в чат', callback_data=f'interfere_in_chat_{str(deal_id)}')) \
         if is_active else kb.row(InlineKeyboardButton(text='Посмотреть чат', callback_data=f'show_chat_{str(deal_id)}'))
+
+    return kb.as_markup()
+
+
+def inspect_complaint_kb(deal_id: int | str, complainer_id: int | str, offender_id: int | str,
+                         complaint_id: int | str = None):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='Сделка', callback_data=f'send_information_about_deal_{str(deal_id)}'),
+        InlineKeyboardButton(text='Истец', callback_data=f'send_information_about_user_{str(complainer_id)}'),
+        InlineKeyboardButton(text='Ответчик', callback_data=f'send_information_about_user_{str(offender_id)}'),
+    )
+    kb.row(
+        InlineKeyboardButton(text='Ответить', callback_data=f'answer_to_complaint_{str(complaint_id)}'),
+        InlineKeyboardButton(text='Отклонить', callback_data=f'reject_complaint_{str(complaint_id)}')
+    ) if complaint_id else None
 
     return kb.as_markup()

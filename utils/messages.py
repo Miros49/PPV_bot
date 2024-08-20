@@ -17,7 +17,7 @@ from states import UserStates
 from utils import determine_game
 
 
-async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str, seller_id: int | str,
+async def notify_users_of_chat(deal_id: int | str, buyer_id: int | str, seller_id: int | str,
                                order_id: int | str, project: str):
     buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
     seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
@@ -30,8 +30,10 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
     item = utils.get_item_text(order[4])
     server = order[6]
 
-    buyer_message = "‼️ Я нашел продавца по вашему заказу. Начинаю ваш чат с продавцом."
-    seller_message = "‼️ Я нашел покупателя по вашему заказу. Начинаю ваш чат с покупателем."
+    buyer_message = ('‼️ Покупатель по вашему заказу найден.\n'
+                     'Начинается чат с покупателем. <a href="https://telegra.ph/Pravila-Bota-DD-07-28">Правила</a>')
+    seller_message = ('‼️ Продавец по вашему заказу найден.\n'
+                      'Начинается чат с продавцом. <a href="https://telegra.ph/Pravila-Bota-DD-07-28">Правила</a>')
 
     if order[4] == 'virt':
         item_message = f'Кол-во виртов: <code>{"{:,}".format(order[7])}</code>'
@@ -41,26 +43,26 @@ async def notify_users_of_chat(matched_orders_id: int | str, buyer_id: int | str
         item_message = f'Описание аккаунта: <i>{order[8]}</i>'
 
     price = utils.get_price(order_id, 'buy')
-    buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, '📗', matched_orders_id, 'Покупка',
+    buyer_order_ifo = LEXICON['order_info_text'].format(buyer_message, '📗', deal_id, 'Покупка',
                                                         item, project, server, item_message,
                                                         '{:,}'.format(price).replace(',', ' '))
 
     message_buyer = await bot.send_photo(buyer_id, FSInputFile('img/to_buyer.png'), caption=buyer_order_ifo,
                                          reply_markup=User_kb.confirmation_of_deal_buyer_kb(seller_id,
-                                                                                            matched_orders_id))
+                                                                                            deal_id))
 
     price = utils.get_price(order_id, 'sell')
-    seller_order_ifo = LEXICON['order_info_text'].format(seller_message, '📘', matched_orders_id, 'Продажа',
+    seller_order_ifo = LEXICON['order_info_text'].format(seller_message, '📘', deal_id, 'Продажа',
                                                          item, order[5], server, item_message,
                                                          '{:,}'.format(price).replace(',', ' '))
     message_seller = await bot.send_photo(seller_id, FSInputFile('img/to_seller.png'), caption=seller_order_ifo,
                                           reply_markup=User_kb.confirmation_of_deal_seller_kb(buyer_id,
-                                                                                              matched_orders_id))
+                                                                                              deal_id))
 
-    await buyer_state.update_data(
-        {'in_chat_message_id': message_buyer.message_id, 'role': 'buyer', 'in_chat_with': seller_id})
-    await seller_state.update_data(
-        {'in_chat_message_id': message_seller.message_id, 'role': 'seller', 'in_chat_with': buyer_id})
+    await buyer_state.update_data({'deal_id': deal_id, 'in_chat_message_id': message_buyer.message_id,
+                                   'role': 'buyer', 'in_chat_with': seller_id})
+    await seller_state.update_data({'deal_id': deal_id, 'in_chat_message_id': message_seller.message_id,
+                                    'role': 'seller', 'in_chat_with': buyer_id})
 
 
 async def show_projects(callback: CallbackQuery, item: str, game: str, action_type: str):

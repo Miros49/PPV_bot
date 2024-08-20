@@ -1,5 +1,4 @@
 import datetime
-import math
 import sqlite3
 
 from aiogram.fsm.context import FSMContext
@@ -44,13 +43,14 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS chat_logs (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        chat_id TEXT,
+                        deal_id INTEGER,
                         sender_id INTEGER,
                         receiver_id INTEGER,
+                        type TEXT,
                         message TEXT,
                         timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS matched_orders (
+    cursor.execute('''CREATE TABLE IF NOT EXISTS deals (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 buyer_id INTEGER,
                                 buyer_order_id INTEGER,
@@ -58,6 +58,7 @@ def create_tables():
                                 seller_order_id INTEGER,
                                 ststus TEXT DEFAULT 'open',
                                 timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
+    # completion_timestamp TEXT DEFAULT NONE
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,42 +113,17 @@ def add_user(user_id, username, phone_number):
     conn.close()
 
 
-def add_order(user_id, username, action, item, project, server, amount, description, price):
-    current_time = get_current_time_formatted()
-
-    conn = sqlite3.connect(database_file)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO orders (user_id, username, action, item, project, server, amount, description, price, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (user_id, username, action, item, project, server, amount, description, price, current_time))
-
-    order_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-
-    return order_id
-
-
-def save_chat_message(chat_id, sender_id, receiver_id, message):
-    conn = sqlite3.connect(database_file)
-    cursor = conn.cursor()
-    current_time = get_current_time_formatted()
-    cursor.execute("INSERT INTO chat_logs (chat_id, sender_id, receiver_id, message, timestamp) VALUES (?, ?, ?, ?, ?)",
-                   (chat_id, sender_id, receiver_id, message, current_time))
-    conn.commit()
-    conn.close()
-
-
 def create_report(order_id: int | str, complainer_id: int | str, offender_id: int | str, complaint: str):
+    current_time = get_current_time_formatted()
+
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    current_time = get_current_time_formatted()
+
     cursor.execute("""
         INSERT INTO reports (order_id, complainer_id, offender_id, complaint, created_at)
         VALUES (?, ?, ?, ?, ?)
     """, (int(order_id), int(complainer_id), int(offender_id), complaint, current_time))
+
     conn.commit()
     conn.close()
 
@@ -271,6 +247,21 @@ def edit_balance(user_id: int, amount: float, action: str, order_id: Union[int, 
     conn.close()
 
 
+def count_users() -> int:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM users
+    """)
+
+    user_count = cursor.fetchone()[0]
+    conn.close()
+
+    return user_count
+
+
 def get_order(order_id: int | str):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -279,6 +270,7 @@ def get_order(order_id: int | str):
 
     result = cursor.fetchone()
     conn.close()
+
     return result if result else None
 
 
@@ -299,13 +291,16 @@ def update_order_status(order_id, status):
 def delete_order(order_id: int | str) -> bool:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
+
     try:
         cursor.execute("DELETE FROM orders WHERE id = ?", (int(order_id),))
         conn.commit()
         return True
+
     except sqlite3.Error as e:
         print(f"Ошибка при удалении заказа: {e}", datetime.datetime.now().time(), sep='\n')
         return False
+
     finally:
         conn.close()
 
@@ -396,13 +391,41 @@ def get_pending_sell_orders(user_id: int, item: str, project: str, server: str) 
     return orders
 
 
-def get_report(report_id: int | str) -> Tuple[int, int, int, int, str, str, str]:
+def add_order(user_id, username, action, item, project, server, amount, description, price):
+    current_time = get_current_time_formatted()
+
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    cursor.execute('''SELECT * FROM reports WHERE id = ?''', (int(report_id),))
-    report = cursor.fetchone()
+
+    cursor.execute("""
+        INSERT INTO orders (user_id, username, action, item, project, server, amount, description, price, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, username, action, item, project, server, amount, description, price, current_time))
+
+    order_id = cursor.lastrowid
+    conn.commit()
     conn.close()
-    return report
+
+    return order_id
+
+
+def count_active_orders() -> int:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM orders
+        WHERE status = 'pending'
+    """)
+
+    active_orders_count = cursor.fetchone()[0]
+    conn.close()
+
+    return active_orders_count
+
+
+# ------------------ УПРАВЛЕНИЕ ЖАЛОБАМИ ------------------ #
 
 
 def get_open_complaints() -> List[Tuple[int, int, int, int, str, str]]:
@@ -446,6 +469,20 @@ def set_complaint_answer(complaint_id: int | str, answer: str, status: str):
         SET answer = ?, status = ?
         WHERE id = ?
     """, (answer, status, int(complaint_id)))
+
+    conn.commit()
+    conn.close()
+
+
+def set_complaint_status(complaint_id: int | str, status: str):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE reports
+        SET status = ?
+        WHERE id = ?
+    """, (status, int(complaint_id)))
 
     conn.commit()
     conn.close()
@@ -501,18 +538,20 @@ def delete_complaint(complaint_id: int | str) -> bool:
 # ------------------ УПРАВЛЕНИЕ СДЕЛКАМИ ------------------ #
 
 
-def create_matched_order(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
+def create_deal(buyer_id: int, buyer_order_id: int, seller_id: int, seller_order_id: int) -> Optional[int]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
+
     try:
         cursor.execute(
-            '''INSERT INTO matched_orders (
+            '''INSERT INTO deals (
                 buyer_id, buyer_order_id, seller_id, seller_order_id
             ) VALUES (?, ?, ?, ?)''',
             (buyer_id, buyer_order_id, seller_id, seller_order_id)
         )
         conn.commit()
         return cursor.lastrowid
+
     except sqlite3.Error as e:
         print(f"Ошибка при создании элемента: {e}", datetime.datetime.now().time(), sep='\n')
         return None
@@ -522,7 +561,7 @@ def get_deal(deal_id: int | str) -> Tuple[int, int, int, int, int, str, str]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('''SELECT * FROM matched_orders WHERE id = ?''', (int(deal_id),))
+    cursor.execute('''SELECT * FROM deals WHERE id = ?''', (int(deal_id),))
 
     order = cursor.fetchone()
     conn.close()
@@ -536,14 +575,14 @@ def get_user_deals(user_id: int) -> List[int]:
 
     cursor.execute("""
         SELECT id
-        FROM matched_orders
+        FROM deals
         WHERE buyer_id = ? OR seller_id = ?
     """, (user_id, user_id))
 
-    matched_order_ids = [row[0] for row in cursor.fetchall()]
+    deal_ids = [row[0] for row in cursor.fetchall()]
     conn.close()
 
-    return matched_order_ids
+    return deal_ids
 
 
 def update_deal_status(deal_id: int | str, new_status: str) -> bool:
@@ -551,7 +590,7 @@ def update_deal_status(deal_id: int | str, new_status: str) -> bool:
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            UPDATE matched_orders 
+            UPDATE deals 
             SET ststus = ? 
             WHERE id = ?''',
                        (new_status, int(deal_id))
@@ -563,17 +602,33 @@ def update_deal_status(deal_id: int | str, new_status: str) -> bool:
         return False
 
 
-def check_matched_order(matched_order_id: int, user_id: int) -> bool:
+def check_deal(deal_id: int, user_id: int) -> bool:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id 
-        FROM matched_orders
+        FROM deals
         WHERE id = ? AND (buyer_id = ? OR seller_id = ?)
-    """, (matched_order_id, user_id, user_id))
+    """, (deal_id, user_id, user_id))
     result = cursor.fetchone()
     conn.close()
     return result is not None
+
+
+def count_active_deals() -> int:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM deals
+        WHERE ststus = 'open'
+    """)
+
+    active_deals_count = cursor.fetchone()[0]
+    conn.close()
+
+    return active_deals_count
 
 
 def add_prices(project: str, server: str, buy_price: str | int, sell_price: str | int):
@@ -677,6 +732,23 @@ def get_transactions(user_id: int) -> List[Tuple]:
     return transactions
 
 
+def get_cashout_transactions(user_id: int) -> List[Tuple]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM transactions
+        WHERE user_id = ? AND action = 'cashout'
+        ORDER BY id DESC
+    """, (user_id,))
+
+    transactions = cursor.fetchall()
+    conn.close()
+
+    return transactions
+
+
 def delete_transaction(user_id: Union[int, str], order_id: Union[int, str] = 0, deal_id: Union[int, str] = 0) -> bool:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -744,17 +816,19 @@ def get_ban_info(user_id: int) -> Optional[Tuple[int, int, str, int]]:
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM bans WHERE user_id = ?", (user_id,))
+
     result = cursor.fetchone()
     conn.close()
 
     return result if result else False
 
 
-def user_is_not_banned(user_id: int) -> bool:
+def user_is_not_banned(user_id: int | str) -> bool:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT banned_until FROM bans WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT banned_until FROM bans WHERE user_id = ?", (int(user_id),))
+
     result = cursor.fetchone()
     conn.close()
 
@@ -795,7 +869,7 @@ def get_user_activity_summary(user_id: int) -> dict:
     # Count the number of deals conducted
     cursor.execute("""
         SELECT COUNT(*)
-        FROM matched_orders
+        FROM deals
         WHERE buyer_id = ? OR seller_id = ?
     """, (user_id, user_id))
     total_deals = cursor.fetchone()[0]
@@ -803,7 +877,7 @@ def get_user_activity_summary(user_id: int) -> dict:
     # Count the number of confirmed deals
     cursor.execute("""
         SELECT COUNT(*)
-        FROM matched_orders
+        FROM deals
         WHERE (buyer_id = ? OR seller_id = ?) AND ststus = 'confirmed'
     """, (user_id, user_id))
     confirmed_deals = cursor.fetchone()[0]
@@ -825,3 +899,38 @@ def get_user_activity_summary(user_id: int) -> dict:
         "confirmed_deals": confirmed_deals,
         "complaints_against_user": complaints_against_user
     }
+
+
+# ------------------ УПРАВЛЕНИЕ ЛОГАМИ СДЕЛОК ------------------ #
+
+
+def save_chat_message(deal_id, sender_id, receiver_id, message_type, message):
+    current_time = get_current_time_formatted()
+
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO chat_logs (deal_id, sender_id, receiver_id, type, message, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+        (deal_id, sender_id, receiver_id, message_type, message, current_time)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_chat_messages(deal_id: int) -> List[Tuple[int, int, int, str, str]]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, sender_id, receiver_id, type, message, timestamp
+        FROM chat_logs
+        WHERE deal_id = ?
+        ORDER BY timestamp ASC
+    """, (deal_id,))
+
+    messages = cursor.fetchall()
+    conn.close()
+
+    return messages

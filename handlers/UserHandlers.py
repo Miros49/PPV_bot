@@ -9,7 +9,7 @@ from aiogram.fsm.state import default_state
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import CallbackQuery, Message
 
-from core import bot
+from core import config, bot
 from database import *
 from keyboards import UserKeyboards as User_kb
 from lexicon import *
@@ -625,7 +625,7 @@ async def account_price(message: Message, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith('confirmation_of_creation_'), StateFilter(default_state))
-async def handle_confirm_callback(callback: CallbackQuery):
+async def handle_deal_confirmation_callback(callback: CallbackQuery):
     user_id = callback.from_user.id
     action_type = callback.data.split('_')[-1]
 
@@ -674,9 +674,9 @@ async def handle_confirm_callback(callback: CallbackQuery):
                 seller_id = user_id if action_type == 'sell' else other_user_id
                 buyer_order_id = order_id if action_type == 'buy' else matched_order_id
                 seller_order_id = order_id if action_type == 'sell' else matched_order_id
-                matched_orders_id = create_matched_order(buyer_id, buyer_order_id, seller_id, seller_order_id)
+                deal_id = create_deal(buyer_id, buyer_order_id, seller_id, seller_order_id)
 
-                await utils.notify_users_of_chat(matched_orders_id, buyer_id, seller_id, order_id, project)
+                await utils.notify_users_of_chat(deal_id, buyer_id, seller_id, order_id, project)
 
                 database.update_order_status(buyer_order_id, 'matched')
                 database.update_order_status(seller_order_id, 'matched')
@@ -902,42 +902,80 @@ async def report_command(message: Message, state: FSMContext):
 
 
 @router.message(StateFilter(UserStates.in_chat))
-async def handle_chat_message(message: Message, state: FSMContext):
+async def handle_chat_message(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
 
     user_id = message.from_user.id
-
-    buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' \
-        else (data['in_chat_with'], user_id)
-
+    bot_user_id = get_bot_user_id(user_id)
+    buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' else (data['in_chat_with'], user_id)
     recipient_id = buyer_id if user_id == seller_id else seller_id
 
     if message.text:
+        message_type = 'text'
         item = message.text
         caption = None
 
         if message.text.startswith('/'):
             await bot.delete_message(message.chat.id, message.message_id)
-
-            allert = await message.answer('‼️ Во время сделки вы не можете использовать другой функционал')
+            alert = await message.answer('‼️ Во время сделки вы не можете использовать другой функционал')
             await asyncio.sleep(2)
-            return await allert.delete()
+            return await alert.delete()
 
     elif message.photo:
+        message_type = 'photo'
         item = message.photo[0].file_id
         caption = message.caption if message.caption else ''
+
+    elif message.video:
+        message_type = 'video'
+        item = message.video.file_id
+        caption = message.caption if message.caption else ''
+
+    elif message.sticker:
+        message_type = 'sticker'
+        item = message.sticker.file_id
+        caption = None
+
+    elif message.voice:
+        message_type = 'voice'
+        item = message.voice.file_id
+        caption = message.caption if message.caption else '⠀'
+
+    elif message.video_note:
+        message_type = 'video_note'
+        item = message.video_note.file_id
+        caption = None
+
+    elif message.animation:
+        message_type = 'animation'
+        item = message.animation.file_id
+        caption = message.caption if message.caption else ''
+
     else:
-        await bot.delete_message(message.from_user.id, message.message_id)
+        await bot.delete_message(message.chat.id, message.message_id)
         mes = await message.answer('Извините, на данный момент данный тип сообщений не поддерживается')
         await asyncio.sleep(2)
         return await mes.delete()
 
-    bot_user_id = get_bot_user_id(user_id)
-    save_chat_message(f'{buyer_id}_{seller_id}', user_id, recipient_id, item)
+    save_chat_message(data['deal_id'], user_id, recipient_id, message_type, item)
 
     if message.text:
         return await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b> {item}")
-    await bot.send_photo(recipient_id, item, caption=f'<b>Сообщение от ID {bot_user_id}:</b> ' + caption)
+
+    send_method = {
+        'photo': bot.send_photo,
+        'video': bot.send_video,
+        'sticker': bot.send_sticker,
+        'voice': bot.send_voice,
+        'video_note': bot.send_video_note,
+        'animation': bot.send_animation,
+    }
+
+    if not caption:
+        await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b>")
+        await send_method[message_type](recipient_id, item)
+    else:
+        await send_method[message_type](recipient_id, item, caption=f'<b>Сообщение от ID {bot_user_id}:</b> ' + caption)
 
 
 @router.message(Command('account'), StateFilter(default_state))
@@ -1007,7 +1045,7 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
 
     transactions_num = 0
     for transaction in transactions:
-        transaction_id, user_id, _, deal_id, amount, action, created_at = transaction
+        transaction_id, user_id, _, _, deal_id, amount, action, created_at = transaction
 
         if transaction_id in data['watched_transactions'].values():
             continue
@@ -1201,7 +1239,7 @@ async def process_order_id(message: Message, state: FSMContext):
 
         return await state.update_data(data)
 
-    if not check_matched_order(order_id, message.from_user.id):
+    if not check_deal(order_id, message.from_user.id):
         await bot.edit_message_text(
             text=complaint_lexicon['order_id'].format(complaint_lexicon['no_order']),
             chat_id=message.chat.id, message_id=data['original_message_id'],
@@ -1408,11 +1446,11 @@ async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
 
     buyer_id = callback.from_user.id
 
-    matched_orders_id = create_matched_order(buyer_id, 0, seller_id, int(order_id))
+    deal_id = create_deal(buyer_id, 0, seller_id, int(order_id))
 
-    edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy', deal_id=matched_orders_id)
+    edit_balance(buyer_id, -utils.get_price(order_id, 'buy'), 'buy', deal_id=deal_id)
 
-    await utils.notify_users_of_chat(matched_orders_id, buyer_id, seller_id, order_id, data['project'])
+    await utils.notify_users_of_chat(deal_id, buyer_id, seller_id, order_id, data['project'])
 
 
 @router.callback_query(F.data.startswith('cancel_order_'), StateFilter(default_state))

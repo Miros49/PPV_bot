@@ -4,19 +4,20 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 
-from core import Config, load_config, storage
+from core import config, storage
 from database import init_db
 from handlers import UserHandlers, AdminHandlers, PaymentHandlers, DebugHandlers
-from middlewares import BanMiddleware
+from middlewares import RateLimitMiddleware, BanMiddleware
 
 logging.basicConfig(level=logging.INFO)
-config: Config = load_config('.env')
 
 default = DefaultBotProperties(parse_mode='HTML')
 bot: Bot = Bot(token=config.tg_bot.token, default=default)
 dp: Dispatcher = Dispatcher(storage=storage)
 
+dp.message.middleware(RateLimitMiddleware())
 dp.message.middleware(BanMiddleware())
+dp.callback_query.middleware(RateLimitMiddleware())
 dp.callback_query.middleware(BanMiddleware())
 
 dp.include_router(AdminHandlers.router)

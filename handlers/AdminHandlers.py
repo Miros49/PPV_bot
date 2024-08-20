@@ -9,7 +9,6 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 
-import bot
 from core import *
 from database import *
 from filters import *
@@ -39,7 +38,13 @@ async def cls(message: Message, state: FSMContext):
 async def admin(message: Message):
     await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
 
-    await message.answer(f'Здравствуйте, {message.from_user.first_name}! 😊', reply_markup=Admin_kb.menu_kb())
+    await message.answer(LEXICON['admin_menu'].format(
+        income='в разработке',
+        users_number=count_users(),
+        active_orders_number=count_active_orders(),
+        active_deals_number=count_active_deals()
+    ),
+        reply_markup=Admin_kb.menu_kb())
 
 
 @router.callback_query(F.data == 'back_to_admin_menu', StateFilter(default_state))
@@ -60,7 +65,7 @@ async def admin_reports(callback: CallbackQuery):
     await callback.message.delete()
 
     for complaint in open_complaints:
-        complaint_id, order_id, complainer_id, offender_id, complaint_text, answer, created_at = complaint
+        complaint_id, deal_id, complainer_id, offender_id, complaint_text, answer, created_at = complaint
 
         complainer = get_user(complainer_id)
         offender = get_user(offender_id)
@@ -69,9 +74,12 @@ async def admin_reports(callback: CallbackQuery):
         offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
 
         await callback.message.answer(
-            LEXICON['admin_report'].format(str(order_id), str(complaint_id), complainer_username,
-                                           complainer_id, offender_username, offender_id, complaint_text, created_at),
-            reply_markup=Admin_kb.answer_to_complaint_kb(complaint_id))
+            LEXICON['admin_report'].format(
+                complaint_id, deal_id, created_at,
+                get_bot_user_id(complainer_id), complainer_username, complainer_id,
+                get_bot_user_id(offender_id), offender_username, offender_id, complaint_text),
+            reply_markup=Admin_kb.answer_to_complaint_kb(complaint_id)
+        )
 
 
 @router.callback_query(F.data.startswith('answer_to_complaint'), StateFilter(default_state))
@@ -96,6 +104,23 @@ async def answer_to_complaint_handler(callback: CallbackQuery, state: FSMContext
 
     await state.set_state(AdminStates.input_answer)
     await state.update_data(data)
+
+
+@router.callback_query(F.data.startswith('reject_complaint'), StateFilter(default_state))
+async def reject_complaint_handler(callback: CallbackQuery, state: FSMContext):
+    complaint = get_complaint(callback.data.split('_')[-1])
+
+    # try:
+    set_complaint_status(complaint[0], 'rejected')
+
+    await bot.send_message(chat_id=complaint[2], text=LEXICON['complaint_rejected'].format(complaint[0]))
+    await callback.message.edit_text('✅ Жалоба успешно отклонена')
+
+    # except Exception as e:
+    #     await callback.message.edit_text('Что-то пошло не так. Подробности смотри в консоли')
+    #     print(f'Ошибка при попытке отклонения жалобы: {str(e)}')
+
+    await state.clear()
 
 
 @router.callback_query(F.data == 'cancel_button')
@@ -180,6 +205,7 @@ async def admin_information_by(callback: CallbackQuery, state: FSMContext):
 
 @router.message(StateFilter(AdminStates.input_id))
 async def send_information_handler(message: Message, state: FSMContext):
+    await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
     data = await state.get_data()
 
     await bot.delete_message(message.chat.id, message.message_id)
@@ -187,17 +213,20 @@ async def send_information_handler(message: Message, state: FSMContext):
     try:
         target_id = int(message.text)
     except ValueError:
-        return await bot.edit_message_text(LEXICON['incorrect_value'], chat_id=message.chat.id,
-                                           message_id=data['admin_information_message_mes_id'])
+        return await bot.edit_message_text(
+            text=LEXICON['incorrect_value'],
+            chat_id=message.chat.id, message_id=data['admin_information_message_mes_id'],
+            reply_markup=Admin_kb.back_to_information_kb()
+        )
 
-    await send_information(data['target'], target_id, message.chat.id, data['admin_information_message_mes_id'])
-
-    await state.clear()
-    await state.update_data(data)
+    if not await send_information(data['target'], target_id, message.chat.id, data['admin_information_message_mes_id']):
+        await state.clear()
+        await state.update_data(data)
 
 
 @router.callback_query(F.data.startswith('send_information_about'))
 async def send_information_about_handler(callback: CallbackQuery, state: FSMContext):
+    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
     _, _, _, target, target_id = callback.data.split('_')
 
     await send_information(target, target_id, callback.from_user.id, callback.message.message_id)

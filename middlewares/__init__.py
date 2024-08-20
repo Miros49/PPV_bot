@@ -1,1 +1,1 @@
-from middlewares.middlewares import BanMiddleware
+from middlewares.middlewares import RateLimitMiddleware, BanMiddleware

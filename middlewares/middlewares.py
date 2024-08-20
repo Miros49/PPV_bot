@@ -1,8 +1,20 @@
+import asyncio
+
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
 from typing import Callable, Dict, Any, Awaitable
 
 from database import user_is_not_banned, get_ban_info
+
+
+class RateLimitMiddleware(BaseMiddleware):
+    def __init__(self, delay: float = 0.3):
+        self.delay = delay
+        super().__init__()
+
+    async def __call__(self, handler, event: Message, data):
+        await asyncio.sleep(self.delay)
+        return await handler(event, data)
 
 
 class BanMiddleware(BaseMiddleware):
