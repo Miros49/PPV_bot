@@ -29,7 +29,7 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS orders (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER UNIQUE,
+                        user_id INTEGER,
                         username TEXT,
                         action TEXT,
                         item TEXT,
@@ -62,8 +62,8 @@ def create_tables():
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            bot_user_id INTEGER UNIQUE,
-                            user_id INTEGER UNIQUE,
+                            bot_user_id INTEGER,
+                            user_id INTEGER,
                             order_id INTEGER DEFAULT 0,
                             deal_id INTEGER DEFAULT 0,
                             amount REAL,

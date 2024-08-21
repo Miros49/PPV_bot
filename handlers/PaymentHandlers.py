@@ -139,6 +139,7 @@ async def cashout_amount_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     balance = get_balance(message.from_user.id)
     balance_text = '{:,}'.format(round(balance)).replace(',', ' ')
+    print(balance, balance_text)
 
     await bot.delete_message(message.from_user.id, message.message_id)
 
@@ -185,12 +186,12 @@ async def cashout_amount_handler(message: Message, state: FSMContext):
         return await state.update_data(data)
 
     await bot.edit_message_text(
-        text=payment_lexicon['input_card_number'].format(balance_text, '{:,}'.format(amount).replace(', ', ' ')),
+        text=payment_lexicon['input_card_number'].format(balance_text, '{:,}'.format(round(amount)).replace(', ', ' ')),
         chat_id=message.from_user.id, message_id=data['original_message_id'],
         reply_markup=User_kb.back_to_cashout_amount()
     )
 
-    data['amount'] = amount
+    data['amount'] = round(amount)
 
     await state.set_state(UserStates.input_card_number)
     await state.update_data(data)

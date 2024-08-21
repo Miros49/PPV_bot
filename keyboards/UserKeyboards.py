@@ -203,7 +203,7 @@ def account_kb():
         InlineKeyboardButton(text="💳 Пополнить", callback_data="top_up_balance"),
         InlineKeyboardButton(text='💸 Вывести', callback_data='cashout_request'),
         InlineKeyboardButton(text='📃 Операции', callback_data='transactions_management'),
-        InlineKeyboardButton(text="🗂 Мои ордера", callback_data="my_orders"),
+        InlineKeyboardButton(text="🗂 Мои заказы", callback_data="my_orders"),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     ).adjust(2)
 

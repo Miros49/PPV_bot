@@ -1,3 +1,4 @@
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery
 
 from core import bot
@@ -9,14 +10,17 @@ import utils
 
 async def send_information(target: str, target_id: int, chat_id: int, message_id: int):
     if target == 'user':
-        user = get_user(target_id)
+        user = get_user_by_id(target_id)
 
         if not user:
-            await bot.edit_message_text(
-                text='Пользователя с таким ID не существует',
-                chat_id=chat_id, message_id=message_id,
-                reply_markup=Admin_kb.back_to_information_kb()
-            )
+            try:
+                await bot.edit_message_text(
+                    text='Пользователя с таким ID не существует',
+                    chat_id=chat_id, message_id=message_id,
+                    reply_markup=Admin_kb.back_to_information_kb()
+                )
+            except TelegramBadRequest:
+                pass
             return True
 
         bans_info = get_ban_info(target_id)
@@ -41,11 +45,14 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         deal = get_deal(target_id)
 
         if not deal:
-            await bot.edit_message_text(
-                text='Пользователя с таким ID не существует',
-                chat_id=chat_id, message_id=message_id,
-                reply_markup=Admin_kb.back_to_information_kb()
-            )
+            try:
+                await bot.edit_message_text(
+                    text='Пользователя с таким ID не существует',
+                    chat_id=chat_id, message_id=message_id,
+                    reply_markup=Admin_kb.back_to_information_kb()
+                )
+            except TelegramBadRequest:
+                pass
             return True
 
         deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = deal
@@ -66,17 +73,20 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         )
 
     elif target == 'report':
-        complaint = get_open_complaints()
+        complaint = get_complaint(target_id)
 
         if not complaint:
-            await bot.edit_message_text(
-                text='Нет жалобы с данным ID',
-                chat_id=chat_id, message_id=message_id,
-                reply_markup=Admin_kb.back_to_information_kb()
-            )
+            try:
+                await bot.edit_message_text(
+                    text='Нет жалобы с данным ID',
+                    chat_id=chat_id, message_id=message_id,
+                    reply_markup=Admin_kb.back_to_information_kb()
+                )
+            except TelegramBadRequest:
+                pass
             return True
 
-        complaint_id, deal_id, complainer_id, offender_id, complaint_text, answer, created_at = complaint
+        complaint_id, deal_id, complainer_id, offender_id, complaint_text, status, answer, created_at = complaint
 
         complainer = get_user(complainer_id)
         offender = get_user(offender_id)
