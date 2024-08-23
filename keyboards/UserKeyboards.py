@@ -255,7 +255,7 @@ def confirm_cashout_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='💸 Вывести деньги', callback_data='cashout_confirm'),
+        InlineKeyboardButton(text='💸 Вывести', callback_data='cashout_confirm'),
         InlineKeyboardButton(text='❌ Отменить', callback_data='cashout_cancel')
     )
 
@@ -525,7 +525,7 @@ def payment_top_up_back():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Оплатить', pay=True),
+        InlineKeyboardButton(text='Пополнить', pay=True),
         InlineKeyboardButton(text='← Назад', callback_data='from_top_up_to_account')
     ).adjust(1)
 

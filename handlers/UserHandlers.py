@@ -813,8 +813,10 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
     seller_order_id = get_deal(int(callback.data.split('_')[-1]))[4]
     buyer_order_id = get_deal(int(callback.data.split('_')[-1]))[2]
 
-    buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
-    seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
+    buyer_state = FSMContext(
+        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=buyer_id, user_id=buyer_id))
+    seller_state = FSMContext(
+        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=seller_id, user_id=seller_id))
 
     buyer_data = await buyer_state.get_data()
     seller_data = await seller_state.get_data()

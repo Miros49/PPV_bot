@@ -76,7 +76,7 @@ async def order(message: Message, state: FSMContext):
         await bot.send_invoice(
             chat_id=message.from_user.id,
             title='Пополнение счёта',
-            description=f'На сумму: {amount_text} руб.',
+            description='💰',
             payload='test',
             provider_token=config.payment.token,
             currency='RUB',

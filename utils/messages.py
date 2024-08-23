@@ -19,8 +19,10 @@ from utils import determine_game
 
 async def notify_users_of_chat(deal_id: int | str, buyer_id: int | str, seller_id: int | str,
                                order_id: int | str, project: str):
-    buyer_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=buyer_id, user_id=buyer_id))
-    seller_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=seller_id, user_id=seller_id))
+    buyer_state = FSMContext(
+        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=buyer_id, user_id=buyer_id))
+    seller_state = FSMContext(
+        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=seller_id, user_id=seller_id))
 
     await buyer_state.set_state(UserStates.in_chat)
     await seller_state.set_state(UserStates.in_chat)
@@ -156,17 +158,16 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
         if order_id in data['watched_orders'].values():
             continue
 
+        item_name = utils.get_item_text(item)
+
         if item == 'virt':
-            item_name = 'Вирты'
             item_text = f"Кол-во валюты: <code>{'{:,}'.format(math.ceil(amount))}</code>"
 
         elif item == 'business':
-            item_name = 'Бизнес'
             item_text = f"Название бизнеса: <i>{description}</i>"
             price_ *= 1.3
 
         else:
-            item_name = 'Аккаунт'
             item_text = f"Описание аккаунта: <i>{description}</i>"
             price_ *= 1.3
 
@@ -292,6 +293,7 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 
 
 async def get_user_state(user_id: str | int):
-    state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=user_id, user_id=user_id))
+    state = FSMContext(storage,
+                       StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=user_id, user_id=user_id))
 
     return await state.get_state()

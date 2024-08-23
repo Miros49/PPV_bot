@@ -26,7 +26,7 @@ def parse_message_order(message: str):
     amount_pattern = re.compile(r'Кол-во валюты: ([\d,]+)')
     business_name_pattern = re.compile(r'Наименование: (.+)')
     description_pattern = re.compile(r'Описание: (.+)')
-    final_price_pattern = re.compile(r'Стоимость: ([\d\s,\.]+)\s*руб')
+    final_price_pattern = re.compile(r'Стоимость: ([\d\s,\.]+)\s*₽')
 
     type_match = type_pattern.search(message)
     category_match = category_pattern.search(message)

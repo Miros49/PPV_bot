@@ -193,6 +193,7 @@ async def admin_information_by(callback: CallbackQuery, state: FSMContext):
 
     data = {
         'target': callback.data.split('_')[-1],
+        'previous_steps': [],
         'admin_information_message_mes_id': (
             await callback.message.edit_text(LEXICON['admin_information'].format(argument),
                                              reply_markup=Admin_kb.back_to_information_kb())
@@ -211,7 +212,7 @@ async def send_information_handler(message: Message, state: FSMContext):
     await bot.delete_message(message.chat.id, message.message_id)
 
     try:
-        target_id = int(message.text)
+        target_id = get_bot_user_id(int(message.text)) if data['target'] == 'user' else int(message.text)
     except ValueError:
         return await bot.edit_message_text(
             text=LEXICON['incorrect_value'],
@@ -219,7 +220,10 @@ async def send_information_handler(message: Message, state: FSMContext):
             reply_markup=Admin_kb.back_to_information_kb()
         )
 
-    if not await send_information(data['target'], target_id, message.chat.id, data['admin_information_message_mes_id']):
+    data['previous_steps'] = [f"{data['target']}_{str(target_id)}"]
+
+    if not await send_information(data['target'], target_id, message.chat.id,
+                                  data['admin_information_message_mes_id'], state):
         await state.clear()
         await state.update_data(data)
 
@@ -227,9 +231,30 @@ async def send_information_handler(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith('send_information_about'))
 async def send_information_about_handler(callback: CallbackQuery, state: FSMContext):
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+    data = await state.get_data()
     _, _, _, target, target_id = callback.data.split('_')
 
-    await send_information(target, target_id, callback.from_user.id, callback.message.message_id)
+    print(data['previous_steps'], target, target_id)
+
+    await send_information(target, target_id, callback.from_user.id, callback.message.message_id,
+                           state)
+
+    data['previous_steps'].append(f"{target}_{target_id}")
+    await state.update_data(data)
+
+
+@router.callback_query(F.data.startswith('back_to_information_about'))
+async def send_information_about_handler(callback: CallbackQuery, state: FSMContext):
+    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+    data = await state.get_data()
+    _, _, _, _, target, target_id = callback.data.split('_')
+
+    print(data['previous_steps'].pop(), target, target_id)
+
+    await send_information(target, target_id, callback.from_user.id, callback.message.message_id,
+                           state)
+
+    await state.update_data(data)
 
 
 @router.callback_query(F.data.in_(['admin_edit_price', 'back_to_games']), StateFilter(default_state))

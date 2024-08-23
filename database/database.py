@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from typing import List, Tuple, Optional, Union
 
-from core import storage
+from core import config, storage
 from states import UserStates
 
 database_file = 'database/database.db'
@@ -355,7 +355,8 @@ async def match_orders(user_id, action, project, server, amount):
 
         order_id, other_user_id = match[0], match[1]
 
-        other_user_state = FSMContext(storage, StorageKey(bot_id=7324739366, chat_id=user_id, user_id=user_id))
+        other_user_state = FSMContext(
+            storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=user_id, user_id=user_id))
         if await other_user_state.get_state() not in [UserStates.in_chat, UserStates.in_chat_waiting_complaint]:
             conn.close()
             return order_id, other_user_id
