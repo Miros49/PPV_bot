@@ -1,4 +1,6 @@
-from aiogram.types import InlineKeyboardButton
+from typing import Any
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from database import get_bot_user_id
@@ -152,11 +154,12 @@ def inspect_user_kb(user_id: int | str, is_not_banned: bool, previous_steps: lis
     kb.add(
         InlineKeyboardButton(text='Операции', callback_data=f'show_user_operations_{str(user_id)}'),
         InlineKeyboardButton(text='Ордера', callback_data=f'show_user_orders_{str(user_id)}'),
-        InlineKeyboardButton(text='Анулировать баланс', callback_data=f'cancel_user_balance_{str(user_id)}'),
+        InlineKeyboardButton(text='Уменьшить баланс', callback_data=f'reduce_user_balance_{str(user_id)}'),
         InlineKeyboardButton(text='Пополнить баланс', callback_data=f'top_up_user_balance_{str(user_id)}')
     ).adjust(2)
-    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'unban_user_{str(user_id)}')) if is_not_banned \
-        else kb.row(InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data='admin_ban_user'))
+    kb.row(InlineKeyboardButton(text='Разбанить', callback_data=f'admin_unban_user_{str(user_id)}')) if is_not_banned \
+        else kb.row(
+        InlineKeyboardButton(text='🚫 Забанить пользователя', callback_data=f'admin_ban_user_{str(user_id)}'))
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=back_button_callback))
 
     return previous_steps, kb.as_markup()
@@ -212,7 +215,8 @@ def inspect_complaint_kb(deal_id: int | str, complainer_id: int | str, offender_
 
     kb.row(
         InlineKeyboardButton(text='Сделка', callback_data=f'send_information_about_deal_{str(deal_id)}'),
-        InlineKeyboardButton(text='Истец', callback_data=f'send_information_about_user_{str(get_bot_user_id(complainer_id))}'),
+        InlineKeyboardButton(text='Истец',
+                             callback_data=f'send_information_about_user_{str(get_bot_user_id(complainer_id))}'),
         InlineKeyboardButton(text='Ответчик', callback_data=f'send_information_about_user_{str(offender_id)}'),
     )
     kb.row(
@@ -223,3 +227,23 @@ def inspect_complaint_kb(deal_id: int | str, complainer_id: int | str, offender_
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=back_button_callback))
 
     return previous_steps, kb.as_markup()
+
+
+def back_to_inspection_user(user_id: Any):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_information_about_user_{str(user_id)}'))
+
+    return kb.as_markup()
+
+
+def confirmation_of_editing_user_balance(user_id: Any, action: str, amount: Any):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='✅ Да', callback_data=f'confirm_balance_change_{str(user_id)}_{action}_{str(amount)}'),
+        InlineKeyboardButton(text='❌ Нет, отменить', callback_data=f'back_to_information_about_user_{str(user_id)}'),
+        InlineKeyboardButton(text='← Назад', callback_data='back_to_entering_balance_change_amount')
+    ).adjust(2)
+
+    return kb.as_markup()

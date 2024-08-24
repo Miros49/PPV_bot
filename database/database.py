@@ -93,6 +93,13 @@ def create_tables():
                             banned_until TEXT,
                             bans_number INTEGER)''')
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS income (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            source_type TEXT,
+                            source_id INTEGER,
+                            action TEXT,
+                            amount REAL)''')
+
     conn.commit()
     conn.close()
 
@@ -166,11 +173,11 @@ def get_user_id_by_id(user_id_in_database: int) -> int | None:
     return None
 
 
-def get_user_by_id(user_id_in_database: int):
+def get_user_by_id(user_id_in_database: int | str):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id_in_database,))
+    cursor.execute("SELECT * FROM users WHERE id = ?", (int(user_id_in_database),))
     result = cursor.fetchone()
     conn.close()
 
@@ -260,6 +267,61 @@ def count_users() -> int:
     conn.close()
 
     return user_count
+
+
+def get_user_activity_summary(user_id: int) -> dict:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    # Calculate total deposited amount
+    cursor.execute("""
+        SELECT SUM(amount)
+        FROM transactions
+        WHERE user_id = ? AND action = 'deposit'
+    """, (user_id,))
+    total_top_up = cursor.fetchone()[0] or 0
+
+    # Count the number of orders created
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM orders
+        WHERE user_id = ?
+    """, (user_id,))
+    total_orders = cursor.fetchone()[0]
+
+    # Count the number of deals conducted
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM deals
+        WHERE buyer_id = ? OR seller_id = ?
+    """, (user_id, user_id))
+    total_deals = cursor.fetchone()[0]
+
+    # Count the number of confirmed deals
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM deals
+        WHERE (buyer_id = ? OR seller_id = ?) AND ststus = 'confirmed'
+    """, (user_id, user_id))
+    confirmed_deals = cursor.fetchone()[0]
+
+    # Count the number of complaints made against the user
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM reports
+        WHERE offender_id = ?
+    """, (user_id,))
+    complaints_against_user = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "total_top_up": total_top_up,
+        "total_orders": total_orders,
+        "total_deals": total_deals,
+        "confirmed_deals": confirmed_deals,
+        "complaints_against_user": complaints_against_user
+    }
 
 
 def get_order(order_id: int | str):
@@ -847,59 +909,29 @@ def user_is_not_banned(user_id: int | str) -> bool:
     return now > banned_until_time
 
 
-def get_user_activity_summary(user_id: int) -> dict:
+def unban_user(user_id: int) -> bool:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    # Calculate total deposited amount
-    cursor.execute("""
-        SELECT SUM(amount)
-        FROM transactions
-        WHERE user_id = ? AND action = 'deposit'
-    """, (user_id,))
-    total_top_up = cursor.fetchone()[0] or 0
+    # есть ли такой тип в бд
+    cursor.execute("SELECT id FROM bans WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
 
-    # Count the number of orders created
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM orders
-        WHERE user_id = ?
-    """, (user_id,))
-    total_orders = cursor.fetchone()[0]
+    if result:
+        tz = datetime.timezone(datetime.timedelta(hours=3))
+        current_time = datetime.datetime.now(tz).strftime('%d.%m.%Y %H:%M')
 
-    # Count the number of deals conducted
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM deals
-        WHERE buyer_id = ? OR seller_id = ?
-    """, (user_id, user_id))
-    total_deals = cursor.fetchone()[0]
+        # разбан
+        cursor.execute("UPDATE bans SET banned_until = ? WHERE user_id = ?", (current_time, user_id))
+        conn.commit()
 
-    # Count the number of confirmed deals
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM deals
-        WHERE (buyer_id = ? OR seller_id = ?) AND ststus = 'confirmed'
-    """, (user_id, user_id))
-    confirmed_deals = cursor.fetchone()[0]
+        unbanned = True
 
-    # Count the number of complaints made against the user
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM reports
-        WHERE offender_id = ?
-    """, (user_id,))
-    complaints_against_user = cursor.fetchone()[0]
+    else:
+        unbanned = False
 
     conn.close()
-
-    return {
-        "total_top_up": total_top_up,
-        "total_orders": total_orders,
-        "total_deals": total_deals,
-        "confirmed_deals": confirmed_deals,
-        "complaints_against_user": complaints_against_user
-    }
+    return unbanned
 
 
 # ------------------ УПРАВЛЕНИЕ ЛОГАМИ СДЕЛОК ------------------ #
@@ -935,3 +967,30 @@ def get_chat_messages(deal_id: int) -> List[Tuple[int, int, int, str, str]]:
     conn.close()
 
     return messages
+
+
+# ------------------ УПРАВЛЕНИЕ ДОХОДОМ ------------------ #
+
+
+def add_income(source_type, source_id, action, amount):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''INSERT INTO income (source_type, source_id, action, amount)
+                      VALUES (?, ?, ?, ?)''', (source_type, source_id, action, amount))
+
+    conn.commit()
+
+
+def calculate_profit():
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''SELECT 
+                        (SELECT COALESCE(SUM(amount), 0) FROM income WHERE action = 'income') - 
+                        (SELECT COALESCE(SUM(amount), 0) FROM income WHERE action = 'loss') 
+                      AS profit''')
+
+    result = cursor.fetchone()
+
+    return round(result[0]) if result else 0

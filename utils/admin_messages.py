@@ -27,12 +27,10 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
 
         bans_info = get_ban_info(target_id)
         ban_text = information['ban'].format(bans_info[2], bans_info[3]) if bans_info else ''
-        user_activity = get_user_activity_summary(target_id)
+        user_activity = get_user_activity_summary(get_user_by_id(target_id)[1])
 
-        print('a', data['previous_steps'])
-
-        data['previous_steps'], kb = Admin_kb.inspect_user_kb(target_id, not user_is_not_banned(target_id),
-                                                              data['previous_steps'])
+        data['previous_steps'], kb = Admin_kb.inspect_user_kb(
+            target_id, not user_is_not_banned(get_user_by_id(target_id)[1]), data['previous_steps'])
 
         print('b', data['previous_steps'])
 

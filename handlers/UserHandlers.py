@@ -885,6 +885,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             except sqlite3.Error as e:
                 print(f"Error updating order status to 'confirmed': {e}")
 
+            add_income('deal', deal_id, 'income', utils.get_income_amount(seller_order_id))
+
     await buyer_state.clear()
     await seller_state.clear()
 
@@ -1242,11 +1244,14 @@ async def process_order_id(message: Message, state: FSMContext):
         return await state.update_data(data)
 
     if not check_deal(order_id, message.from_user.id):
-        await bot.edit_message_text(
-            text=complaint_lexicon['order_id'].format(complaint_lexicon['no_order']),
-            chat_id=message.chat.id, message_id=data['original_message_id'],
-            reply_markup=User_kb.back_to_complaint_kb()
-        )
+        try:
+            await bot.edit_message_text(
+                text=complaint_lexicon['order_id'].format(complaint_lexicon['no_order']),
+                chat_id=message.chat.id, message_id=data['original_message_id'],
+                reply_markup=User_kb.back_to_complaint_kb()
+            )
+        except TelegramBadRequest:
+            pass
         return await state.update_data(data)
 
     if user_has_complaint_on_order(message.from_user.id, order_id):

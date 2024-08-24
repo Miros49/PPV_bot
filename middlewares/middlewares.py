@@ -34,9 +34,7 @@ class BanMiddleware(BaseMiddleware):
                 ban_info = get_ban_info(user_id)
                 if ban_info:
                     if isinstance(event, Message):
-                        await event.answer(
-                            f"Вы забанены до <i>{ban_info[2]}</i>"
-                        )
+                        await event.delete()
                     elif isinstance(event, CallbackQuery):
                         await event.answer(
                             f"Вы забанены до {ban_info[2]}",

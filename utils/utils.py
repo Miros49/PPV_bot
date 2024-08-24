@@ -115,6 +115,10 @@ def get_price(order_id: int | str, action_type: str) -> int:
     return int(order[8])
 
 
+def get_income_amount(order_id: int | str) -> int | float:
+    return get_price(order_id, 'buy') - get_price(order_id, 'sell')
+
+
 def get_order_seved_text(data: dict) -> str:
     action_text, item, project, server, price_, additional = data.values()
     emoji = '📘' if action_text == 'Продажа' else '📗'
