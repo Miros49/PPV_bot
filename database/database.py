@@ -745,9 +745,10 @@ def get_price_db(project: str, server: str, action_type: str) -> int | float:
     return result[0] if result else 100
 
 
-def add_transaction(user_id: int, amount: float, action: str, order_id: int = 0, deal_id: int = 0):
-    bot_user_id = get_bot_user_id(user_id)
+# ------------------ УПРАВЛЕНИЕ ТРАНЗАКЦИЯМИ ------------------ #
 
+
+def add_transaction(user_id: int, amount: float, action: str, order_id: int = 0, deal_id: int = 0):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
@@ -756,7 +757,7 @@ def add_transaction(user_id: int, amount: float, action: str, order_id: int = 0,
     cursor.execute("""
         INSERT INTO transactions (bot_user_id, user_id, order_id, deal_id, amount, action, timestamp)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (bot_user_id, user_id, order_id, deal_id, amount, action, current_time))
+    """, (get_bot_user_id(user_id), user_id, order_id, deal_id, amount, action, current_time))
 
     conn.commit()
     conn.close()

@@ -17,7 +17,7 @@ from keyboards import AdminKeyboards as Admin_kb, UserKeyboards as User_kb
 from lexicon import *
 from states import AdminStates
 import utils
-from utils.admin_messages import send_information
+from utils.admin_messages import send_information, send_chat_logs
 
 router: Router = Router()
 router.message.filter(IsAdminFilter())
@@ -564,13 +564,39 @@ async def confirm_balance_change_handler(callback: CallbackQuery):
     amount_to_edit = float(amount) if action == 'top-up' else float(amount) * (-1)
     income_action = 'income' if action == 'top-up' else 'loss'
     transaction_action = 'top_up' if action == 'top-up' else 'reduction'
-    action_text = 'пополнила' if action == 'top-up' else 'уменьшила'
+    action_text_user = 'пополнила' if action == 'top-up' else 'уменьшила'
+    action_text_admin = 'пополнен' if action == 'top-up' else 'уменьшен'
     amount_text = '{:,}'.format(round(float(amount))).replace(',', ' ')
 
     try:
         edit_balance(user_id, amount_to_edit, transaction_action)
         add_income('user', user_id, income_action, float(amount))
-        await bot.send_message(user_id, LEXICON['notify_user_about_balance_changes'].format(action_text, amount_text))
-        await callback.message.edit_text('✅ Успешно!', reply_markup=Admin_kb.back_to_inspection_user(bot_user_id))
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=LEXICON['notify_user_about_balance_changes'].format(action_text_user, amount_text)
+        )
+        await callback.message.edit_text(
+            LEXICON['admin_confirmation_of_editing_balance'].format(bot_user_id, action_text_admin, amount_text),
+            reply_markup=Admin_kb.back_to_inspection_user(bot_user_id)
+        )
+
     except Exception as e:
         print(f'Ошибка при попытке изменение баланса пользователя: {str(e)}')
+
+
+@router.callback_query(F.data.startswith('interfere_in_chat'))
+async def interfere_in_chat_handler(callback: CallbackQuery):
+    deal_id = callback.data.split('_')[-1]
+
+    deal = get_deal(deal_id)
+
+    await send_chat_logs(callback, int(deal_id))
+
+    if deal[5] != 'open':
+        return await callback.message.edit_text('Эта сделка была завершена')
+
+    await callback.message.answer('Как вы хотите вмешаться в чат?',
+                                  reply_markup=Admin_kb.interfere_in_chat_like_kb(deal_id))
+
+

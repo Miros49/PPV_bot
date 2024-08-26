@@ -627,9 +627,8 @@ async def account_price(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith('confirmation_of_creation_'), StateFilter(default_state))
 async def handle_deal_confirmation_callback(callback: CallbackQuery):
     user_id = callback.from_user.id
-    action_type = callback.data.split('_')[-1]
 
-    if action_type == 'confirm':
+    if callback.data.split('_')[-1] == 'confirm':
         username = callback.from_user.username
         item = callback.data.split('_')[-2]
         text = orders_lexicon['saved']
@@ -906,7 +905,7 @@ async def report_command(message: Message, state: FSMContext):
 
 
 @router.message(StateFilter(UserStates.in_chat))
-async def handle_chat_message(message: Message, state: FSMContext, bot: Bot):
+async def handle_chat_message(message: Message, state: FSMContext):
     data = await state.get_data()
 
     user_id = message.from_user.id
@@ -1085,15 +1084,13 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
     return await state.update_data(data)
 
 
-@router.callback_query(F.data == 'complaints_button',
-                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
+@router.callback_query(F.data == 'complaints_button', StateFilter(default_state))
 async def complaints_button_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(LEXICON['report_message'], reply_markup=User_kb.report_kb())
     await state.clear()
 
 
-@router.callback_query(F.data == 'my_complaints',
-                       ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
+@router.callback_query(F.data == 'my_complaints', StateFilter(default_state))
 async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watched_complains: list = []):
     complaints = get_complaints(callback.from_user.id)
 
