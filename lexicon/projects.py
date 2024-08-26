@@ -14,3 +14,5 @@ PROJECTS = {
     'gta5': GTA5_PROJECTS,
     'other': OTHER_PROJECTS
 }
+
+# TODO: + Барвиха + Муриета + бостон
