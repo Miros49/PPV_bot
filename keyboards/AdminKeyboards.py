@@ -103,14 +103,13 @@ def answer_to_complaint_kb(complaint_id: int, show_interfere_button: bool = Fals
     return kb.as_markup()
 
 
-def interfere_in_chat_like_kb(deal_id: int | str):
+def interfere_in_chat_like_kb(deal_id: int | str, show_interfere_button: bool):
     kb = InlineKeyboardBuilder()
 
-    kb.row(
-        InlineKeyboardButton(text='Официально', callback_data=f'interfere_in_chat_like_official_{str(deal_id)}'),
-        InlineKeyboardButton(text='Инкогнито', callback_data=f'interfere_in_chat_like_incognito_{str(deal_id)}'),
-        InlineKeyboardButton(text='← Назад', callback_data='admin_information')
-    ).adjust(2)
+    kb.row(InlineKeyboardButton(
+        text='Официально', callback_data=f'interfere_in_chat_confirm{str(deal_id)}')
+    ) if show_interfere_button else None
+    kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_information_about_deal_{str(deal_id)}'))
 
     return kb.as_markup()
 

@@ -159,7 +159,8 @@ async def send_chat_logs(callback: CallbackQuery, deal_id: int):
     messages = get_chat_messages(deal_id)
 
     for message_info in messages:
-        _, sender_id, receiver_id, message_type, message, timestamp = message_info
+        _, _, sender_id, receiver_id, message_type, message, timestamp = message_info
+        sender_id = get_bot_user_id(sender_id)
 
         if message_type == 'text':
             await callback.message.answer(f'<b>Сообщение от {sender_id}</b>: {message}')

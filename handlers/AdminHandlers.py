@@ -585,18 +585,26 @@ async def confirm_balance_change_handler(callback: CallbackQuery):
         print(f'Ошибка при попытке изменение баланса пользователя: {str(e)}')
 
 
-@router.callback_query(F.data.startswith('interfere_in_chat'))
-async def interfere_in_chat_handler(callback: CallbackQuery):
+@router.callback_query(F.data.startswith('show_chat'))
+async def interfere_in_chat_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    await callback.message.delete()
+
     deal_id = callback.data.split('_')[-1]
 
     deal = get_deal(deal_id)
 
     await send_chat_logs(callback, int(deal_id))
 
-    if deal[5] != 'open':
-        return await callback.message.edit_text('Эта сделка была завершена')
+    text = '<b>Выберите действие:</b>' if deal[5] == 'open' else '<b>Этот чат завершён</b>'
 
-    await callback.message.answer('Как вы хотите вмешаться в чат?',
-                                  reply_markup=Admin_kb.interfere_in_chat_like_kb(deal_id))
+    await callback.message.answer(text, reply_markup=Admin_kb.interfere_in_chat_like_kb(deal_id, deal[5] == 'open'))
+
+    # TODO: нужно удалять весь мусор при нажатии на кнопку назад
+    await state.update_data()
 
 
+@router.callback_query(F.data.startswith('interfere_in_chat_confirm'))
+async def interfere_in_chat_like_handler(callback: CallbackQuery, state: FSMContext):
+    connection_type = callback.data.split('_')

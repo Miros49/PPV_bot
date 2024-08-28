@@ -953,12 +953,12 @@ def save_chat_message(deal_id, sender_id, receiver_id, message_type, message):
     conn.close()
 
 
-def get_chat_messages(deal_id: int) -> List[Tuple[int, int, int, str, str]]:
+def get_chat_messages(deal_id: int):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, sender_id, receiver_id, type, message, timestamp
+        SELECT *
         FROM chat_logs
         WHERE deal_id = ?
         ORDER BY timestamp ASC
