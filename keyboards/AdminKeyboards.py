@@ -107,7 +107,7 @@ def interfere_in_chat_like_kb(deal_id: int | str, show_interfere_button: bool):
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(
-        text='Официально', callback_data=f'interfere_in_chat_confirm{str(deal_id)}')
+        text='Вмешаться в чат', callback_data=f'interfere_in_chat_confirm_{str(deal_id)}')
     ) if show_interfere_button else None
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_information_about_deal_{str(deal_id)}'))
 
@@ -180,11 +180,8 @@ def inspect_order_kb(order_id: int | str, user_id: int | str, previous_steps: li
 
 def inspect_deal_kb(deal_id: int | str, buyer_id: int | str, seller_id: int | str, is_active: bool,
                     previous_steps: list):
-    print(11111111111111, previous_steps)
     back_button_callback = f'back_to_information_about_{previous_steps[-1]}' if previous_steps \
         else 'admin_information_deal'
-    print(previous_steps)
-    print(back_button_callback)
 
     kb = InlineKeyboardBuilder()
 
@@ -198,8 +195,7 @@ def inspect_deal_kb(deal_id: int | str, buyer_id: int | str, seller_id: int | st
         InlineKeyboardButton(text='Покупатель',
                              callback_data=f'send_information_about_user_{str(get_bot_user_id(buyer_id))}')
     )
-    kb.row(InlineKeyboardButton(text='Вмешаться в чат', callback_data=f'interfere_in_chat_{str(deal_id)}')) \
-        if is_active else kb.row(InlineKeyboardButton(text='Посмотреть чат', callback_data=f'show_chat_{str(deal_id)}'))
+    kb.row(InlineKeyboardButton(text='Посмотреть чат', callback_data=f'show_chat_{str(deal_id)}'))
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=back_button_callback))
 
     return previous_steps, kb.as_markup()
@@ -240,9 +236,18 @@ def confirmation_of_editing_user_balance(user_id: Any, action: str, amount: Any)
     kb = InlineKeyboardBuilder()
 
     kb.row(
-        InlineKeyboardButton(text='✅ Да', callback_data=f'confirm_balance_change_{str(user_id)}_{action}_{str(amount)}'),
+        InlineKeyboardButton(text='✅ Да',
+                             callback_data=f'confirm_balance_change_{str(user_id)}_{action}_{str(amount)}'),
         InlineKeyboardButton(text='❌ Нет, отменить', callback_data=f'back_to_information_about_user_{str(user_id)}'),
         InlineKeyboardButton(text='← Назад', callback_data='back_to_entering_balance_change_amount')
     ).adjust(2)
+
+    return kb.as_markup()
+
+
+def exit_chat():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='Покинуть чат', callback_data='exit_chat'))
 
     return kb.as_markup()

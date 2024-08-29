@@ -977,6 +977,11 @@ async def handle_chat_message(message: Message, state: FSMContext):
     if not caption:
         await bot.send_message(recipient_id, f"<b>Сообщение от ID {bot_user_id}:</b>")
         await send_method[message_type](recipient_id, item)
+
+        if 'admin_id' in data:
+            await bot.send_message(data[''], f"<b>Сообщение от ID {bot_user_id}:</b>")
+            await send_method[message_type](recipient_id, item)
+
     else:
         await send_method[message_type](recipient_id, item, caption=f'<b>Сообщение от ID {bot_user_id}:</b> ' + caption)
 

@@ -104,12 +104,8 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         price_buy = utils.get_price(seller_order_id, 'buy')
         price_buy, price_sell = '{:,}'.format(price_buy).replace(',', ' '), '{:,}'.format(price_sell).replace(',', ' ')
 
-        print('aa', data['previous_steps'])
-
         data['previous_steps'], kb = Admin_kb.inspect_deal_kb(deal_id, buyer_id, seller_id, status == 'open',
                                                               data['previous_steps'])
-
-        print('bb', data['previous_steps'])
 
         await bot.edit_message_text(
             text=information['deal'].format(
@@ -158,30 +154,39 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
 async def send_chat_logs(callback: CallbackQuery, deal_id: int):
     messages = get_chat_messages(deal_id)
 
+    message_ids = []
+
     for message_info in messages:
-        _, _, sender_id, receiver_id, message_type, message, timestamp = message_info
+        message_id, _, sender_id, receiver_id, message_type, message, timestamp = message_info
         sender_id = get_bot_user_id(sender_id)
+        additional = None
 
         if message_type == 'text':
-            await callback.message.answer(f'<b>Сообщение от {sender_id}</b>: {message}')
-
+            sent_message = await callback.message.answer(f'<b>Сообщение от {sender_id}</b>: {message}')
         elif message_type == 'photo':
-            await callback.message.answer_photo(photo=message, caption=f'<b>Сообщение от {sender_id}</b>:')
-
+            sent_message = await callback.message.answer_photo(photo=message,
+                                                               caption=f'<b>Сообщение от {sender_id}</b>:')
         elif message_type == 'video':
-            await callback.message.answer_video(video=message, caption=f'<b>Сообщение от {sender_id}</b>:', )
-
+            sent_message = await callback.message.answer_video(video=message,
+                                                               caption=f'<b>Сообщение от {sender_id}</b>:')
         elif message_type == 'sticker':
-            await callback.message.answer(f'<b>Сообщение от {sender_id}</b>:')
-            await callback.message.answer_sticker(sticker=message)
-
+            additional = await callback.message.answer(f'<b>Сообщение от {sender_id}</b>:')
+            sent_message = await callback.message.answer_sticker(sticker=message)
         elif message_type == 'voice':
-            await callback.message.answer_voice(voice=message, caption=f'<b>Сообщение от {sender_id}</b>:', )
-
+            sent_message = await callback.message.answer_voice(voice=message,
+                                                               caption=f'<b>Сообщение от {sender_id}</b>:')
         elif message_type == 'video_note':
-            await callback.message.answer(f'<b>Сообщение от {sender_id}</b>:')
-            await callback.message.answer_video_note(video_note=message)
-
+            additional = await callback.message.answer(f'<b>Сообщение от {sender_id}</b>:')
+            sent_message = await callback.message.answer_video_note(video_note=message)
         elif message_type == 'animation':
-            await callback.message.answer(f'<b>Сообщение от {sender_id}</b>:')
-            await callback.message.answer_animation(animation=message, caption=f'<b>Сообщение от {sender_id}</b>:', )
+            additional = await callback.message.answer(f'<b>Сообщение от {sender_id}</b>:')
+            sent_message = await callback.message.answer_animation(animation=message,
+                                                                   caption=f'<b>Сообщение от {sender_id}</b>:')
+
+        else:
+            sent_message = await callback.message.answer('<b>Данный тип сообщений не поддерживается...</b>')
+
+        message_ids.append(sent_message.message_id)
+        message_ids.append(additional.message_id) if additional else None
+
+    return message_ids

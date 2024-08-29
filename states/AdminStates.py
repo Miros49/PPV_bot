@@ -8,3 +8,4 @@ class AdminStates(StatesGroup):
     input_answer: State = State()
     ban_input_period: State = State()
     input_amount_to_edit: State = State()
+    in_chat: State = State()

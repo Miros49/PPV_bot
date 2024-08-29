@@ -9,6 +9,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
+from redis.commands.search.query import Query
 
 from core import *
 from database import *
@@ -259,10 +260,14 @@ async def send_information_about_handler(callback: CallbackQuery, state: FSMCont
     data = await state.get_data()
     _, _, _, _, target, target_id = callback.data.split('_')
 
-    print(data['previous_steps'].pop() if data['previous_steps'] else 'нет шагов', target, target_id)
+    await send_information(target, int(target_id), callback.from_user.id, callback.message.message_id, state)
 
-    await send_information(target, target_id, callback.from_user.id, callback.message.message_id,
-                           state)
+    if 'deal_chat_messages' in data:  # Удаление сообщений из чата пользователей, если такие есть
+        for message_id in reversed(data['deal_chat_messages']):
+            try:
+                await bot.delete_message(chat_id=callback.message.chat.id, message_id=message_id)
+            except TelegramBadRequest:
+                pass
 
     await state.clear()
     await state.update_data(data)
@@ -406,7 +411,7 @@ async def admin_ban_user_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(StateFilter(AdminStates.ban_input_period))
-async def ban_user_for_yime_handler(message: Message, state: FSMContext):
+async def ban_user_until_time_handler(message: Message, state: FSMContext):
     data = await state.get_data()
 
     await bot.delete_message(message.chat.id, message.message_id)
@@ -587,24 +592,126 @@ async def confirm_balance_change_handler(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith('show_chat'))
 async def interfere_in_chat_handler(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-
     await callback.message.delete()
 
     deal_id = callback.data.split('_')[-1]
 
     deal = get_deal(deal_id)
 
-    await send_chat_logs(callback, int(deal_id))
+    chat_messages = await send_chat_logs(callback, int(deal_id))
 
     text = '<b>Выберите действие:</b>' if deal[5] == 'open' else '<b>Этот чат завершён</b>'
 
     await callback.message.answer(text, reply_markup=Admin_kb.interfere_in_chat_like_kb(deal_id, deal[5] == 'open'))
 
-    # TODO: нужно удалять весь мусор при нажатии на кнопку назад
-    await state.update_data()
+    await state.update_data(deal_chat_messages=chat_messages)
 
 
 @router.callback_query(F.data.startswith('interfere_in_chat_confirm'))
 async def interfere_in_chat_like_handler(callback: CallbackQuery, state: FSMContext):
-    connection_type = callback.data.split('_')
+    deal = get_deal(callback.data.split('_')[-1])
+
+    await bot.send_message(chat_id=deal[1], text=LEXICON['admin_joined_chat'])
+    await bot.send_message(chat_id=deal[3], text=LEXICON['admin_joined_chat'])
+
+    data = {
+        'in_chat_message_id': (
+            await callback.message.edit_text(
+                text='Для выхода из чата нажмите на кнопку снизу',
+                reply_markup=Admin_kb.exit_chat()
+            )
+        ).message_id,
+        'in_chat_with': [deal[1], deal[3]],
+        'deal_id': deal[0]
+    }
+
+    for user_id in [deal[1], deal[3]]:
+        user_state = FSMContext(storage, StorageKey(int(config.tg_bot.token.split(':')[0]), user_id, user_id))
+        await user_state.update_data(admin_id=callback.from_user.id)
+
+    await state.set_state(AdminStates.in_chat)
+    await state.update_data(data)
+
+
+@router.message(StateFilter(AdminStates.in_chat))
+async def admin_in_chat_handler(message: Message, state: FSMContext):
+    data = await state.get_data()
+
+    user_id = message.from_user.id
+
+    if message.text:
+        message_type = 'text'
+        item = message.text
+        caption = None
+
+        if message.text.startswith('/'):
+            await bot.delete_message(message.chat.id, message.message_id)
+            alert = await message.answer('‼️ Во время сделки вы не можете использовать другой функционал')
+            await asyncio.sleep(2)
+            return await alert.delete()
+
+    elif message.photo:
+        message_type = 'photo'
+        item = message.photo[0].file_id
+        caption = message.caption if message.caption else ''
+
+    elif message.video:
+        message_type = 'video'
+        item = message.video.file_id
+        caption = message.caption if message.caption else ''
+
+    elif message.sticker:
+        message_type = 'sticker'
+        item = message.sticker.file_id
+        caption = None
+
+    elif message.voice:
+        message_type = 'voice'
+        item = message.voice.file_id
+        caption = message.caption if message.caption else '⠀'
+
+    elif message.video_note:
+        message_type = 'video_note'
+        item = message.video_note.file_id
+        caption = None
+
+    elif message.animation:
+        message_type = 'animation'
+        item = message.animation.file_id
+        caption = message.caption if message.caption else ''
+
+    else:
+        await bot.delete_message(message.chat.id, message.message_id)
+        mes = await message.answer('Извините, на данный момент данный тип сообщений не поддерживается')
+        await asyncio.sleep(2)
+        return await mes.delete()
+
+    send_method = {
+        'photo': bot.send_photo,
+        'video': bot.send_video,
+        'sticker': bot.send_sticker,
+        'voice': bot.send_voice,
+        'video_note': bot.send_video_note,
+        'animation': bot.send_animation,
+    }
+
+    for recipient_id in data['in_chat_with']:
+        save_chat_message(data['deal_id'], user_id, recipient_id, message_type, item)
+
+        if message.text:
+            return await bot.send_message(recipient_id, f"🔹 Сообщение от администрации: {item}")
+
+        if not caption:
+            await bot.send_message(recipient_id, f"🔹 Сообщение от администрации:")
+            await send_method[message_type](recipient_id, item)
+        else:
+            await send_method[message_type](recipient_id, item, caption=f'🔹 Сообщение от администрации: ' + caption)
+
+
+@router.callback_query(F.data == 'exit_chat')
+async def exit_chat_handler(callback: CallbackQuery, state: FSMContext):
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
+                                        reply_markup=None)
+    await callback.message.answer('Вы вышли из чата')
+
+    await state.clear()
