@@ -3,7 +3,7 @@ import asyncio
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction
 
-from aiogram import Bot, Router, F
+from aiogram import Router, F
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, StateFilter
@@ -245,10 +245,10 @@ async def send_information_about_handler(callback: CallbackQuery, state: FSMCont
     data = await state.get_data()
     _, _, _, target, target_id = callback.data.split('_')
 
-    print(data['previous_steps'], target, target_id)
+    if target == 'order' and target_id == '0':
+        return await callback.answer('Заказ не был создан вручную', show_alert=True)
 
-    await send_information(target, target_id, callback.from_user.id, callback.message.message_id,
-                           state)
+    await send_information(target, int(target_id), callback.from_user.id, callback.message.message_id, state)
 
     data['previous_steps'].append(f"{target}_{target_id}")
     await state.update_data(data)
@@ -471,7 +471,7 @@ async def confirm_ban_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith('admin_unban_user'))
-async def admin_unban_user_handler(callback: CallbackQuery, state: FSMContext):
+async def admin_unban_user_handler(callback: CallbackQuery):
     bot_user_id = callback.data.split('_')[-1]
     user_id = get_user_by_id(bot_user_id)[1]
 
@@ -567,8 +567,8 @@ async def confirm_balance_change_handler(callback: CallbackQuery):
 
     user_id = get_user_by_id(bot_user_id)[1]
     amount_to_edit = float(amount) if action == 'top-up' else float(amount) * (-1)
-    income_action = 'income' if action == 'top-up' else 'loss'
-    transaction_action = 'top_up' if action == 'top-up' else 'reduction'
+    income_action = 'loss' if action == 'top-up' else 'income'
+    transaction_action = 'increase' if action == 'top-up' else 'reduction'
     action_text_user = 'пополнила' if action == 'top-up' else 'уменьшила'
     action_text_admin = 'пополнен' if action == 'top-up' else 'уменьшен'
     amount_text = '{:,}'.format(round(float(amount))).replace(',', ' ')
@@ -595,11 +595,8 @@ async def interfere_in_chat_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
 
     deal_id = callback.data.split('_')[-1]
-
     deal = get_deal(deal_id)
-
     chat_messages = await send_chat_logs(callback, int(deal_id))
-
     text = '<b>Выберите действие:</b>' if deal[5] == 'open' else '<b>Этот чат завершён</b>'
 
     await callback.message.answer(text, reply_markup=Admin_kb.interfere_in_chat_like_kb(deal_id, deal[5] == 'open'))
@@ -710,8 +707,87 @@ async def admin_in_chat_handler(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == 'exit_chat')
 async def exit_chat_handler(callback: CallbackQuery, state: FSMContext):
-    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
-                                        reply_markup=None)
+    await bot.edit_message_reply_markup(
+        chat_id=callback.message.chat.id, message_id=callback.message.message_id,
+        reply_markup=None
+    )
     await callback.message.answer('Вы вышли из чата')
 
     await state.clear()
+
+
+@router.callback_query(F.data.startswith('admin_cancel_deal'))
+async def admin_cancel_deal_handler(callback: CallbackQuery):
+    deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = get_deal(
+        callback.data.split('_')[-1])
+
+    buyer_state: FSMContext = await utils.get_user_state(buyer_id)
+    seller_state: FSMContext = await utils.get_user_state(seller_id)
+
+    buyer_data = await buyer_state.get_data()
+    seller_data = await seller_state.get_data()
+
+    if status != 'open':
+        return await callback.message.edit_text(
+            text=f'Эта сделка была {"завершена" if status == "confirmed" else "отменена"}',
+            reply_markup=None
+        )
+
+    edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled', deal_id=deal_id)
+    delete_transaction(user_id=buyer_id, deal_id=deal_id)
+
+    await bot.send_message(buyer_id, LEXICON['admin_canceled_deal_buyer'], reply_markup=User_kb.to_main_menu_hide_kb())
+    await bot.send_message(seller_id, LEXICON['admin_canceled_deal_seller'],
+                           reply_markup=User_kb.to_main_menu_hide_kb())
+
+    await bot.edit_message_reply_markup(
+        chat_id=buyer_id,
+        message_id=buyer_data['in_chat_message_id'],
+        reply_markup=None
+    )
+    await bot.edit_message_reply_markup(
+        chat_id=seller_id,
+        message_id=seller_data['in_chat_message_id'],
+        reply_markup=None
+    )
+
+    await buyer_state.clear()
+    await seller_state.clear()
+
+    try:
+        update_deal_status(deal_id, 'canceled')
+        update_order_status(seller_order_id, 'confirmed')
+        if buyer_order_id != 0:
+            update_order_status(buyer_order_id, 'confirmed')
+    except sqlite3.Error as e:
+        print(f"Error updating order status to 'confirmed': {e}")
+
+
+@router.callback_query(F.data.startswith('admin_confirm_deal'))
+async def admin_confirm_deal_handler(callback: CallbackQuery):
+    deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = get_deal(
+        callback.data.split('_')[-1])
+
+    buyer_state = await utils.get_user_state(buyer_id)
+    seller_state = await utils.get_user_state(seller_id)
+
+    buyer_data = await buyer_state.get_data()
+    seller_data = await seller_state.get_data()
+
+    edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell', deal_id=deal_id)
+
+    await bot.edit_message_reply_markup(chat_id=buyer_id, message_id=buyer_data['in_chat_message_id'],
+                                        reply_markup=None)
+    await bot.edit_message_reply_markup(chat_id=seller_id, message_id=seller_data['in_chat_message_id'],
+                                        reply_markup=None)
+
+    await bot.send_message(buyer_id, LEXICON['admin_canceled_deal_buyer'],
+                           reply_markup=User_kb.to_main_menu_hide_kb())
+    await bot.send_message(seller_id, LEXICON['admin_canceled_deal_seller'],
+                           reply_markup=User_kb.to_main_menu_hide_kb())
+
+    utils.deal_completion(deal_id, seller_order_id, buyer_order_id)
+
+
+# @router.callback_query(F.data == '')
+# async def

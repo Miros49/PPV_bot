@@ -32,8 +32,6 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         data['previous_steps'], kb = Admin_kb.inspect_user_kb(
             target_id, not user_is_not_banned(get_user_by_id(target_id)[1]), data['previous_steps'])
 
-        print('b', data['previous_steps'])
-
         await bot.edit_message_text(
             text=information['user'].format(
                 user[0], ban_text, user[1], f"@{user[2]}" if user[2] else '<code>Не указан</code>',
@@ -70,7 +68,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         price_sell, price_buy = utils.get_price(order_id, 'sell'), utils.get_price(order_id, 'buy')
         price_buy, price_sell = '{:,}'.format(price_buy).replace(',', ' '), '{:,}'.format(price_sell).replace(',', ' ')
 
-        data['previous_steps'], kb = Admin_kb.inspect_order_kb(order_id, user_id, data['previous_steps'])
+        data['previous_steps'], kb = Admin_kb.inspect_order_kb(order_id, get_bot_user_id(user_id), data['previous_steps'])
 
         await bot.edit_message_text(
             text=information['order'].format(
@@ -104,8 +102,8 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         price_buy = utils.get_price(seller_order_id, 'buy')
         price_buy, price_sell = '{:,}'.format(price_buy).replace(',', ' '), '{:,}'.format(price_sell).replace(',', ' ')
 
-        data['previous_steps'], kb = Admin_kb.inspect_deal_kb(deal_id, buyer_id, seller_id, status == 'open',
-                                                              data['previous_steps'])
+        data['previous_steps'], kb = Admin_kb.inspect_deal_kb(
+            deal_id, buyer_id, seller_id, buyer_order_id, seller_order_id, status == 'open', data['previous_steps'])
 
         await bot.edit_message_text(
             text=information['deal'].format(
@@ -137,7 +135,8 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         complainer_username = f'@{complainer[2]}' if complainer[2] else '<b>нет тега</b>'
         offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
 
-        data['previous_steps'], kb = Admin_kb.answer_to_complaint_kb(complaint_id, data['previous_steps'])
+        # data['previous_steps'], kb = Admin_kb.answer_to_complaint_kb(complaint_id, data['previous_steps'])
+        kb = Admin_kb.back_to_information_kb()
 
         await bot.edit_message_text(
             LEXICON['admin_report'].format(

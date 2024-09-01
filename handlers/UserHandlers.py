@@ -812,10 +812,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
     seller_order_id = get_deal(int(callback.data.split('_')[-1]))[4]
     buyer_order_id = get_deal(int(callback.data.split('_')[-1]))[2]
 
-    buyer_state = FSMContext(
-        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=buyer_id, user_id=buyer_id))
-    seller_state = FSMContext(
-        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=seller_id, user_id=seller_id))
+    buyer_state = await utils.get_user_state(buyer_id)
+    seller_state = await utils.get_user_state(seller_id)
 
     buyer_data = await buyer_state.get_data()
     seller_data = await seller_state.get_data()
@@ -825,7 +823,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
 
         if user_id == seller_id:
             edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled', deal_id=deal_id)
-            delete_transaction(user_id=user_id, deal_id=deal_id)
+            delete_transaction(user_id=buyer_id, deal_id=deal_id)
 
             await bot.send_message(buyer_id, '<b>❌ Сделка отменена продавцом.\nДеньги зачислены вам на аккаунт</b>',
                                    reply_markup=User_kb.to_main_menu_hide_kb())
@@ -863,28 +861,21 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
             return await buyer_state.update_data(buyer_data)
 
     else:
-        if user_id == buyer_id:
-            edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell', deal_id=deal_id)
+        edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell', deal_id=deal_id)
 
-            await bot.edit_message_reply_markup(chat_id=buyer_id, message_id=buyer_data['in_chat_message_id'],
-                                                reply_markup=None)
-            await bot.edit_message_reply_markup(chat_id=seller_id, message_id=seller_data['in_chat_message_id'],
-                                                reply_markup=None)
+        await bot.edit_message_reply_markup(chat_id=buyer_id, message_id=buyer_data['in_chat_message_id'],
+                                            reply_markup=None)
+        await bot.edit_message_reply_markup(chat_id=seller_id, message_id=seller_data['in_chat_message_id'],
+                                            reply_markup=None)
 
-            await bot.send_message(buyer_id, "<b>✅ Вы подтвердили сделку, приятной игры!</b>",
-                                   reply_markup=User_kb.to_main_menu_hide_kb())
-            await bot.send_message(seller_id, "<b>✅ Покупатель подтвердил сделку. Деньги зачислены вам на аккаунт</b>",
-                                   reply_markup=User_kb.to_main_menu_hide_kb())
+        await bot.send_message(buyer_id, "<b>✅ Вы подтвердили сделку, приятной игры!</b>",
+                               reply_markup=User_kb.to_main_menu_hide_kb())
+        await bot.send_message(seller_id, "<b>✅ Покупатель подтвердил сделку. Деньги зачислены вам на аккаунт</b>",
+                               reply_markup=User_kb.to_main_menu_hide_kb())
 
-            try:
-                update_deal_status(deal_id, 'confirmed')
-                update_order_status(seller_order_id, 'confirmed')
-                if buyer_order_id != 0:
-                    update_order_status(buyer_order_id, 'confirmed')
-            except sqlite3.Error as e:
-                print(f"Error updating order status to 'confirmed': {e}")
+        utils.deal_completion(deal_id, seller_order_id, buyer_order_id)
 
-            add_income('deal', deal_id, 'income', utils.get_income_amount(seller_order_id))
+        add_income('deal', deal_id, 'income', utils.get_income_amount(seller_order_id))
 
     await buyer_state.clear()
     await seller_state.clear()
@@ -1096,7 +1087,7 @@ async def complaints_button_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == 'my_complaints', StateFilter(default_state))
-async def my_complaints_habdler(callback: CallbackQuery, state: FSMContext, watched_complains: list = []):
+async def my_complaints_handler(callback: CallbackQuery, state: FSMContext, watched_complains: list = []):
     complaints = get_complaints(callback.from_user.id)
 
     if not complaints:

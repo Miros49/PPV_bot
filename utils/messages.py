@@ -19,10 +19,8 @@ from utils import determine_game
 
 async def notify_users_of_chat(deal_id: int | str, buyer_id: int | str, seller_id: int | str,
                                order_id: int | str, project: str):
-    buyer_state = FSMContext(
-        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=buyer_id, user_id=buyer_id))
-    seller_state = FSMContext(
-        storage, StorageKey(bot_id=int(config.tg_bot.token.split(':')[0]), chat_id=seller_id, user_id=seller_id))
+    buyer_state: FSMContext = await utils.get_user_state(buyer_id)
+    seller_state: FSMContext = await utils.get_user_state(seller_id)
 
     await buyer_state.set_state(UserStates.in_chat)
     await seller_state.set_state(UserStates.in_chat)
@@ -287,9 +285,9 @@ async def send_my_orders(callback: CallbackQuery, state: FSMContext, target: str
 
     else:
         if target == 'pending':
-            await callback.message.edit_text("❕ Вы не создавали заказов.", reply_markup=User_kb.to_account_kb())
+            await callback.message.edit_text(LEXICON['no_pending_orders'], reply_markup=User_kb.to_account_kb())
         else:
-            await callback.message.edit_text('❕ У вас нет завершенных заказов.', reply_markup=User_kb.to_account_kb())
+            await callback.message.edit_text(LEXICON['no_confirmed_orders'], reply_markup=User_kb.to_account_kb())
 
 
 async def get_user_state(user_id: str | int):

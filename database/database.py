@@ -1,5 +1,6 @@
 import datetime
 import sqlite3
+from collections import defaultdict
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
@@ -507,7 +508,7 @@ def get_open_complaints() -> List[Tuple[int, int, int, int, str, str]]:
     return open_reports
 
 
-def get_complaint(complaint_id: int | str) -> Tuple[int, int, int, int, str, str]:
+def get_complaint(complaint_id: int | str) -> Tuple[int, int, int, int, str, str, str, str]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
@@ -779,21 +780,43 @@ def get_transaction(transaction_id: int) -> Optional[Tuple]:
     return transaction
 
 
-def get_transactions(user_id: int) -> List[Tuple]:
+def get_transactions(user_id: int):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT *
-        FROM transactions
-        WHERE user_id = ?
-        ORDER BY id DESC
-    """, (user_id,))
+    try:
+        # Запрос на получение транзакций пользователя
+        cursor.execute("""
+                SELECT amount, date, status 
+                FROM transactions 
+                WHERE user_id = ? 
+                ORDER BY date DESC
+            """, (user_id,))
 
-    transactions = cursor.fetchall()
-    conn.close()
+        transactions = cursor.fetchall()
 
-    return transactions
+        # Словарь для хранения транзакций по дням
+        transactions_by_day = defaultdict(list)
+
+        # Группировка транзакций по дате
+        for amount, date, status in transactions:
+            transactions_by_day[date].append({
+                'amount': amount,
+                'date': date,
+                'status': status
+            })
+
+        # Преобразование словаря в список, сортированный по дате
+        sorted_transactions_by_day = [transactions_by_day[day] for day in sorted(transactions_by_day, reverse=True)]
+
+        return sorted_transactions_by_day
+
+    except sqlite3.Error as e:
+        print(f"Ошибка при работе с базой данных: {e}")
+        return []
+
+    finally:
+        conn.close()
 
 
 def get_cashout_transactions(user_id: int) -> List[Tuple]:

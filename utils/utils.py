@@ -1,11 +1,13 @@
 import math
 import re
+import sqlite3
 
 from datetime import datetime
+from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
 
-from database import get_order, get_price_db, get_deal
+from database import get_order, get_price_db, get_deal, update_deal_status, update_order_status
 from keyboards import UserKeyboards as User_kb
 from lexicon import *
 
@@ -156,3 +158,13 @@ def parse_time_to_hours(time_str: str) -> int:
             total_hours += value
 
     return total_hours
+
+
+def deal_completion(deal_id: Any, seller_order_id: Any, buyer_order_id: Any):
+    try:
+        update_deal_status(deal_id, 'confirmed')
+        update_order_status(seller_order_id, 'confirmed')
+        if buyer_order_id != 0:
+            update_order_status(buyer_order_id, 'confirmed')
+    except sqlite3.Error as e:
+        print(f"Error updating order status to 'confirmed': {e}")

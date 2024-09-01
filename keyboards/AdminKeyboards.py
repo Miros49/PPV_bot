@@ -178,8 +178,8 @@ def inspect_order_kb(order_id: int | str, user_id: int | str, previous_steps: li
     return previous_steps, kb.as_markup()
 
 
-def inspect_deal_kb(deal_id: int | str, buyer_id: int | str, seller_id: int | str, is_active: bool,
-                    previous_steps: list):
+def inspect_deal_kb(deal_id: Any, buyer_id: Any, seller_id: Any, buyer_order_id: Any, seller_order_id: Any,
+                    is_active: bool, previous_steps: list):
     back_button_callback = f'back_to_information_about_{previous_steps[-1]}' if previous_steps \
         else 'admin_information_deal'
 
@@ -193,8 +193,13 @@ def inspect_deal_kb(deal_id: int | str, buyer_id: int | str, seller_id: int | st
         InlineKeyboardButton(text='Продавец',
                              callback_data=f'send_information_about_user_{str(get_bot_user_id(seller_id))}'),
         InlineKeyboardButton(text='Покупатель',
-                             callback_data=f'send_information_about_user_{str(get_bot_user_id(buyer_id))}')
+                             callback_data=f'send_information_about_user_{str(get_bot_user_id(buyer_id))}'),
     )
+    kb.row(
+        InlineKeyboardButton(text='Заказ продавца',
+                             callback_data=f'send_information_about_order_{str(seller_order_id)}'),
+        InlineKeyboardButton(text='Заказ покупателя',
+                             callback_data=f'send_information_about_order_{str(buyer_order_id)}'))
     kb.row(InlineKeyboardButton(text='Посмотреть чат', callback_data=f'show_chat_{str(deal_id)}'))
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=back_button_callback))
 
