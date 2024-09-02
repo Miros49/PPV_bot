@@ -785,31 +785,21 @@ def get_transactions(user_id: int):
     cursor = conn.cursor()
 
     try:
-        # Запрос на получение транзакций пользователя
         cursor.execute("""
-                SELECT amount, date, status 
-                FROM transactions 
-                WHERE user_id = ? 
-                ORDER BY date DESC
-            """, (user_id,))
+            SELECT id, user_id, amount, action, deal_id, timestamp 
+            FROM transactions 
+            WHERE user_id = ? 
+            ORDER BY timestamp DESC
+        """, (user_id,))
 
         transactions = cursor.fetchall()
-
-        # Словарь для хранения транзакций по дням
         transactions_by_day = defaultdict(list)
 
-        # Группировка транзакций по дате
-        for amount, date, status in transactions:
-            transactions_by_day[date].append({
-                'amount': amount,
-                'date': date,
-                'status': status
-            })
+        for trans in transactions:
+            date = trans[-1].split(' ')[0]
+            transactions_by_day[date].append(trans)
 
-        # Преобразование словаря в список, сортированный по дате
-        sorted_transactions_by_day = [transactions_by_day[day] for day in sorted(transactions_by_day, reverse=True)]
-
-        return sorted_transactions_by_day
+        return sorted(transactions_by_day.items(), reverse=True)
 
     except sqlite3.Error as e:
         print(f"Ошибка при работе с базой данных: {e}")

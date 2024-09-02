@@ -721,8 +721,8 @@ async def admin_cancel_deal_handler(callback: CallbackQuery):
     deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = get_deal(
         callback.data.split('_')[-1])
 
-    buyer_state: FSMContext = await utils.get_user_state(buyer_id)
-    seller_state: FSMContext = await utils.get_user_state(seller_id)
+    buyer_state: FSMContext = utils.get_user_state(buyer_id)
+    seller_state: FSMContext = utils.get_user_state(seller_id)
 
     buyer_data = await buyer_state.get_data()
     seller_data = await seller_state.get_data()
@@ -768,8 +768,8 @@ async def admin_confirm_deal_handler(callback: CallbackQuery):
     deal_id, buyer_id, buyer_order_id, seller_id, seller_order_id, status, created_at = get_deal(
         callback.data.split('_')[-1])
 
-    buyer_state = await utils.get_user_state(buyer_id)
-    seller_state = await utils.get_user_state(seller_id)
+    buyer_state = utils.get_user_state(buyer_id)
+    seller_state = utils.get_user_state(seller_id)
 
     buyer_data = await buyer_state.get_data()
     seller_data = await seller_state.get_data()

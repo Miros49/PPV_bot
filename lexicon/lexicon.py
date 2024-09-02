@@ -118,6 +118,7 @@ LEXICON: dict[str, str] = {
                         'ID аккаунта: <code>{}</code>\n',
     'no_pending_orders': '❗️ Уведомление\n\nНа данный момент у вас нет активных заказов.',
     'no_confirmed_orders': '❗️ Уведомление\n\nУ вас еще нет завершенных заказов.',
+    'transactions': '<i>{}</i> <code>{}</code> - {} - (<code>№{}</code>)',
 
     'admin_joined_chat': '🔵 Внимание!\nАдминистрация следит за ситуацией и готова помочь.',
     'admin_canceled_deal_seller': '<b>🔹 Сообщение от администрации:\n\n'
@@ -173,7 +174,6 @@ LEXICON: dict[str, str] = {
     'admin_edit_user_balance_confirm': 'Вы действительно хотите {} баланс пользователя <code>{}</code> '
                                        'на <code>{} ₽</code>?',
     'admin_confirmation_of_editing_balance': '✅ Баланс пользователя <code>{}</code> {} на <code>{} ₽</code>'
-
 }
 
 show_lexicon: dict[str, str] = {
@@ -313,8 +313,7 @@ target_map: dict[str, str] = {
     'user': 'пользователя',
     'order': 'заказа',
     'deal': 'сделки',
-    'report': 'жалобы',
-    'transaction': 'транзакции'
+    'report': 'жалобы'
 }
 
 information: dict[str, str] = {
@@ -363,7 +362,7 @@ my_orders_lexicon: dict[str, str] = {
                          "Статус:  <code>{}</code>\n\n"
                          "├ Тип:  <code>{}</code>\n"
                          "├ Категория:  <code>{}</code>\n"
-                         "├ Се3рвер:  <code>{}</code>,    <code>{}</code>\n"
+                         "├ Сервер:  <code>{}</code>,    <code>{}</code>\n"
                          "└ {}\n\n"
                          "💳 Стоимость:  <code>{} ₽</code></b>",
     'aditional_virt': 'Кол-во валюты: <code>{}</code>',
@@ -397,12 +396,12 @@ payment_lexicon: dict[str, str] = {
     'cashout_error': '<b>Упс, произошла ошибка при попытке вывода средст. Пожалуйста, братитесь в поддержку.</b>'
 }
 
-transactions: dict[str, str] = {
-    'top_up': '     ',
-    'cashout': '',
-    'increase': '',
-    'reduction': '',
-    'buy_order': '',
-    'deal_buy': '',
-    'deal_sell': '',
-}
+# transactions: dict[str, str] = {
+#     'top_up': '',
+#     'cashout': '',
+#     'increase': '',
+#     'reduction': '',
+#     'buy_order': '',
+#     'deal_buy': '',
+#     'deal_sell': '',
+# }

@@ -16,7 +16,6 @@ from lexicon import *
 from states import UserStates
 import utils
 
-
 router: Router = Router()
 
 
@@ -812,8 +811,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
     seller_order_id = get_deal(int(callback.data.split('_')[-1]))[4]
     buyer_order_id = get_deal(int(callback.data.split('_')[-1]))[2]
 
-    buyer_state = await utils.get_user_state(buyer_id)
-    seller_state = await utils.get_user_state(seller_id)
+    buyer_state = utils.get_user_state(buyer_id)
+    seller_state = utils.get_user_state(seller_id)
 
     buyer_data = await buyer_state.get_data()
     seller_data = await seller_state.get_data()
@@ -901,7 +900,8 @@ async def handle_chat_message(message: Message, state: FSMContext):
 
     user_id = message.from_user.id
     bot_user_id = get_bot_user_id(user_id)
-    buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' else (data['in_chat_with'], user_id)
+    buyer_id, seller_id = (user_id, data['in_chat_with']) if data['role'] == 'buyer' else (
+        data['in_chat_with'], user_id)
     recipient_id = buyer_id if user_id == seller_id else seller_id
 
     if message.text:
@@ -1011,73 +1011,72 @@ async def my_orders_management_handler(callback: CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data.startswith('my_orders'),
                        ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
-async def process_ny_orders(callback: CallbackQuery, state: FSMContext):
+async def my_orders_handler(callback: CallbackQuery, state: FSMContext):
     await utils.send_my_orders(callback, state, callback.data.split('_')[2], False)
 
 
 @router.callback_query(F.data.startswith('transactions_management'),
                        ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def transactions_button_handler(callback: CallbackQuery, state: FSMContext):
-    transactions = get_transactions(callback.from_user.id)
     data = await state.get_data()
+    transactions = get_transactions(callback.from_user.id)
 
     if not transactions:
         return await callback.message.edit_text('У вас ещё нет транзакций',
                                                 reply_markup=User_kb.payment_back_to_account())
 
-    if callback.data.split('_')[-1] not in ['more', 'back']:
-        data = {'watched_transactions': {}}
+    max_message_length = 4096
+    max_dates_per_message = 5
+    messages = []
+    current_message = ""
+    dates_count = 0
 
-    elif callback.data.split('_')[-1] == 'back':
-        if 'watched_transactions' not in data:
-            await utils.send_account_info(callback.message)
-        else:
-            for message_id in data['watched_transactions'].keys():
-                try:
-                    await bot.delete_message(callback.from_user.id, message_id)
-                except TelegramBadRequest:
-                    pass
-            await utils.send_account_info(callback)
-        return await state.clear()
+    data['watched_transactions'] = []
 
-    await callback.message.delete()
+    for date, trans_list in transactions:
+        date_header = f"\n<b>• {date}</b>\n"
+        transaction_lines = []
 
-    transactions_num = 0
-    for transaction in transactions:
-        transaction_id, user_id, _, _, deal_id, amount, action, created_at = transaction
+        for trans in trans_list:
+            transaction_id, user_id, amount, action, deal_id, created_at = trans
 
-        if transaction_id in data['watched_transactions'].values():
-            continue
+            action_text = {
+                'top_up': 'Пополнение',
+                'cashout': 'Вывод средств',
+                'sell': f'Покупка заказа №{deal_id}' if deal_id else 'Продажа',
+                'buy': f'Продажа, заказ №{deal_id}' if deal_id else 'Покупка',
+                'buy_canceled': 'Отмена продажи',
+                'reduction': 'Штраф',
+                'increase': 'Начисление'
+            }.get(action, 'Неизвестное действие')
 
-        action_text = 'Пополнение' if action == 'top_up' else 'Вывод средств' if action == 'cashout' \
-            else 'Покупка' if action == 'sell' else 'Продажа'
+            if action_text == 'Неизвестное действие':  # Отлов багов
+                print(f'\nОшибка в форматировании action_text транзакции №{transaction_id}\n')
 
-        deal_text = f'Предмет списания: Сделка №{deal_id}\n' if deal_id != 0 and action not in ['top_up', 'cashout'] \
-            else 'Предмет списания: Создание заказа\n' if action not in ['top_up', 'cashout'] else ''
+            amount_str = f"{'+' if action in ['top_up', 'sell'] else ''}{amount}₽"
+            transaction_str = f"<i>{created_at}</i> <code>{amount_str}</code> - <i>{action_text}</i> - (№<code>{transaction_id}</code>)\n"
+            transaction_lines.append(transaction_str)
 
-        amount = amount if int(amount) > 0 else amount * (-1)
-        amount = amount if str(amount).split('.')[-1] != '0' else str(amount).split('.')[0]
+        date_section = date_header + ''.join(transaction_lines)
 
-        mes = await callback.message.answer(
-            LEXICON['transaction_text'].format(transaction_id, user_id, deal_text,
-                                               amount, action_text, created_at))
+        if len(current_message + date_section) > max_message_length or dates_count >= max_dates_per_message:
+            messages.append(current_message)
+            current_message = ""
+            dates_count = 0
 
-        data['watched_transactions'][mes.message_id] = transaction_id
+        current_message += date_section
+        dates_count += 1
 
-        transactions_num += 1
-        if transactions_num == 4:
-            await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management(
-                len(data['watched_transactions']) > len(transactions)))
-            break
+    if current_message:
+        messages.append(current_message)
 
-    if transactions_num == 0:
-        await callback.message.delete()
-        await callback.answer('Эта кнопка устарела. Попробуйте ещё раз')
-        await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management(False))
-    elif transactions_num != 4:
-        await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management(False))
+    for text in messages:
+        sent_message = await callback.message.answer(text)
+        data['watched_transactions'].append(sent_message.message_id)
 
-    return await state.update_data(data)
+    await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management())
+
+    await state.update_data(data)
 
 
 @router.callback_query(F.data == 'complaints_button', StateFilter(default_state))
@@ -1181,7 +1180,7 @@ async def process_complaints_back(callback: CallbackQuery, state: FSMContext):
 
         return await state.clear()
 
-    await my_complaints_habdler(callback, state, watched_complaints.values())
+    await my_complaints_handler(callback, state, watched_complaints.values())
 
 
 @router.callback_query(F.data == 'write_complaint',
@@ -1427,10 +1426,9 @@ async def buy_order(callback: CallbackQuery):
 @router.callback_query(F.data.startswith('confirmation_of_buying_'), StateFilter(default_state))
 async def confirmation_of_buying(callback: CallbackQuery, state: FSMContext):
     order_id = callback.data.split('_')[-1]
-    data = await state.get_data()
     seller_id = get_user_id_by_order(order_id)
-
-    seller_state = await utils.get_user_state(seller_id)
+    data = await state.get_data()
+    seller_state = await utils.get_user_state(seller_id).get_state()
 
     if seller_state == UserStates.in_chat or seller_state == UserStates.in_chat_waiting_complaint:
         return await callback.answer(LEXICON['seller_busy'], show_alert=True)

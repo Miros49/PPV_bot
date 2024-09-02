@@ -536,8 +536,8 @@ def transactions_management(show_more: bool = True):
     kb = InlineKeyboardBuilder()
 
     kb.add(InlineKeyboardButton(text='← Назад', callback_data='transactions_management_back'))
-    kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='transactions_management_more')).adjust(1) \
-        if show_more else None
+    # kb.add(InlineKeyboardButton(text='↓ Посмотреть ещё', callback_data='transactions_management_more')).adjust(1) \
+    #     if show_more else None
 
     return kb.as_markup()
 

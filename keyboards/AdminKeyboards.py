@@ -28,8 +28,7 @@ def information_kb():
         InlineKeyboardButton(text='📋 Заказы', callback_data='admin_information_order'),
         InlineKeyboardButton(text='🔀 Сделки', callback_data='admin_information_deal'),
         InlineKeyboardButton(text='💢 Жалобы', callback_data='admin_information_report'),
-        InlineKeyboardButton(text='💸 Транзакции', callback_data='admin_information_transactions'),
-    ).adjust(2)
+    ).adjust(1, 2)
     kb.row(InlineKeyboardButton(text='← Назад', callback_data=f'back_to_admin_menu'))
 
     return kb.as_markup()
