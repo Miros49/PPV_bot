@@ -76,6 +76,10 @@ AMAZING_RP_SERVERS = [
     '7. Black'
 ]
 
+ABSOLUTE_RP_SERVERS = [
+   '1. Титаниум РП', '2. Литиум РП', '3. Аурум РП', '4. Хромиум РП','5. Платинум РП'
+]
+
 SERVERS = {
     'GTA5RP': GTA5RP_SERVERS,
     'Majestic RP': MAJESTIC_GTA5_SERVERS,
