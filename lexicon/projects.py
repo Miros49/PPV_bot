@@ -7,7 +7,7 @@ GTA5_PROJECTS = [
 OTHER_PROJECTS = [
     'BLACK RUSSIA', 'Arizona RP', 'Grand Mobile',
     'Матрёшка RP', 'HASSLE Online', 'Radmir RP',
-    'Rodina RP', 'Amazing RP', 'NEXTRP'
+    'Rodina RP', 'Amazing RP', 'NEXTRP', 'Absolute RP'
 ]
 
 PROJECTS = {
@@ -15,4 +15,3 @@ PROJECTS = {
     'other': OTHER_PROJECTS
 }
 
-# TODO: + Барвиха + Муриета + бостон
