@@ -2,15 +2,15 @@
 
 # GTA5RP
 GTA5RP_SERVERS = [
-    'Downtown', 'Strawberry', 'Vinewood', 'Blackberry', 'inquad',
-    'Sunrise', 'Rainbow', 'Richman', 'Eclipse', 'La Mesa', 'Burton',
-    'Rockford', 'Alta', 'Del Perro', 'Davis', 'Harmony', 'Redwood',
-    'Hawick', 'Grapeseed']
+    '1. Downtown', '2. Strawberry', '3. Vinewood', '4. Blackberry', '5. Insquad',
+    '6. Sunrise', '7. Rainbow', '8. Richman', '9. Eclipse', '10. La Mesa', '11. Burton',
+    '12. Rockford', '13. Alta', '14. Del Perro', '15. Davis', '16. Harmony', '17. Redwood',
+    '18. Hawick', '19. Grapeseed', '20. Murrieta']
 
 # Majestic
 MAJESTIC_GTA5_SERVERS = [
-    'New York', 'Detroit', 'Chicago', 'San Francisco', 'Atlanta',
-    'San Diego', 'Los Angeles', 'Miami', 'Las Vegas', 'Washington', 'Dallas']
+    '1. New York', '2. Detroit', '3. Chicago', '4. San Francisco', '5. Atlanta',
+    '6. San Diego', '7. Los Angeles', '8. Miami', '9. Las Vegas', '10. Washington', '11. Dallas', '12. Boston']
 
 # Radmir RP GTA5
 RADMIR_GTA5_SERVERS = ['Server 1', 'Server 2', 'Server 3', 'Мой ДОМ']
@@ -22,7 +22,7 @@ GRAND_RP_GTA5_SERVERS = ['Русский #1', 'Русский #2']
 ARIZONA_RP_GTA5_SERVERS = ['1. Liberty', '2. Milton']
 
 # RMRP GTA5
-RMRP_GTA5_SERVERS = ['Рублёвка', 'Арбат']
+RMRP_GTA5_SERVERS = ['1. Рублёвка', '2. Арбат']
 
 # ------------------------ CRMP, SAMP, MTA
 # Black Russia
@@ -39,7 +39,7 @@ BLACK_RUSSIA_SERVERS = ["1. RED", "2. GREEN", "3. BLUE", "4. ELLOW", "5. ORANGE"
                         "57. ORENBURG", "58. KIROV", "59. KEMEROVO", "60. TYUMEN", "61. TOLYATTI", "62. IVANOVO",
                         "63. STAVROPOL", "64. SMOLENSK", "65. PSKOV", "66. BRYANSK", "67. OREL", "68. YAROSLAVL",
                         "69. BARNAUL", "70. LIPETSK", "71. ULYANOVSK", "72. YAKUTSK", "73. TAMBOV", "74. BRATSK",
-                        "75. ASTRAKHAN", ' 76. Chita', '77. Kostroma']
+                        "75. ASTRAKHAN", ' 76. Chita', '77. Kostroma', '78. Vladimir', '79. Kaluga']
 
 # Arizona RP
 ARIZONA_RP_SERVERS = ['1.Phoenix', '2. Tucson', '3. Scottdale', '4. Chandler', '5. Brainburg', '6. Saint Rose',
@@ -47,10 +47,10 @@ ARIZONA_RP_SERVERS = ['1.Phoenix', '2. Tucson', '3. Scottdale', '4. Chandler', '
                       '13. Kingman',
                       '14. Winslow', '15. Payson', '16. Gilbert', '17. Show-Low', '18. Casa-Grande', '19. Page',
                       '20. Sun-City', '21. Queen Creek', '22. Sedona', '23. Holiday', '24. Wednesday', '25. Yava',
-                      '26. Faraway', '27. Bumble Bee', '28. Christmas',  '29. Mirage', '30. Love','Arizona Mobile 1', 'Arizona Mobile 2',
-                      'Arizona Mobile 3', ]
+                      '26. Faraway', '27. Bumble Bee', '28. Christmas',  '29. Mirage', '30. Love', 'Arizona Mobile 1', 'Arizona Mobile 2',
+                      'Arizona Mobile 3']
 
-GRAND_MOBILE = [f'Server {str(el)}' for el in range(1, 34)]
+GRAND_MOBILE = [f'Server {str(el)}' for el in range(1, 35)]
 
 MATRYOSHKA_RP_SERVERS = [f'Server {str(num)}' for num in range(1, 31)]
 
@@ -65,15 +65,15 @@ NEXT_RP_SERVERS = [
 ]
 
 RODINA_RP_SERVERS = [
-    'Центральный округ', 'Южный округ', 'Северный округ',
-    'Восточный округ', 'Западный округ', 'Приморский округ',
-    'Федеральный округ'
+    '1. Центральный округ', '2. Южный округ', '3. Северный округ',
+    '4. Восточный округ', '5. Западный округ', '6. Приморский округ',
+    '7. Федеральный округ'
 ]
 
 AMAZING_RP_SERVERS = [
-    'Red', 'Yellow', 'Green',
-    'Azure', 'Silver', 'Rose',
-    'Black'
+    '1. Red', '2. Yellow', '3. Green',
+    '4. Azure', '5. Silver', '6. Rose',
+    '7. Black'
 ]
 
 SERVERS = {
