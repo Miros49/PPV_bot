@@ -16,7 +16,7 @@ MAJESTIC_GTA5_SERVERS = [
 RADMIR_GTA5_SERVERS = ['Server 1', 'Server 2', 'Server 3', 'Мой ДОМ']
 
 # Grand RP
-GRAND_RP_GTA5_SERVERS = ['Русский #1', 'Русский #2']
+GRAND_RP_GTA5_SERVERS = ['Русский №1', 'Русский №2']
 
 # Arizona RP GTA5
 ARIZONA_RP_GTA5_SERVERS = ['1. Liberty', '2. Milton']
