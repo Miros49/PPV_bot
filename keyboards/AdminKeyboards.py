@@ -1,10 +1,10 @@
 from typing import Any
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-from database import get_bot_user_id
-from lexicon import SERVERS
+from database import get_bot_user_id, is_technical_work
+from lexicon import SERVERS, buttons
 from utils import utils
 
 
@@ -18,6 +18,24 @@ def menu_kb():
     ).adjust(2)
 
     return kb.as_markup()
+
+
+def menu_reply_kb():
+    kb = ReplyKeyboardBuilder()
+
+    kb.add(
+        KeyboardButton(text=buttons['open_complaints']),
+        KeyboardButton(text=buttons['edit_price']),
+        KeyboardButton(text=buttons['users']),
+        KeyboardButton(text=buttons['orders']),
+        KeyboardButton(text=buttons['deals']),
+        KeyboardButton(text=buttons['complaints_info']),
+        KeyboardButton(text=buttons['transactions']),
+        KeyboardButton(text=buttons['newsletter']),
+        KeyboardButton(text=buttons['turn_on']) if is_technical_work() else KeyboardButton(text=buttons['turn_off'])
+    ).adjust(2, 1, 2, 2, 1)
+
+    return kb.as_markup(resize_keyboard=True)
 
 
 def information_kb():
@@ -253,5 +271,16 @@ def exit_chat():
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='Покинуть чат', callback_data='exit_chat'))
+
+    return kb.as_markup()
+
+
+def confirm_newsletter():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='Подтвердить', callback_data='confirm_newsletter'),
+        InlineKeyboardButton(text='Отменить', callback_data='cancel_button')
+    )
 
     return kb.as_markup()

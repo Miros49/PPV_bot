@@ -1,6 +1,5 @@
 import asyncio
 
-from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction
 
 from aiogram import Router, F
@@ -9,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
-from redis.commands.search.query import Query
+from pydantic.v1.class_validators import all_kwargs
 
 from core import *
 from database import *
@@ -47,15 +46,15 @@ async def admin(message: Message):
             active_orders_number=count_active_orders(),
             active_deals_number=count_active_deals()
         ),
-        reply_markup=Admin_kb.menu_kb()
+        reply_markup=Admin_kb.menu_reply_kb()
     )
 
 
 @router.callback_query(F.data == 'back_to_admin_menu', StateFilter(default_state))
-async def back_to_menu(callback: CallbackQuery):
+async def back_to_menu(callback: CallbackQuery):  # TODO: удалить
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
-    await callback.message.edit_text(
+    await callback.message.edit_textedit_text(
         LEXICON['admin_menu'].format(
             income=calculate_profit(),
             users_number=count_users(),
@@ -67,7 +66,7 @@ async def back_to_menu(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == 'admin_reports', StateFilter(default_state))
-async def admin_reports(callback: CallbackQuery):
+async def admin_reports(callback: CallbackQuery):  # TODO: удалить
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
     open_complaints = get_open_complaints()
 
@@ -85,6 +84,33 @@ async def admin_reports(callback: CallbackQuery):
         offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
 
         await callback.message.answer(
+            LEXICON['admin_report'].format(
+                complaint_id, deal_id, created_at,
+                get_bot_user_id(complainer_id), complainer_username, complainer_id,
+                get_bot_user_id(offender_id), offender_username, offender_id, complaint_text),
+            reply_markup=Admin_kb.answer_to_complaint_kb(complaint_id)
+        )
+
+
+@router.message(F.text == buttons['open_complaints'], StateFilter(default_state))
+async def admin_reports(message: Message):
+    await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
+    open_complaints = get_open_complaints()
+
+    if not open_complaints:
+        return await message.answer("✅ Нет необработанных жалоб")
+    await message.delete()
+
+    for complaint in open_complaints:
+        complaint_id, deal_id, complainer_id, offender_id, complaint_text, answer, created_at = complaint
+
+        complainer = get_user(complainer_id)
+        offender = get_user(offender_id)
+
+        complainer_username = f'@{complainer[2]}' if complainer[2] else '<b>нет тега</b>'
+        offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
+
+        await message.answer(
             LEXICON['admin_report'].format(
                 complaint_id, deal_id, created_at,
                 get_bot_user_id(complainer_id), complainer_username, complainer_id,
@@ -189,25 +215,24 @@ async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == 'admin_information')
-async def admin_information(callback: CallbackQuery, state: FSMContext):
+async def admin_information(callback: CallbackQuery, state: FSMContext):  # TODO: удалить
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
 
     await callback.message.edit_text('Выберите критерий поиска:', reply_markup=Admin_kb.information_kb())
     await state.clear()
 
 
-@router.callback_query(F.data.startswith('admin_information'), StateFilter(default_state))
-async def admin_information_by(callback: CallbackQuery, state: FSMContext):
-    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
-
-    argument = target_map.get(callback.data.split('_')[-1])
+@router.message(F.text.in_(information_buttons), StateFilter(default_state))
+async def admin_information_by(message: Message, state: FSMContext):
+    await bot.send_chat_action(message.from_user.id, ChatAction.TYPING)
 
     data = {
-        'target': callback.data.split('_')[-1],
+        'target': information_map.get(message.text, None),
         'previous_steps': [],
         'admin_information_message_mes_id': (
-            await callback.message.edit_text(LEXICON['admin_information'].format(argument),
-                                             reply_markup=Admin_kb.back_to_information_kb())
+            await message.answer(
+                LEXICON['admin_information'].format(target_map.get(information_map.get(message.text, None))),
+                reply_markup=Admin_kb.back_to_information_kb())
         ).message_id
     }
 
@@ -245,17 +270,36 @@ async def send_information_about_handler(callback: CallbackQuery, state: FSMCont
     data = await state.get_data()
     _, _, _, target, target_id = callback.data.split('_')
 
-    if target == 'order' and target_id == '0':
+    data['previous_steps'].append(f"{target}_{target_id}")
+
+    if data['target'] == 'order' and target_id == '0':
         return await callback.answer('Заказ не был создан вручную', show_alert=True)
 
     await send_information(target, int(target_id), callback.from_user.id, callback.message.message_id, state)
 
-    data['previous_steps'].append(f"{target}_{target_id}")
     await state.update_data(data)
 
 
+# @router.message(StateFilter(AdminStates.information_about))
+# async def doqfjweofj2pieruhvwjpievuqwhep(message: Message, state: FSMContext):
+#     data = await state.get_data()
+#
+#     await message.delete()
+#
+#     if not message.text:
+#         return await message.answer(LEXICON['text_needed'])
+#
+#     try:
+#         target_id = int(message.text)
+#
+#     if data['target'] == 'order' and target_id == '0':
+#         return await callback.answer('Заказ не был создан вручную', show_alert=True)
+#
+#     await send_information(target, int(target_id), callback.from_user.id, callback.message.message_id, state)
+
+
 @router.callback_query(F.data.startswith('back_to_information_about'))
-async def send_information_about_handler(callback: CallbackQuery, state: FSMContext):
+async def send_information_about_handler(callback: CallbackQuery, state: FSMContext):  # TODO: удалить
     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
     data = await state.get_data()
     _, _, _, _, target, target_id = callback.data.split('_')
@@ -274,8 +318,14 @@ async def send_information_about_handler(callback: CallbackQuery, state: FSMCont
 
 
 @router.callback_query(F.data.in_(['admin_edit_price', 'back_to_games']), StateFilter(default_state))
-async def admin_edit_price(callback: CallbackQuery):
+async def admin_edit_price(callback: CallbackQuery):  # TODO: изменить
     await callback.message.edit_text(LEXICON['edit_price_1'], reply_markup=Admin_kb.game_kb())
+
+
+@router.message(F.text == '✏️ Изменить цену', StateFilter(default_state))
+async def admin_edit_price(message: Message):
+    await message.delete()
+    await message.answer(LEXICON['edit_price_1'], reply_markup=Admin_kb.game_kb())
 
 
 @router.callback_query(AdminGameFilter())
@@ -455,8 +505,15 @@ async def confirm_ban_handler(callback: CallbackQuery, state: FSMContext):
 
     try:
         ban_user(data['user_id'], data['period'])
+        period = get_ban_info(data['user_id'])[2]
+        bot_user_id = get_bot_user_id(data['user_id'])
 
-        await bot.send_message(data['user_id'], f'Вас забанили на {data["period_text"]}')
+        if data['period'] != -1:
+            await bot.send_message(data['user_id'], LEXICON['you_was_banned'].format(bot_user_id, period),
+                                   reply_markup=User_kb.support_kb())
+        else:
+            await bot.send_message(data['user_id'], LEXICON['you_was_banned_forever'].format(bot_user_id),
+                                   reply_markup=User_kb.support_kb())
 
         await bot.edit_message_text(
             LEXICON['admin_ban_user_confirmed'].format(get_bot_user_id(data['user_id']), data['period_text']),
@@ -566,6 +623,7 @@ async def confirm_balance_change_handler(callback: CallbackQuery):
     _, _, _, bot_user_id, action, amount = callback.data.split('_')
 
     user_id = get_user_by_id(bot_user_id)[1]
+    amount = amount.replace(' ', '')
     amount_to_edit = float(amount) if action == 'top-up' else float(amount) * (-1)
     income_action = 'loss' if action == 'top-up' else 'income'
     transaction_action = 'increase' if action == 'top-up' else 'reduction'
@@ -754,13 +812,7 @@ async def admin_cancel_deal_handler(callback: CallbackQuery):
     await buyer_state.clear()
     await seller_state.clear()
 
-    try:
-        update_deal_status(deal_id, 'canceled')
-        update_order_status(seller_order_id, 'confirmed')
-        if buyer_order_id != 0:
-            update_order_status(buyer_order_id, 'confirmed')
-    except sqlite3.Error as e:
-        print(f"Error updating order status to 'confirmed': {e}")
+    utils.deal_completion(deal_id, seller_order_id, buyer_order_id, 'canceled', 'confirmed')
 
 
 @router.callback_query(F.data.startswith('admin_confirm_deal'))
@@ -786,8 +838,83 @@ async def admin_confirm_deal_handler(callback: CallbackQuery):
     await bot.send_message(seller_id, LEXICON['admin_canceled_deal_seller'],
                            reply_markup=User_kb.to_main_menu_hide_kb())
 
-    utils.deal_completion(deal_id, seller_order_id, buyer_order_id)
+    utils.deal_completion(deal_id, seller_order_id, buyer_order_id, 'confirmed', 'confirmed')
 
 
-# @router.callback_query(F.data == '')
-# async def
+@router.message(F.text == buttons['turn_off'])
+async def turn_off_handler(message: Message):
+    set_technical_work(True)
+    init_user_memory_db()
+
+    await message.answer(LEXICON['admin_technical_worc_on'])
+
+
+@router.message(F.text == buttons['turn_on'])
+async def turn_off_handler(message: Message):
+    set_technical_work(False)
+
+    await message.answer(LEXICON['admin_technical_worc_off'])
+    mes = await message.answer('<b>⏳ Начинаю оповещение пользователей...</b>')
+
+    for user_id in get_remembered_user_ids():
+        try:
+            await bot.send_message(user_id, '<b>🟢 Бот снова запущен</b>')
+        except TelegramBadRequest:
+            pass
+
+    await mes.edit_text('<b>✅ Пользователи оповещены</b>')
+
+    delete_user_memory_table()
+
+
+@router.message(F.text == buttons['newsletter'])
+async def turn_off_handler(message: Message, state: FSMContext):
+    mes = await message.answer(LEXICON['admin_input_newsletter'], reply_markup=Admin_kb.cancel_kb())
+
+    await state.set_state(AdminStates.input_newsletter)
+    await state.update_data(newsletter_message_id=mes.message_id)
+
+
+@router.message(StateFilter(AdminStates.input_newsletter))
+async def input_newsletter_handler(message: Message, state: FSMContext):
+    await message.delete()
+
+    if not (message.text or message.photo):
+        return await message.answer(LEXICON['text_needed'])
+
+    if message.photo:
+        await bot.send_photo(
+            chat_id=message.chat.id, photo=message.photo[0].file_id, caption=message.caption,
+            reply_markup=Admin_kb.confirm_newsletter()
+        )
+
+    else:
+        await message.answer(
+            text=LEXICON['admin_confirm_newsletter'].format(message.text),
+            reply_markup=Admin_kb.confirm_newsletter()
+        )
+
+    await state.clear()
+
+
+@router.callback_query(F.data == 'confirm_newsletter')
+async def confirm_newsletter_handler(callback: CallbackQuery):
+    text = utils.extract_text_from_message(callback.message.text) if callback.message.text else None
+
+    await callback.message.delete()
+    mes = await callback.message.answer('⏳ Начинаю рассылку...')
+
+    for user_id in get_all_user_ids():
+        try:
+            if callback.message.photo:
+                await bot.send_photo(
+                    chat_id=user_id, photo=callback.message.photo[0].file_id, caption=callback.message.caption
+                )
+
+            else:
+                await bot.send_message(user_id, text)
+
+        except TelegramBadRequest:
+            pass
+
+    await callback.message.answer('✅ Рассылка завершена!', reply_to_message_id=mes.message_id)

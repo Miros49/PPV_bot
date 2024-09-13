@@ -160,11 +160,16 @@ def parse_time_to_hours(time_str: str) -> int:
     return total_hours
 
 
-def deal_completion(deal_id: Any, seller_order_id: Any, buyer_order_id: Any):
+def deal_completion(deal_id: Any, seller_order_id: Any, buyer_order_id: Any, deal_status: str, order_status: str):
     try:
-        update_deal_status(deal_id, 'confirmed')
-        update_order_status(seller_order_id, 'confirmed')
+        update_deal_status(deal_id, deal_status)
+        update_order_status(seller_order_id, order_status)
         if buyer_order_id != 0:
-            update_order_status(buyer_order_id, 'confirmed')
+            update_order_status(buyer_order_id, order_status)
     except sqlite3.Error as e:
         print(f"Error updating order status to 'confirmed': {e}")
+
+
+def extract_text_from_message(message_text: str):
+    extracted_text = message_text.split('Подтвердите рассылку:')[1]
+    return extracted_text.strip()

@@ -8,6 +8,7 @@ from core import config, storage
 from database import init_db
 from handlers import UserHandlers, AdminHandlers, PaymentHandlers, DebugHandlers
 from middlewares import RateLimitMiddleware, BanMiddleware
+from middlewares.middlewares import TechnicalWork
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,8 +18,10 @@ dp: Dispatcher = Dispatcher(storage=storage)
 
 dp.message.middleware(RateLimitMiddleware())
 dp.message.middleware(BanMiddleware())
+dp.message.middleware(TechnicalWork())
 dp.callback_query.middleware(RateLimitMiddleware())
 dp.callback_query.middleware(BanMiddleware())
+dp.callback_query.middleware(TechnicalWork())
 
 dp.include_router(AdminHandlers.router)
 dp.include_router(UserHandlers.router)

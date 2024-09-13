@@ -4,12 +4,10 @@ from aiogram.fsm.context import FSMContext
 
 from core import config
 
-ADMIN_IDS: list[int] = config.tg_bot.admin_ids
-
 
 class IsAdminFilter(Filter):
     async def __call__(self, update: Message | CallbackQuery, *args, **kwargs):
-        return update.from_user.id in ADMIN_IDS
+        return update.from_user.id in config.tg_bot.admin_ids
 
 
 class AdminGameFilter(Filter):

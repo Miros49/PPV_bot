@@ -681,6 +681,7 @@ async def handle_deal_confirmation_callback(callback: CallbackQuery):
 
         elif item == 'business':
             data = utils.parse_message_order(callback.message.text)
+
             if not data:
                 return await callback.message.edit_text("Кажется, что-то пошло не так...")
 
@@ -818,8 +819,6 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
     seller_data = await seller_state.get_data()
 
     if callback.data.split('_')[-2] == 'cancel':
-        await callback.answer()
-
         if user_id == seller_id:
             edit_balance(buyer_id, utils.get_price(seller_order_id, 'buy'), 'buy_canceled', deal_id=deal_id)
             delete_transaction(user_id=buyer_id, deal_id=deal_id)
@@ -836,17 +835,17 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                                                 message_id=seller_data['in_chat_message_id'],
                                                 reply_markup=None)
 
-            try:
-                update_deal_status(deal_id, 'canceled')
-                update_order_status(seller_order_id, 'pending')
-                if buyer_order_id != 0:
-                    update_order_status(buyer_order_id, 'pending')
-            except sqlite3.Error as e:
-                print(f"Error updating order status to 'deleted': {e}")
+            if 'seller_cancel_message_mes_id' in seller_data:
+                await bot.edit_message_reply_markup(
+                    chat_id=seller_id, message_id=seller_data['seller_cancel_message_mes_id'], reply_markup=None
+                )
+
+            utils.deal_completion(deal_id, seller_order_id, buyer_order_id, 'canceled', 'pending')
 
         else:
             await bot.send_message(user_id, "<b>‼️ Вы предложили продавцу отменить сделку</b>")
-            await bot.send_message(other_user_id, "<b>‼️ Покупатель предлагает вам отменить сделку</b>")
+            seller_cancel_message = await bot.send_message(other_user_id, "<b>‼️ Покупатель предлагает вам отменить сделку</b>",
+                                   reply_markup=User_kb.seller_canceling_deal_kb(deal_id))
 
             kb = utils.get_deal_kb(deal_id, user_id, buyer_data.get('show_complaint', True), False)
 
@@ -857,7 +856,8 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
                 pass
 
             buyer_data['show_cancel'] = False
-            return await buyer_state.update_data(buyer_data)
+            await buyer_state.update_data(buyer_data)
+            return await seller_state.update_data(seller_cancel_message_mes_id=seller_cancel_message.message_id)
 
     else:
         edit_balance(seller_id, utils.get_price(seller_order_id, 'sell'), 'sell', deal_id=deal_id)
@@ -872,7 +872,7 @@ async def handle_chat_action_callback(callback: CallbackQuery, state: FSMContext
         await bot.send_message(seller_id, "<b>✅ Покупатель подтвердил сделку. Деньги зачислены вам на аккаунт</b>",
                                reply_markup=User_kb.to_main_menu_hide_kb())
 
-        utils.deal_completion(deal_id, seller_order_id, buyer_order_id)
+        utils.deal_completion(deal_id, seller_order_id, buyer_order_id, 'confirmed', 'confirmed')
 
         add_income('deal', deal_id, 'income', utils.get_income_amount(seller_order_id))
 
@@ -1019,6 +1019,18 @@ async def my_orders_handler(callback: CallbackQuery, state: FSMContext):
                        ~StateFilter(UserStates.in_chat, UserStates.in_chat_waiting_complaint))
 async def transactions_button_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
+
+    if callback.data.split('_')[-1] == 'back':
+        await utils.send_account_info(callback)
+
+        if 'watched_transactions' in data:
+            for message_id in data['watched_transactions']:
+                try:
+                    await bot.delete_message(callback.message.chat.id, message_id)
+                except TelegramBadRequest:
+                    pass
+        return
+
     transactions = get_transactions(callback.from_user.id)
 
     if not transactions:

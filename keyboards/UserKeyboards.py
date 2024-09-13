@@ -1,3 +1,5 @@
+from typing import Any
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -150,7 +152,7 @@ def confirmation_of_creation_kb(item: str, project: str, server: str, action_typ
     return kb.as_markup()
 
 
-def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_order_id: str | int, show_report: bool = True,
+def confirmation_of_deal_buyer_kb(seller_id: str | int, deal_id: str | int, show_report: bool = True,
                                   show_cancel: bool = True):
     kb = InlineKeyboardBuilder()
 
@@ -158,29 +160,41 @@ def confirmation_of_deal_buyer_kb(seller_id: str | int, matched_order_id: str | 
     kb.row(
         InlineKeyboardButton(
             text="📢 Сообщить о нарушении",
-            callback_data=f'report_{str(seller_id)}_{str(matched_order_id)}')
+            callback_data=f'report_{str(seller_id)}_{str(deal_id)}')
     ) if show_report else None
     kb.row(InlineKeyboardButton(text="✅ Подтвердить сделку",
-                                callback_data=f'confirmation_of_deal_confirm_{str(matched_order_id)}'))
+                                callback_data=f'confirmation_of_deal_confirm_{str(deal_id)}'))
     kb.add(InlineKeyboardButton(
         text="❌ Отменить сделку",
-        callback_data=f'confirmation_of_deal_cancel_{str(matched_order_id)}')
+        callback_data=f'confirmation_of_deal_cancel_{str(deal_id)}')
     ) if show_cancel else None
 
     return kb.as_markup()
 
 
-def confirmation_of_deal_seller_kb(buyer_id: str | int, matched_order_id: str | int, show_report: bool = True):
+def confirmation_of_deal_seller_kb(buyer_id: str | int, deal_id: str | int, show_report: bool = True):
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/ddvirtshelp'))
     kb.add(
         InlineKeyboardButton(text="📢 Сообщить о нарушении",
-                             callback_data=f'report_{str(buyer_id)}_{str(matched_order_id)}')) if show_report else None
+                             callback_data=f'report_{str(buyer_id)}_{str(deal_id)}')) if show_report else None
     kb.add(
         InlineKeyboardButton(text="❌ Отменить сделку",
-                             callback_data=f'confirmation_of_deal_cancel_{str(matched_order_id)}')
+                             callback_data=f'confirmation_of_deal_cancel_{str(deal_id)}')
     ).adjust(1)
+
+    return kb.as_markup()
+
+
+def seller_canceling_deal_kb(deal_id: Any):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(
+            text="❌ Отменить сделку",
+            callback_data=f'confirmation_of_deal_cancel_{str(deal_id)}')
+    )
 
     return kb.as_markup()
 

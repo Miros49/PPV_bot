@@ -81,8 +81,6 @@ async def order(message: Message, state: FSMContext):
             provider_token=config.payment.token,
             currency='RUB',
             prices=[LabeledPrice(label='Сумма пополнения:', amount=amount)],
-            max_tip_amount=2000,
-            suggested_tip_amounts=[500, 1000, 1500],
             request_timeout=15,
             reply_markup=User_kb.payment_top_up_back()
         )

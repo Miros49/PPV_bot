@@ -4,7 +4,9 @@ from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
 from typing import Callable, Dict, Any, Awaitable
 
-from database import user_is_not_banned, get_ban_info
+from core import config
+from database import user_is_not_banned, get_ban_info, is_technical_work, remember_user_id
+from lexicon import LEXICON
 
 
 class RateLimitMiddleware(BaseMiddleware):
@@ -12,14 +14,21 @@ class RateLimitMiddleware(BaseMiddleware):
         self.delay = delay
         super().__init__()
 
-    async def __call__(self, handler, event: Message, data):
+    async def __call__(
+            self,
+            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+            event: TelegramObject,
+            data: Dict[str, Any]
+    ) -> Any:
         await asyncio.sleep(self.delay)
         return await handler(event, data)
 
 
 class BanMiddleware(BaseMiddleware):
-    def __init__(self):
+    def __init__(self, delay: float = 0.3):
+        self.delay = delay
         super().__init__()
+
 
     async def __call__(
             self,
@@ -43,3 +52,28 @@ class BanMiddleware(BaseMiddleware):
                 return
 
         return await handler(event, data)
+
+
+class TechnicalWork(BanMiddleware):
+    def __init__(self, delay: float = 0.3):
+        self.delay = delay
+        super().__init__()
+
+    async def __call__(
+            self,
+            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+            event: TelegramObject,
+            data: Dict[str, Any]
+    ) -> Any:
+        if event.from_user.id in config.tg_bot.admin_ids:
+            return await handler(event, data)
+
+        if isinstance(event, (Message, CallbackQuery)):
+            if is_technical_work():
+                remember_user_id(event.from_user.id)
+
+                if isinstance(event, Message):
+                    await event.delete()
+                    return await event.answer(LEXICON['technical_work_message'])
+
+                return await event.answer(LEXICON['technical_work_callback'], show_alert=True)

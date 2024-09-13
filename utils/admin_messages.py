@@ -25,8 +25,8 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
                 pass
             return True
 
-        bans_info = get_ban_info(target_id)
-        ban_text = information['ban'].format(bans_info[2], bans_info[3]) if bans_info else ''
+        ban_info = get_ban_info(target_id)
+        ban_text = information['ban'].format(ban_info[2], ban_info[3]) if ban_info else ''
         user_activity = get_user_activity_summary(get_user_by_id(target_id)[1])
 
         data['previous_steps'], kb = Admin_kb.inspect_user_kb(
@@ -59,8 +59,9 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         order_id, user_id, username, action, item, project, server, amount, description, price, \
             status, created_at = order
 
-        emoji = '🟢' if status == 'confirmed' else '🟠' if status == 'pending' else '🔴'
-        status_text = 'Подтверждён' if status == 'confirmed' else 'В процессе' if status == 'pending' else 'Отменён'
+        emoji = '📘' if action == 'sell' else '📗'
+        status_text = '✅ Найден' if status == 'confirmed' else '🌀 Активен' if status == 'pending' \
+            else '🚫 Удалён' if status == 'deleted' else '🚫  (А) Удалён'
         item_text = f'Кол-во валюты: {amount}' if item == 'virt' \
             else f'Название бизнеса: <i>{description}</i>' if item == 'business' \
             else f'Описание аккаунта: <i>{description}</i>'
@@ -68,13 +69,13 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         price_sell, price_buy = utils.get_price(order_id, 'sell'), utils.get_price(order_id, 'buy')
         price_buy, price_sell = '{:,}'.format(price_buy).replace(',', ' '), '{:,}'.format(price_sell).replace(',', ' ')
 
-        data['previous_steps'], kb = Admin_kb.inspect_order_kb(order_id, get_bot_user_id(user_id), data['previous_steps'])
+        data['previous_steps'], kb = Admin_kb.inspect_order_kb(order_id, get_bot_user_id(user_id),
+                                                               data['previous_steps'])
 
         await bot.edit_message_text(
             text=information['order'].format(
-                emoji, order_id, user_id, created_at, status_text,
-                action_text, utils.get_item_text(item), project, server, item_text,
-                price_sell, price_buy
+                emoji, order_id, get_bot_user_id(user_id), user_id, created_at, status_text, get_deal_id_by_order_id(order_id),
+                action_text, utils.get_item_text(item), project, server, item_text, price_sell, price_buy
             ), chat_id=chat_id, message_id=message_id,
             reply_markup=kb
         )

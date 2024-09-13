@@ -101,6 +101,8 @@ def create_tables():
                             action TEXT,
                             amount REAL)''')
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS service (technical_work INTEGER DEFAULT 0)''')
+
     conn.commit()
     conn.close()
 
@@ -112,9 +114,11 @@ def get_current_time_formatted() -> str:
 
 
 def add_user(user_id, username, phone_number):
+    current_time = get_current_time_formatted()
+
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
-    current_time = get_current_time_formatted()
+
     cursor.execute("INSERT OR IGNORE INTO users (user_id, username, phone_number, created_at) VALUES (?, ?, ?, ?)",
                    (user_id, username, phone_number, current_time))
     conn.commit()
@@ -147,6 +151,18 @@ def get_user(user_id):
     conn.close()
 
     return user_data
+
+
+def get_all_user_ids() -> List[int]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT user_id FROM users")
+    user_ids = [row[0] for row in cursor.fetchall()]
+
+    conn.close()
+
+    return user_ids
 
 
 def get_bot_user_id(user_id):
@@ -325,6 +341,9 @@ def get_user_activity_summary(user_id: int) -> dict:
     }
 
 
+# ------------------ УПРАВЛЕНИЕ ЗАКАЗАМИ ------------------ #
+
+
 def get_order(order_id: int | str):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -356,12 +375,16 @@ def delete_order(order_id: int | str) -> bool:
     cursor = conn.cursor()
 
     try:
-        cursor.execute("DELETE FROM orders WHERE id = ?", (int(order_id),))
+        cursor.execute("""
+            UPDATE orders
+            SET status = 'deleted'
+            WHERE id = ?
+        """, (int(order_id),))
         conn.commit()
         return True
 
     except sqlite3.Error as e:
-        print(f"Ошибка при удалении заказа: {e}", datetime.datetime.now().time(), sep='\n')
+        print(f"Ошибка при изменении статуса заказа: {e}", datetime.datetime.now().time(), sep='\n')
         return False
 
     finally:
@@ -487,6 +510,22 @@ def count_active_orders() -> int:
     conn.close()
 
     return active_orders_count
+
+
+def get_deal_id_by_order_id(order_id: int | str) -> Optional[int]:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT id
+        FROM deals
+        WHERE (buyer_order_id = ? OR seller_order_id = ?) AND ststus = 'confirmed'
+    ''', (int(order_id), int(order_id)))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result[0] if result else None
 
 
 # ------------------ УПРАВЛЕНИЕ ЖАЛОБАМИ ------------------ #
@@ -1008,3 +1047,89 @@ def calculate_profit():
     result = cursor.fetchone()
 
     return round(result[0]) if result else 0
+
+
+# ------------------ УПРАВЛЕНИЕ техническим перерывом ------------------ #
+
+
+def is_technical_work():
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''SELECT technical_work FROM service LIMIT 1''')
+
+    result = cursor.fetchone()
+
+    return True if result and result[0] == 1 else False
+
+
+def set_technical_work(is_enabled):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''UPDATE service SET technical_work = ?''', (1 if is_enabled else 0,))
+
+    conn.commit()
+
+
+def init_user_memory_db():
+    """Инициализация базы данных для хранения user_id."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    # Создание таблицы для хранения user_id, если она не существует
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS remembered_usders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
+def remember_user_id(user_id: int):
+    """Запоминает user_id, для оповещения об окончании тех работ"""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("INSERT OR IGNORE INTO remembered_usders (user_id) VALUES (?)", (user_id,))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Ошибка при добавлении user_id: {e}")
+    finally:
+        conn.close()
+
+
+def get_remembered_user_ids() -> List[int]:
+    """Возвращает список всех запомненных user_id и очищает список."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT user_id FROM remembered_usders")
+        user_ids = [row[0] for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        print(f"Ошибка при получении и очистке user_id: {e}")
+        user_ids = []
+    finally:
+        conn.close()
+
+    return user_ids
+
+
+def delete_user_memory_table():
+    """Удаляет таблицу user_memory из базы данных."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        # Удаляем таблицу user_memory
+        cursor.execute("DROP TABLE IF EXISTS user_memory")
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Ошибка при удалении таблицы: {e}")
+    finally:
+        conn.close()
