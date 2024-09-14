@@ -977,6 +977,7 @@ async def handle_chat_message(message: Message, state: FSMContext):
         await send_method[message_type](recipient_id, item, caption=f'<b>Сообщение от ID {bot_user_id}:</b> ' + caption)
 
 
+
 @router.message(Command('account'), StateFilter(default_state))
 async def account_info(message: Message):
     await utils.send_account_info(message)
@@ -1037,13 +1038,16 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
         return await callback.message.edit_text('У вас ещё нет транзакций',
                                                 reply_markup=User_kb.payment_back_to_account())
 
+    if callback.message.text.startswith('👤 Мой аккаунт'):
+        await callback.message.delete()
+
     max_message_length = 4096
     max_dates_per_message = 5
     messages = []
     current_message = ""
     dates_count = 0
 
-    data['watched_transactions'] = []
+    data['watched_transactions'] = data.get('watched_transactions', [])
 
     for date, trans_list in transactions:
         date_header = f"\n<b>• {date}</b>\n"

@@ -301,3 +301,13 @@ async def cashout_to_main_menu_handler(callback: CallbackQuery, state: FSMContex
     await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=callback.message.message_id,
                                         reply_markup=None)
     await callback.message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())
+
+
+@router.message(F.text == 'test')
+async def test_handler(message: Message):
+    payment_data = utils.initiate_payment(1, 1000, 'Пополнение счёта')
+
+    if payment_data:
+        await message.answer('тестик', reply_markup=User_kb.test_kb(payment_data['PaymentURL']))
+    else:
+        await message.answer('Что-то пошло не так...')

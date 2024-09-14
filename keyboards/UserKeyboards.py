@@ -1,6 +1,6 @@
 from typing import Any
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import utils
@@ -568,5 +568,13 @@ def to_main_menu_hide_kb():
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='В главное меню', callback_data='to_main_menu_hide_kb'))
+
+    return kb.as_markup()
+
+
+def test_kb(url: str):
+    kb = InlineKeyboardBuilder()
+
+    kb.row(InlineKeyboardButton(text='тестик оплаты', web_app=WebAppInfo(url=url)))
 
     return kb.as_markup()

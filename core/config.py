@@ -19,6 +19,8 @@ class TgBot:
 @dataclass
 class Payment:
     token: str
+    TerminalKey: str
+    SecretKey: str
 
 
 @dataclass
@@ -36,7 +38,11 @@ def load_config(path: str | None) -> Config:
             token=env('BOT_TOKEN'),
             admin_ids=list(map(int, env.list('ADMIN_IDS')))
         ),
-        payment=Payment(token=env('PAYMENT_TOKEN'))
+        payment=Payment(
+            token=env('PAYMENT_TOKEN'),
+            TerminalKey=env('TERMINAL_KEY'),
+            SecretKey=env('SECRET_KEY')
+        )
     )
 
 
