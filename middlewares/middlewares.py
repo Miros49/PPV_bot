@@ -29,7 +29,6 @@ class BanMiddleware(BaseMiddleware):
         self.delay = delay
         super().__init__()
 
-
     async def __call__(
             self,
             handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
@@ -55,6 +54,31 @@ class BanMiddleware(BaseMiddleware):
 
 
 class TechnicalWork(BanMiddleware):
+    def __init__(self, delay: float = 0.3):
+        self.delay = delay
+        super().__init__()
+
+    async def __call__(
+            self,
+            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+            event: TelegramObject,
+            data: Dict[str, Any]
+    ) -> Any:
+        if event.from_user.id in config.tg_bot.admin_ids:
+            return await handler(event, data)
+
+        if isinstance(event, (Message, CallbackQuery)):
+            if is_technical_work():
+                remember_user_id(event.from_user.id)
+
+                if isinstance(event, Message):
+                    await event.delete()
+                    return await event.answer(LEXICON['technical_work_message'])
+
+                return await event.answer(LEXICON['technical_work_callback'], show_alert=True)
+
+
+class WellcomeStub(BanMiddleware):
     def __init__(self, delay: float = 0.3):
         self.delay = delay
         super().__init__()

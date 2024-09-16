@@ -20,48 +20,61 @@ def create_tables():
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER UNIQUE,
-                        username TEXT,
-                        phone_number TEXT,
-                        balance REAL DEFAULT 0.00,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE,
+            username TEXT,
+            phone_number TEXT,
+            balance REAL DEFAULT 0.00,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS orders (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
-                        username TEXT,
-                        action TEXT,
-                        item TEXT,
-                        project TEXT,
-                        server TEXT,
-                        amount INTEGER,
-                        description TEXT,
-                        price INTEGER,
-                        status TEXT DEFAULT 'pending',
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            action TEXT,
+            item TEXT,
+            project TEXT,
+            server TEXT,
+            amount INTEGER,
+            description TEXT,
+            price INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS chat_logs (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        deal_id INTEGER,
-                        sender_id INTEGER,
-                        receiver_id INTEGER,
-                        type TEXT,
-                        message TEXT,
-                        timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deal_id INTEGER,
+            sender_id INTEGER,
+            receiver_id INTEGER,
+            type TEXT,
+            message TEXT,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS deals (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                buyer_id INTEGER,
-                                buyer_order_id INTEGER,
-                                seller_id INTEGER,
-                                seller_order_id INTEGER,
-                                ststus TEXT DEFAULT 'open',
-                                timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            buyer_id INTEGER,
+            buyer_order_id INTEGER,
+            seller_id INTEGER,
+            seller_order_id INTEGER,
+            ststus TEXT DEFAULT 'open',
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+    ''')
     # completion_timestamp TEXT DEFAULT NONE
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS transactions (
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transactions (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             bot_user_id INTEGER,
                             user_id INTEGER,
@@ -71,35 +84,54 @@ def create_tables():
                             action TEXT,
                             timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS reports (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            order_id INTEGER,
-                            complainer_id INTEGER,
-                            offender_id INTEGER,
-                            complaint TEXT,
-                            status TEXT DEFAULT 'open',
-                            answer TEXT DEFAULT NONE,
-                            created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER,
+            complainer_id INTEGER,
+            offender_id INTEGER,
+            complaint TEXT,
+            status TEXT DEFAULT 'open',
+            answer TEXT DEFAULT NONE,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS prices (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            project TEXT,
-                            server TEXT,
-                            buy INTEGER DEFAULT 100,
-                            sell INTEGER DEFAULT 100)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project TEXT,
+            server TEXT,
+            buy INTEGER DEFAULT 100,
+            sell INTEGER DEFAULT 100
+        )
+    ''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS bans (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id INTEGER UNIQUE,
-                            banned_until TEXT,
-                            bans_number INTEGER)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS bans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE,
+            banned_until TEXT,
+            bans_number INTEGER
+        )
+    ''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS income (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            source_type TEXT,
-                            source_id INTEGER,
-                            action TEXT,
-                            amount REAL)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS income (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_type TEXT,
+            source_id INTEGER,
+            action TEXT,
+            amount REAL
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS remembered_usders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE
+        )
+    ''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS service (technical_work INTEGER DEFAULT 0)''')
 
@@ -1061,6 +1093,81 @@ def is_technical_work():
     result = cursor.fetchone()
 
     return True if result and result[0] == 1 else False
+
+
+def set_technical_work(is_enabled):
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''UPDATE service SET technical_work = ?''', (1 if is_enabled else 0,))
+
+    conn.commit()
+
+
+def init_user_memory_db():
+    """Инициализация базы данных для хранения user_id."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    # Создание таблицы для хранения user_id, если она не существует
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS remembered_usders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
+def remember_user_id(user_id: int):
+    """Запоминает user_id, для оповещения об окончании тех работ"""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("INSERT OR IGNORE INTO remembered_usders (user_id) VALUES (?)", (user_id,))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Ошибка при добавлении user_id: {e}")
+    finally:
+        conn.close()
+
+
+def get_remembered_user_ids() -> List[int]:
+    """Возвращает список всех запомненных user_id и очищает список."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT user_id FROM remembered_usders")
+        user_ids = [row[0] for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        print(f"Ошибка при получении и очистке user_id: {e}")
+        user_ids = []
+    finally:
+        conn.close()
+
+    return user_ids
+
+
+def delete_user_memory_table():
+    """Удаляет таблицу user_memory из базы данных."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        # Удаляем таблицу user_memory
+        cursor.execute("DROP TABLE IF EXISTS user_memory")
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Ошибка при удалении таблицы: {e}")
+    finally:
+        conn.close()
+
+
+# ------------------ УПРАВЛЕНИЕ приветственной базой данных ------------------ #
 
 
 def set_technical_work(is_enabled):
