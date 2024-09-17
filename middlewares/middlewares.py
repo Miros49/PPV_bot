@@ -3,6 +3,7 @@ import asyncio
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
 from typing import Callable, Dict, Any, Awaitable
+from datetime import datetime, timezone, timedelta
 
 from core import config
 from database import user_is_not_banned, get_ban_info, is_technical_work, remember_user_id
@@ -78,7 +79,7 @@ class TechnicalWork(BanMiddleware):
                 return await event.answer(LEXICON['technical_work_callback'], show_alert=True)
 
 
-class WellcomeStub(BanMiddleware):
+class WelcomeStub(BanMiddleware):
     def __init__(self, delay: float = 0.3):
         self.delay = delay
         super().__init__()
@@ -89,15 +90,17 @@ class WellcomeStub(BanMiddleware):
             event: TelegramObject,
             data: Dict[str, Any]
     ) -> Any:
-        if event.from_user.id in config.tg_bot.admin_ids:
+        current_time = datetime.now(timezone(timedelta(hours=3)))
+        prod = datetime(2024, 9, 22, 13, 0, 0, tzinfo=timezone(timedelta(hours=3)))
+
+        if event.from_user.id in config.tg_bot.admin_ids or current_time > prod:
             return await handler(event, data)
 
         if isinstance(event, (Message, CallbackQuery)):
-            if is_technical_work():
-                remember_user_id(event.from_user.id)
+            remember_user_id(event.from_user.id)
 
-                if isinstance(event, Message):
-                    await event.delete()
-                    return await event.answer(LEXICON['technical_work_message'])
+            if isinstance(event, Message):
+                await event.delete()
+                return await event.answer(LEXICON['welcome_message'])
 
-                return await event.answer(LEXICON['technical_work_callback'], show_alert=True)
+            return await event.answer(LEXICON['welcome_callback'], show_alert=True)

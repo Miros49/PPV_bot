@@ -82,7 +82,9 @@ def create_tables():
                             deal_id INTEGER DEFAULT 0,
                             amount REAL,
                             action TEXT,
-                            timestamp TEXT DEFAULT CURRENT_TIMESTAMP)''')
+                            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS reports (
@@ -127,7 +129,7 @@ def create_tables():
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS remembered_usders (
+        CREATE TABLE IF NOT EXISTS remembered_users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER UNIQUE
         )
@@ -1111,7 +1113,7 @@ def init_user_memory_db():
 
     # Создание таблицы для хранения user_id, если она не существует
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS remembered_usders (
+        CREATE TABLE IF NOT EXISTS welcome_db (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER UNIQUE
         )
@@ -1127,7 +1129,7 @@ def remember_user_id(user_id: int):
     cursor = conn.cursor()
 
     try:
-        cursor.execute("INSERT OR IGNORE INTO remembered_usders (user_id) VALUES (?)", (user_id,))
+        cursor.execute("INSERT OR IGNORE INTO remembered_users (user_id) VALUES (?)", (user_id,))
         conn.commit()
     except sqlite3.Error as e:
         print(f"Ошибка при добавлении user_id: {e}")
@@ -1141,10 +1143,10 @@ def get_remembered_user_ids() -> List[int]:
     cursor = conn.cursor()
 
     try:
-        cursor.execute("SELECT user_id FROM remembered_usders")
+        cursor.execute("SELECT user_id FROM remembered_users")
         user_ids = [row[0] for row in cursor.fetchall()]
     except sqlite3.Error as e:
-        print(f"Ошибка при получении и очистке user_id: {e}")
+        print(f"Ошибка при получении: {e}")
         user_ids = []
     finally:
         conn.close()
@@ -1170,56 +1172,28 @@ def delete_user_memory_table():
 # ------------------ УПРАВЛЕНИЕ приветственной базой данных ------------------ #
 
 
-def set_technical_work(is_enabled):
-    conn = sqlite3.connect(database_file)
-    cursor = conn.cursor()
-
-    cursor.execute('''UPDATE service SET technical_work = ?''', (1 if is_enabled else 0,))
-
-    conn.commit()
-
-
-def init_user_memory_db():
-    """Инициализация базы данных для хранения user_id."""
-    conn = sqlite3.connect(database_file)
-    cursor = conn.cursor()
-
-    # Создание таблицы для хранения user_id, если она не существует
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS remembered_usders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER UNIQUE
-        )
-    ''')
-
-    conn.commit()
-    conn.close()
-
-
-def remember_user_id(user_id: int):
-    """Запоминает user_id, для оповещения об окончании тех работ"""
+def remember_welcomed_user_id(user_id: int):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     try:
-        cursor.execute("INSERT OR IGNORE INTO remembered_usders (user_id) VALUES (?)", (user_id,))
+        cursor.execute("INSERT OR IGNORE INTO welcome_db (user_id) VALUES (?)", (user_id,))
         conn.commit()
     except sqlite3.Error as e:
-        print(f"Ошибка при добавлении user_id: {e}")
+        print(f"Ошибка при добавлении user_id в welcome_db: {e}")
     finally:
         conn.close()
 
 
-def get_remembered_user_ids() -> List[int]:
-    """Возвращает список всех запомненных user_id и очищает список."""
+def get_welcomed_user_ids() -> List[int]:
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     try:
-        cursor.execute("SELECT user_id FROM remembered_usders")
+        cursor.execute("SELECT user_id FROM welcome_db")
         user_ids = [row[0] for row in cursor.fetchall()]
     except sqlite3.Error as e:
-        print(f"Ошибка при получении и очистке user_id: {e}")
+        print(f"Ошибка при получении из welcome_db: {e}")
         user_ids = []
     finally:
         conn.close()
@@ -1227,14 +1201,13 @@ def get_remembered_user_ids() -> List[int]:
     return user_ids
 
 
-def delete_user_memory_table():
-    """Удаляет таблицу user_memory из базы данных."""
+def delete_welcome_db():
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
 
     try:
         # Удаляем таблицу user_memory
-        cursor.execute("DROP TABLE IF EXISTS user_memory")
+        cursor.execute("DROP TABLE IF EXISTS welcome_db")
         conn.commit()
     except sqlite3.Error as e:
         print(f"Ошибка при удалении таблицы: {e}")

@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from aiogram import Bot, F, Router
 from aiogram.client.default import DefaultBotProperties
@@ -1041,16 +1042,19 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
     if callback.message.text.startswith('👤 Мой аккаунт'):
         await callback.message.delete()
 
-    max_message_length = 4096
+    html_content = """
+       <html>
+       <head><meta charset="UTF-8"><title>Транзакции</title></head>
+       <body>
+       """
+
     max_dates_per_message = 5
-    messages = []
-    current_message = ""
     dates_count = 0
 
     data['watched_transactions'] = data.get('watched_transactions', [])
 
     for date, trans_list in transactions:
-        date_header = f"\n<b>• {date}</b>\n"
+        date_header = f"<h2>• {date}</h2>"
         transaction_lines = []
 
         for trans in trans_list:
@@ -1070,25 +1074,30 @@ async def transactions_button_handler(callback: CallbackQuery, state: FSMContext
                 print(f'\nОшибка в форматировании action_text транзакции №{transaction_id}\n')
 
             amount_str = f"{'+' if action in ['top_up', 'sell'] else ''}{amount}₽"
-            transaction_str = f"<i>{created_at}</i> <code>{amount_str}</code> - <i>{action_text}</i> - (№<code>{transaction_id}</code>)\n"
+            transaction_str = f"<p><i>{created_at}</i> <code>{amount_str}</code> - <i>{action_text}</i> - (№<code>{transaction_id}</code>)</p>"
             transaction_lines.append(transaction_str)
 
         date_section = date_header + ''.join(transaction_lines)
 
-        if len(current_message + date_section) > max_message_length or dates_count >= max_dates_per_message:
-            messages.append(current_message)
-            current_message = ""
-            dates_count = 0
-
-        current_message += date_section
+        html_content += date_section
         dates_count += 1
 
-    if current_message:
-        messages.append(current_message)
+        if dates_count >= max_dates_per_message:
+            dates_count = 0
 
-    for text in messages:
-        sent_message = await callback.message.answer(text)
-        data['watched_transactions'].append(sent_message.message_id)
+    html_content += """
+       </body>
+       </html>
+       """
+
+    html_file_path = f"transactions_{callback.from_user.id}.html"
+    with open(html_file_path, 'w', encoding='utf-8') as file:
+        file.write(html_content)
+
+    with open(html_file_path, 'rb') as file:
+        await bot.send_document(callback.message.chat.id, file)
+
+    os.remove(html_file_path)
 
     await callback.message.answer('<b>Выберите действие:</b>', reply_markup=User_kb.transactions_management())
 
