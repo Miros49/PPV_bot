@@ -572,9 +572,9 @@ def to_main_menu_hide_kb():
     return kb.as_markup()
 
 
-def test_kb(url: str):
+def invoice_kb(url: str):
     kb = InlineKeyboardBuilder()
 
-    kb.row(InlineKeyboardButton(text='тестик оплаты', web_app=WebAppInfo(url=url)))
+    kb.row(InlineKeyboardButton(text='💸 Перейти к оплате', web_app=WebAppInfo(url=url)))
 
     return kb.as_markup()

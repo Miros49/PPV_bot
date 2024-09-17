@@ -1589,6 +1589,11 @@ async def view_answer_handler(callback: CallbackQuery):
     await callback.message.edit_text(text)
 
 
+@router.message(F.text == 'test')
+async def test_handler(message: Message):
+    await message.answer('stub')
+
+
 def todo() -> None:
     # TODO: /admin
     #       Вместе с username пользователей выводи user id обоих, выводи время создание репорта и добавь кнопки:

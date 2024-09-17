@@ -1,65 +1,83 @@
-import hashlib
-import requests
-import json
+import asyncio
+import aiohttp
+import base64
+
 from core import config
 
-
-def generate_token(params, secret_key):
-    # Добавляем пароль в параметры
-    params['Password'] = secret_key
-
-    # Сортируем параметры по ключу в алфавитном порядке
-    sorted_params = sorted(params.items())
-
-    # Конкатенируем только значения параметров в одну строку
-    concatenated_values = ''.join(str(value) for key, value in sorted_params)
-
-    # Применяем SHA-256 хеширование
-    token = hashlib.sha256(concatenated_values.encode('utf-8')).hexdigest()
-
-    return token
+API_URL = "https://api.cloudpayments.ru/orders/create"
 
 
-def initiate_payment(order_id, amount, description, success_url=None, fail_url=None):
-    terminal_key = config.payment.TerminalKey
-    secret_key = config.payment.SecretKey
+def get_auth_header() -> str:
+    auth_string = f"{config.payment.public_id}:{config.payment.api_secret}"
+    auth_bytes = auth_string.encode('utf-8')
+    auth_base64 = base64.b64encode(auth_bytes).decode('utf-8')
+    return f"Basic {auth_base64}"
 
-    print(terminal_key, secret_key)
 
-    headers = {"Content-Type": "application/json"}
-
-    payment_data = {
-        "TerminalKey": terminal_key,
-        "Amount": amount,  # Сумма в копейках
-        "OrderId": order_id,
-        "Description": description
+async def create_invoice(amount: float, email: str, invoice_id: str,
+                         account_id: str, description: str = 'Пополнение счёта',
+                         currency: str = "RUB", send_email: bool = False,
+                         offer_uri: str = None, phone: str = None,
+                         send_sms: bool = False, culture_name: str = "ru-RU",
+                         success_redirect_url: str = None,
+                         fail_redirect_url: str = None) -> dict:
+    headers = {
+        "Authorization": get_auth_header(),
+        "Content-Type": "application/json"
     }
 
-    if success_url:
-        payment_data["SuccessURL"] = success_url
-    if fail_url:
-        payment_data["FailURL"] = fail_url
+    payload = {
+        "Amount": amount,
+        "Currency": currency,
+        "Description": description,
+        "Email": email,
+        "RequireConfirmation": False,
+        "SendEmail": send_email,
+        "InvoiceId": invoice_id,
+        "AccountId": account_id
 
-    token = generate_token(payment_data, secret_key)
-    payment_data['Token'] = token
+    }
 
-    url = "https://rest-api-test.tinkoff.ru/v2/Init"
+    if offer_uri:
+        payload["OfferUri"] = offer_uri
+    if phone:
+        payload["Phone"] = phone
+    if send_sms:
+        payload["SendSms"] = send_sms
+    if culture_name:
+        payload["CultureName"] = culture_name
+    if success_redirect_url:
+        payload["SuccessRedirectUrl"] = success_redirect_url
+    if fail_redirect_url:
+        payload["FailRedirectUrl"] = fail_redirect_url
 
-    response = requests.post(url, data=json.dumps(payment_data), headers=headers)
+    async with aiohttp.ClientSession() as session:
+        async with session.post(API_URL, json=payload, headers=headers) as response:
+            if response.status == 200:
+                response_data = await response.json()
+                if response_data.get("Success"):
+                    return response_data
+                else:
+                    raise Exception(f"Error creating invoice: {response_data.get('Message')}")
+            else:
+                text = await response.text()
+                raise Exception(f"Failed to create invoice. Status: {response.status}, Response: {text}")
 
-    if response.status_code == 200:
-        response_data = response.json()
 
-        if response_data.get('Success'):
-            print("Платеж инициирован успешно.")
-            print(f"Payment ID: {response_data.get('PaymentId')}")
-            print(f"Status: {response_data.get('Status')}")
-            print(f"Payment URL: {response_data.get('PaymentURL')}")
-            return response_data
-        else:
-            print(f"Ошибка инициализации платежа. Код ошибки: {response_data.get('ErrorCode')}")
-            return None
-    else:
-        print(f"Ошибка при инициации платежа: {response.status_code}, {response.text}\n")
+async def test():
+    try:
+        response = await create_invoice(
+            amount=10.0,
+            description="Оплата на сайте example.com",
+            email="client@test.local",
+            send_email=True,
+            invoice_id='3',
+            account_id='0'
+        )
         print(response)
-        return None
+    except Exception as e:
+        print(f"Failed to create invoice: {str(e)}")
+
+
+if __name__ == "__main__":
+    asyncio.run(test())

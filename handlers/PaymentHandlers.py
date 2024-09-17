@@ -55,60 +55,36 @@ async def order(message: Message, state: FSMContext):
             )
         except TelegramBadRequest:
             pass
+        return
 
-        return state.update_data(data)
-
-    amount_text = message.text.replace(' ', '')
-
-    if amount_text.isdigit() and int(amount_text) >= 60:
-        amount = int(amount_text) * 100
+    if message.text.replace(' ', '').isdigit():
+        amount = int(message.text.replace(' ', ''))
     else:
-        await bot.edit_message_text(
+        return await bot.edit_message_text(
             text=payment_lexicon['input_amount_top_up'].format(balance) + payment_lexicon['wrong_amount'],
             chat_id=message.from_user.id, message_id=data['original_message_id'],
             reply_markup=User_kb.payment_back_to_account()
         )
-        return await state.update_data(data)
 
-    await bot.delete_message(chat_id=message.from_user.id, message_id=data['original_message_id'])
+    response = await utils.create_invoice(amount, '', '1', '1')
 
-    data['original_message_id'] = (
-        await bot.send_invoice(
-            chat_id=message.from_user.id,
-            title='Пополнение счёта',
-            description='💰',
-            payload='test',
-            provider_token=config.payment.token,
-            currency='RUB',
-            prices=[LabeledPrice(label='Сумма пополнения:', amount=amount)],
-            request_timeout=15,
-            reply_markup=User_kb.payment_top_up_back()
+    if response['Success']:
+        await bot.edit_message_text(
+            text=payment_lexicon['confirm_top_up'].format(balance, amount),
+            chat_id=message.from_user.id, message_id=data['original_message_id'],
+            reply_markup=User_kb.invoice_kb(response['Model']['Url'])
         )
-    ).message_id
+
+    else:
+        await bot.edit_message_text(
+            text='<b>Что-то пошло не так... Свяжитесь, пожалуйста, с поддержкой:</b>',
+            chat_id=message.from_user.id, message_id=data['original_message_id'],
+            reply_markup=User_kb.support_kb()
+        )
+
+        print(f'Ошибка {response["ErrorCode"]} при попытке создания инвойса: {response["Message"]}')
 
     await state.clear()
-    await state.update_data(data)
-
-
-@router.pre_checkout_query()
-async def pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
-    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
-
-
-@router.message(F.successful_payment)
-async def succesful_payment_handler(message: Message, state: FSMContext):
-    amount = message.successful_payment.total_amount / 100
-    edit_balance(message.from_user.id, amount, 'top_up')
-
-    data = await state.get_data()
-
-    if 'original_message_id' in data:
-        await bot.delete_message(chat_id=message.from_user.id, message_id=data['original_message_id'])
-
-    await utils.send_account_info(message)
-
-    await state.clear()
-    await state.update_data(data)
 
 
 @router.callback_query(F.data == 'cashout_request')
@@ -135,9 +111,9 @@ async def cashout_request(callback: CallbackQuery, state: FSMContext):
 @router.message(StateFilter(UserStates.cashout_amount))
 async def cashout_amount_handler(message: Message, state: FSMContext):
     data = await state.get_data()
+
     balance = get_balance(message.from_user.id)
     balance_text = '{:,}'.format(round(balance)).replace(',', ' ')
-    print(balance, balance_text)
 
     await bot.delete_message(message.from_user.id, message.message_id)
 
@@ -301,13 +277,3 @@ async def cashout_to_main_menu_handler(callback: CallbackQuery, state: FSMContex
     await bot.edit_message_reply_markup(chat_id=callback.from_user.id, message_id=callback.message.message_id,
                                         reply_markup=None)
     await callback.message.answer(LEXICON['start_message'], reply_markup=User_kb.start_kb())
-
-
-@router.message(F.text == 'test')
-async def test_handler(message: Message):
-    payment_data = utils.initiate_payment(1, 1000, 'Пополнение счёта')
-
-    if payment_data:
-        await message.answer('тестик', reply_markup=User_kb.test_kb(payment_data['PaymentURL']))
-    else:
-        await message.answer('Что-то пошло не так...')
