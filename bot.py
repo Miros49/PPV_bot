@@ -51,7 +51,7 @@ async def main():
     await bot.delete_webhook(drop_pending_updates=False)
     polling_task = asyncio.create_task(dp.start_polling(bot))
 
-    app_config = Config(app=app, host="0.0.0.0", port=8000, log_level="info")
+    app_config = Config(app=app, host="176.124.222.36", port=8000, log_level="info")
     server = Server(app_config)
     server_task = asyncio.create_task(server.serve())
 
