@@ -3,7 +3,11 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from fastapi import FastAPI
+from uvicorn import Config, Server
 
+
+from services import CloudPaymentsHandler
 from core import config, storage
 from database import init_db
 from handlers import UserHandlers, AdminHandlers, PaymentHandlers, DebugHandlers
@@ -35,6 +39,11 @@ dp.include_router(UserHandlers.router)
 dp.include_router(PaymentHandlers.router)
 dp.include_router(DebugHandlers.router)
 
+app = FastAPI()
+
+cloudpayments_handler = CloudPaymentsHandler(bot=bot, chat_id=config.tg_bot.admin_ids[1])
+app.post("/webhook/pay")(cloudpayments_handler.handle_payment_notification)
+
 
 async def main():
     init_db()
@@ -42,7 +51,11 @@ async def main():
     await bot.delete_webhook(drop_pending_updates=False)
     polling_task = asyncio.create_task(dp.start_polling(bot))
 
-    await asyncio.gather(polling_task)
+    app_config = Config(app=app, host="0.0.0.0", port=8000, log_level="info")
+    server = Server(app_config)
+    server_task = asyncio.create_task(server.serve())
+
+    await asyncio.gather(polling_task, server_task)
 
 
 if __name__ == '__main__':
