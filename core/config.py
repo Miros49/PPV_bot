@@ -17,14 +17,22 @@ class TgBot:
 
 
 @dataclass
+class Server:
+    ip: str
+    port: int
+
+
+@dataclass
 class Payment:
     public_id: str
     api_secret: str
+    allowed_ips: list[str]
 
 
 @dataclass
 class Config:
     tg_bot: TgBot
+    server: Server
     payment: Payment
 
 
@@ -37,9 +45,14 @@ def load_config(path: str | None) -> Config:
             token=env('BOT_TOKEN'),
             admin_ids=list(map(int, env.list('ADMIN_IDS')))
         ),
+        server=Server(
+            ip=env('SERVER_IP'),
+            port=int(env('SERVER_PORT'))
+        ),
         payment=Payment(
             public_id=env('PUBLIC_ID'),
-            api_secret=env('API_SECRET')
+            api_secret=env('API_SECRET'),
+            allowed_ips=list(map(str, env.list('ALLOWED_IPS')))
         )
     )
 

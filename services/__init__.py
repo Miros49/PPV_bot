@@ -1,1 +1,1 @@
-from services.payment import CloudPaymentsHandler
+from services.payment import run_server
