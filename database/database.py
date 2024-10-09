@@ -1113,7 +1113,7 @@ def init_user_memory_db():
 
     # Создание таблицы для хранения user_id, если она не существует
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS welcome_db (
+        CREATE TABLE IF NOT EXISTS remembered_users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER UNIQUE
         )
@@ -1172,6 +1172,22 @@ def delete_user_memory_table():
 # ------------------ УПРАВЛЕНИЕ приветственной базой данных ------------------ #
 
 
+def init_wellcome_db():
+    """Инициализация базы данных для хранения user_id."""
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS welcome_db (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
 def remember_welcomed_user_id(user_id: int):
     conn = sqlite3.connect(database_file)
     cursor = conn.cursor()
@@ -1181,6 +1197,21 @@ def remember_welcomed_user_id(user_id: int):
         conn.commit()
     except sqlite3.Error as e:
         print(f"Ошибка при добавлении user_id в welcome_db: {e}")
+    finally:
+        conn.close()
+
+
+def is_user_welcomed(user_id: int) -> bool:
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT 1 FROM welcome_db WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+        return result is not None
+    except sqlite3.Error as e:
+        print(f"Ошибка при проверке наличия user_id в welcome_db: {e}")
+        return False
     finally:
         conn.close()
 

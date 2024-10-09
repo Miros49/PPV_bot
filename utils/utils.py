@@ -2,7 +2,7 @@ import math
 import re
 import sqlite3
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
@@ -146,6 +146,9 @@ def get_deal_kb(deal_id: str, tg_id: str | int, show_complaint: bool = True,
 
 
 def parse_time_to_hours(time_str: str) -> int:
+    if time_str == 'Навсегда':
+        return -1
+
     total_hours = 0
 
     time_parts = re.findall(r'(\d+)([dh])', time_str)
@@ -158,6 +161,15 @@ def parse_time_to_hours(time_str: str) -> int:
             total_hours += value
 
     return total_hours
+
+
+def get_moscow_time() -> str:
+    utc_now = datetime.utcnow()
+    moscow_time = utc_now + timedelta(hours=3)
+
+    date, time = moscow_time.strftime('%d.%m.%Y %H:%M').split(' ')
+
+    return f'<code>{date} {time} (MSK)</code>'
 
 
 def deal_completion(deal_id: Any, seller_order_id: Any, buyer_order_id: Any, deal_status: str, order_status: str):

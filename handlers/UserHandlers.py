@@ -40,7 +40,7 @@ async def start_handler(message: Message, state: FSMContext):
     if not get_user(message.from_user.id):
         user = message.from_user
         phone_number = None
-        database.add_user(user.id, user.username, phone_number)
+        add_user(user.id, user.username, phone_number)
 
 
 @router.message(Command('shop'), StateFilter(default_state))

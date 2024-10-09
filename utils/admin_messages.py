@@ -19,7 +19,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
                 await bot.edit_message_text(
                     text='Пользователя с таким ID не существует',
                     chat_id=chat_id, message_id=message_id,
-                    reply_markup=Admin_kb.back_to_information_kb()
+                    reply_markup=Admin_kb.cancel_search_kb()
                 )
             except TelegramBadRequest:
                 pass
@@ -50,7 +50,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
                 await bot.edit_message_text(
                     text='Сделки с таким ID не существует',
                     chat_id=chat_id, message_id=message_id,
-                    reply_markup=Admin_kb.back_to_information_kb()
+                    reply_markup=Admin_kb.cancel_search_kb()
                 )
             except TelegramBadRequest:
                 pass
@@ -62,6 +62,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         emoji = '📘' if action == 'sell' else '📗'
         status_text = '✅ Найден' if status == 'confirmed' else '🌀 Активен' if status == 'pending' \
             else '🚫 Удалён' if status == 'deleted' else '🚫  (А) Удалён'
+        deal_id = get_deal_id_by_order_id(order_id) if get_deal_id_by_order_id(order_id) else 'Нет'
         item_text = f'Кол-во валюты: {amount}' if item == 'virt' \
             else f'Название бизнеса: <i>{description}</i>' if item == 'business' \
             else f'Описание аккаунта: <i>{description}</i>'
@@ -74,7 +75,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
 
         await bot.edit_message_text(
             text=information['order'].format(
-                emoji, order_id, get_bot_user_id(user_id), user_id, created_at, status_text, get_deal_id_by_order_id(order_id),
+                emoji, order_id, get_bot_user_id(user_id), user_id, deal_id, created_at, status_text,
                 action_text, utils.get_item_text(item), project, server, item_text, price_sell, price_buy
             ), chat_id=chat_id, message_id=message_id,
             reply_markup=kb
@@ -88,7 +89,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
                 await bot.edit_message_text(
                     text='Сделки с таким ID не существует',
                     chat_id=chat_id, message_id=message_id,
-                    reply_markup=Admin_kb.back_to_information_kb()
+                    reply_markup=Admin_kb.cancel_search_kb()
                 )
             except TelegramBadRequest:
                 pass
@@ -122,7 +123,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
                 await bot.edit_message_text(
                     text='Нет жалобы с данным ID',
                     chat_id=chat_id, message_id=message_id,
-                    reply_markup=Admin_kb.back_to_information_kb()
+                    reply_markup=Admin_kb.cancel_search_kb()
                 )
             except TelegramBadRequest:
                 pass
@@ -137,7 +138,7 @@ async def send_information(target: str, target_id: int, chat_id: int, message_id
         offender_username = f'@{offender[2]}' if offender[2] else '<b>нет тега</b>'
 
         # data['previous_steps'], kb = Admin_kb.answer_to_complaint_kb(complaint_id, data['previous_steps'])
-        kb = Admin_kb.back_to_information_kb()
+        kb = Admin_kb.cancel_search_kb()
 
         await bot.edit_message_text(
             LEXICON['admin_report'].format(

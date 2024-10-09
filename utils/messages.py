@@ -139,7 +139,7 @@ async def show_orders(callback: CallbackQuery, state: FSMContext, item, project,
                 'mes_original': (
                     await callback.message.edit_text(
                         text=text,
-                        reply_markup=User_kb.create_ordeer_kb(key, project, server)
+                        reply_markup=User_kb.create_order_kb(key, project, server)
                     )
                 ).message_id
             }

@@ -6,7 +6,9 @@ from typing import Callable, Dict, Any, Awaitable
 from datetime import datetime, timezone, timedelta
 
 from core import config
-from database import user_is_not_banned, get_ban_info, is_technical_work, remember_user_id
+from database import user_is_not_banned, get_ban_info, is_technical_work, remember_user_id, remember_welcomed_user_id, \
+    is_user_welcomed, add_user
+from keyboards.UserKeyboards import wellcome_kb
 from lexicon import LEXICON
 
 
@@ -78,6 +80,8 @@ class TechnicalWork(BanMiddleware):
 
                 return await event.answer(LEXICON['technical_work_callback'], show_alert=True)
 
+        return await handler(event, data)
+
 
 class WelcomeStub(BanMiddleware):
     def __init__(self, delay: float = 0.3):
@@ -91,16 +95,19 @@ class WelcomeStub(BanMiddleware):
             data: Dict[str, Any]
     ) -> Any:
         current_time = datetime.now(timezone(timedelta(hours=3)))
-        prod = datetime(2024, 9, 22, 13, 0, 0, tzinfo=timezone(timedelta(hours=3)))
+        prod = datetime(2024, 10, 4, 12, 0, 0, tzinfo=timezone(timedelta(hours=3)))
 
         if event.from_user.id in config.tg_bot.admin_ids or current_time > prod:
             return await handler(event, data)
 
         if isinstance(event, (Message, CallbackQuery)):
-            remember_user_id(event.from_user.id)
+            if not is_user_welcomed(event.from_user.id):
+                remember_welcomed_user_id(event.from_user.id)
+                add_user(event.from_user.id, event.from_user.username, None)
 
-            if isinstance(event, Message):
-                await event.delete()
-                return await event.answer(LEXICON['welcome_message'])
+                if isinstance(event, Message):
+                    await event.delete()
+                    return await event.answer(LEXICON['welcome_message'], reply_markup=wellcome_kb())
 
-            return await event.answer(LEXICON['welcome_callback'], show_alert=True)
+        if isinstance(event, Message):
+            await event.delete()

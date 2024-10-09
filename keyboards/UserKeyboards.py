@@ -11,7 +11,7 @@ def start_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='🛒 Магазин', callback_data='shop_button'),
+        InlineKeyboardButton(text='🛒 Торговая площадка', callback_data='shop_button'),
         InlineKeyboardButton(text='👤 Аккаунт', callback_data='account_button'),
         InlineKeyboardButton(text='📢 Жалобы', callback_data='complaints_button'),
         InlineKeyboardButton(text='📕 Правила', url='https://telegra.ph/Pravila-Bota-DD-07-28'),
@@ -25,9 +25,9 @@ def shop_kb():
     kb = InlineKeyboardBuilder()
 
     kb.add(
-        InlineKeyboardButton(text='Купить', callback_data='shop_buy_button'),  # /ORDERS /ORDERSBIZ /ORDERSACC
+        InlineKeyboardButton(text='Купить', callback_data='shop_buy_button'),
         InlineKeyboardButton(text='Продать', callback_data='shop_sell_button'),
-        InlineKeyboardButton(text='Создать заказ на покупку ', callback_data='shop_create_order_button'),
+        InlineKeyboardButton(text='Автопокупка', callback_data='shop_create_order_button'),
         # InlineKeyboardButton(text='Автопостер Discord', callback_data='shop_autoposter_discord_button'),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     )
@@ -37,7 +37,7 @@ def shop_kb():
     return kb.as_markup()
 
 
-def create_ordeer_kb(key: bool, project: str, server: str):
+def create_order_kb(key: bool, project: str, server: str):
     kb = InlineKeyboardBuilder()
 
     kb.add(InlineKeyboardButton(text='Создать заказ на покупку ',
@@ -141,13 +141,13 @@ def amount_kb(project: str, server: str, action_type: str, item='virt', single_s
 def confirmation_of_creation_kb(item: str, project: str, server: str, action_type: str):
     kb = InlineKeyboardBuilder()
 
-    kb.row(
+    kb.add(
         InlineKeyboardButton(text='Подтвердить', callback_data=f'confirmation_of_creation_{item}_confirm'),
         # InlineKeyboardButton(text="Отменить", callback_data='confirmation_of_creation_cancel'),
         InlineKeyboardButton(text='← Назад',
                              callback_data=f'{"server" if item == "virt" else "btls"}_{item}_{project}_'
                                            f'{server}_{action_type}')
-    ).adjust(2)
+    ).adjust(1)
 
     return kb.as_markup()
 
@@ -206,6 +206,16 @@ def support_kb():
         InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/ddvirtshelp'),
         InlineKeyboardButton(text='← Назад', callback_data=f'back_to_menu')
     ).adjust(1)
+
+    return kb.as_markup()
+
+
+def contact_support_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.row(
+        InlineKeyboardButton(text='Связаться с поддержкой', url='https://t.me/ddvirtshelp')
+    )
 
     return kb.as_markup()
 
@@ -576,5 +586,18 @@ def invoice_kb(url: str):
     kb = InlineKeyboardBuilder()
 
     kb.row(InlineKeyboardButton(text='💸 Перейти к оплате', web_app=WebAppInfo(url=url)))
+
+    return kb.as_markup()
+
+
+def wellcome_kb():
+    kb = InlineKeyboardBuilder()
+
+    kb.add(
+        InlineKeyboardButton(text='Канал', url='https://t.me/ddvirts'),
+        InlineKeyboardButton(text='Чат', url='https://t.me/ddvirtschat'),
+        InlineKeyboardButton(text='Поддержка', url='https://t.me/ddvirtshelp'),
+        InlineKeyboardButton(text='Видеоинструкция', url='https://telegra.ph/Pravila-Bota-DD-09-16')
+    ).adjust(1)
 
     return kb.as_markup()

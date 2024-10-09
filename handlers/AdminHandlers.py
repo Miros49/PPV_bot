@@ -50,19 +50,19 @@ async def admin(message: Message):
     )
 
 
-@router.callback_query(F.data == 'back_to_admin_menu', StateFilter(default_state))
-async def back_to_menu(callback: CallbackQuery):  # TODO: удалить
-    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
-
-    await callback.message.edit_textedit_text(
-        LEXICON['admin_menu'].format(
-            income=calculate_profit(),
-            users_number=count_users(),
-            active_orders_number=count_active_orders(),
-            active_deals_number=count_active_deals()
-        ),
-        reply_markup=Admin_kb.menu_kb()
-    )
+# @router.callback_query(F.data == 'back_to_admin_menu', StateFilter(default_state))
+# async def back_to_menu(callback: CallbackQuery):  # TODO: удалить
+#     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+#
+#     await callback.message.edit_textedit_text(
+#         LEXICON['admin_menu'].format(
+#             income=calculate_profit(),
+#             users_number=count_users(),
+#             active_orders_number=count_active_orders(),
+#             active_deals_number=count_active_deals()
+#         ),
+#         reply_markup=Admin_kb.menu_kb()
+#     )
 
 
 @router.callback_query(F.data == 'admin_reports', StateFilter(default_state))
@@ -214,11 +214,18 @@ async def confirm_answer_handler(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(F.data == 'admin_information')
-async def admin_information(callback: CallbackQuery, state: FSMContext):  # TODO: удалить
-    await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+# @router.callback_query(F.data == 'admin_information')
+# async def admin_information(callback: CallbackQuery, state: FSMContext):  # TODO: удалить
+#     await bot.send_chat_action(callback.from_user.id, ChatAction.TYPING)
+#
+#     await callback.message.edit_text('Выберите критерий поиска:', reply_markup=Admin_kb.information_kb())
+#     await state.clear()
 
-    await callback.message.edit_text('Выберите критерий поиска:', reply_markup=Admin_kb.information_kb())
+
+@router.callback_query(F.data == 'admin_cancel_search')
+async def cancel_search_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text('Поиск отменён')
+
     await state.clear()
 
 
@@ -232,7 +239,7 @@ async def admin_information_by(message: Message, state: FSMContext):
         'admin_information_message_mes_id': (
             await message.answer(
                 LEXICON['admin_information'].format(target_map.get(information_map.get(message.text, None))),
-                reply_markup=Admin_kb.back_to_information_kb())
+                reply_markup=Admin_kb.cancel_search_kb())
         ).message_id
     }
 
@@ -253,7 +260,7 @@ async def send_information_handler(message: Message, state: FSMContext):
         return await bot.edit_message_text(
             text=LEXICON['incorrect_value'],
             chat_id=message.chat.id, message_id=data['admin_information_message_mes_id'],
-            reply_markup=Admin_kb.back_to_information_kb()
+            reply_markup=Admin_kb.cancel_search_kb()
         )
 
     data['previous_steps'] = [f"{data['target']}_{str(target_id)}"]
@@ -483,7 +490,7 @@ async def ban_user_until_time_handler(message: Message, state: FSMContext):
         )
 
     await bot.edit_message_text(
-        LEXICON['admin_ban_user_confirm'].format(data['user_id'], message.text),
+        LEXICON['admin_ban_user_confirm'].format(get_bot_user_id(data['user_id']), message.text),
         chat_id=message.chat.id, message_id=data['ban_user_message_mes_id'],
         reply_markup=Admin_kb.confirm_ban_kb()
     )
@@ -504,16 +511,25 @@ async def confirm_ban_handler(callback: CallbackQuery, state: FSMContext):
         return await callback.answer('Что-то пошло не так... Попробуйте ещё раз', show_alert=True)
 
     try:
+        user_id = data['user_id']
+        amount = get_balance(user_id) if data['period'] == -1 else get_balance(user_id) / 2
+
         ban_user(data['user_id'], data['period'])
-        period = get_ban_info(data['user_id'])[2]
+        edit_balance(user_id, -amount, 'reduction')
+        add_income('user', user_id, 'income', float(amount))
+
+        banned_until = get_ban_info(data['user_id'])[2]
         bot_user_id = get_bot_user_id(data['user_id'])
 
         if data['period'] != -1:
-            await bot.send_message(data['user_id'], LEXICON['you_was_banned'].format(bot_user_id, period),
-                                   reply_markup=User_kb.support_kb())
+            await bot.send_message(data['user_id'], LEXICON['you_was_banned'].format(bot_user_id, banned_until),
+                                   reply_markup=User_kb.contact_support_kb(), disable_web_page_preview=True)
         else:
             await bot.send_message(data['user_id'], LEXICON['you_was_banned_forever'].format(bot_user_id),
-                                   reply_markup=User_kb.support_kb())
+                                   reply_markup=User_kb.contact_support_kb(), disable_web_page_preview=True)
+
+        if utils.get_user_state(user_id) in [UserStates.in_chat, UserStates.in_chat_waiting_complaint]:
+            pass  # TODO: сообщение в чат о том, что юзер забанен
 
         await bot.edit_message_text(
             LEXICON['admin_ban_user_confirmed'].format(get_bot_user_id(data['user_id']), data['period_text']),
@@ -533,7 +549,11 @@ async def admin_unban_user_handler(callback: CallbackQuery):
     user_id = get_user_by_id(bot_user_id)[1]
 
     if unban_user(user_id):
-        await bot.send_message(user_id, '✅ Вы были разбанены администрацией')
+        await bot.send_message(
+            chat_id=user_id,
+            text=LEXICON['you_was_unbanned'].format(bot_user_id, utils.get_moscow_time()),
+            disable_web_page_preview=True
+        )
         await callback.message.edit_text(LEXICON['admin_unban_user_confirmed'].format(bot_user_id))
     else:
         await callback.message.edit_text('Что-то пошло не так')
@@ -554,6 +574,7 @@ async def top_up_user_balance_handler(callback: CallbackQuery, state: FSMContext
     data['edition_type'] = 'top-up' if callback.data.startswith('top_up') else 'reduce'
     data['admin_info_original_message_id'] = mes.message_id
     data['bot_user_id'] = int(bot_user_id)
+
     await state.set_state(AdminStates.input_amount_to_edit)
     await state.update_data(data)
 
@@ -630,15 +651,15 @@ async def confirm_balance_change_handler(callback: CallbackQuery):
     action_text_user = 'пополнила' if action == 'top-up' else 'уменьшила'
     action_text_admin = 'пополнен' if action == 'top-up' else 'уменьшен'
     amount_text = '{:,}'.format(round(float(amount))).replace(',', ' ')
+    text = LEXICON['notify_user_about_balance_changes'].format(
+        '✅' if action == 'top-up' else '‼️', action_text_user, amount_text
+    )
 
     try:
         edit_balance(user_id, amount_to_edit, transaction_action)
         add_income('user', user_id, income_action, float(amount))
 
-        await bot.send_message(
-            chat_id=user_id,
-            text=LEXICON['notify_user_about_balance_changes'].format(action_text_user, amount_text)
-        )
+        await bot.send_message(chat_id=user_id, text=text)
         await callback.message.edit_text(
             LEXICON['admin_confirmation_of_editing_balance'].format(bot_user_id, action_text_admin, amount_text),
             reply_markup=Admin_kb.back_to_inspection_user(bot_user_id)

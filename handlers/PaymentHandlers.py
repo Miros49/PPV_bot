@@ -79,7 +79,7 @@ async def order(message: Message, state: FSMContext):
         await bot.edit_message_text(
             text='<b>Что-то пошло не так... Свяжитесь, пожалуйста, с поддержкой:</b>',
             chat_id=message.from_user.id, message_id=data['original_message_id'],
-            reply_markup=User_kb.support_kb()
+            reply_markup=User_kb.contact_support_kb()
         )
 
         print(f'Ошибка {response["ErrorCode"]} при попытке создания инвойса: {response["Message"]}')
